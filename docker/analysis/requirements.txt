@@ -1,0 +1,54 @@
+# Fully pinned dependency set for the Ansible static-analysis image.
+# Every version is pinned, transitives included, so a rebuild resolves to the
+# same tree.
+
+# --- tools we invoke directly ---------------------------------------------
+
+# The linter itself: playbook/role/task rule engine.
+ansible-lint==26.8.0
+# YAML style and syntax; also driven by ansible-lint's yaml rule.
+yamllint==1.38.0
+# The Ansible engine -- parses playbooks, backs --syntax-check and ansible-doc.
+ansible-core==2.21.4
+
+# --- transitive: required by ansible-core ---------------------------------
+
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+resolvelib==1.2.1
+
+# --- transitive: required by ansible-lint ---------------------------------
+
+ansible-compat==26.8.0
+attrs==26.1.0
+black==26.5.1
+bracex==3.0.1
+click==8.5.0
+distro==1.9.0
+filelock==3.32.6
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+mypy_extensions==1.1.0
+platformdirs==4.11.8
+pytokens==0.4.1
+referencing==0.37.0
+rpds-py==2026.6.3
+ruamel.yaml==0.19.1
+ruamel.yaml.clib==0.2.15
+subprocess-tee==0.4.2
+wcmatch==11.0.1
+
+# --- transitive: required by ansible-core and ansible-lint ----------------
+
+cffi==2.1.1
+cryptography==50.0.1
+packaging==26.3
+pycparser==3.0
+
+# --- transitive: required by ansible-lint and yamllint --------------------
+
+pathspec==1.1.1
+
+# --- transitive: required by ansible-core, ansible-lint and yamllint ------
+
+PyYAML==6.0.3
