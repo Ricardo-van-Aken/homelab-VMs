@@ -1,0 +1,40 @@
+# Molecule layer for the ansible-molecule image, installed on top of
+# requirements.txt. Every version is pinned, transitives included, so a
+# rebuild resolves to the same tree.
+
+# --- tools we invoke directly ---------------------------------------------
+
+# Role test harness: create -> converge -> idempotence -> verify -> destroy.
+molecule==26.8.0
+# Drivers for molecule; the docker extra runs instances on the host's daemon.
+molecule-plugins[docker]==26.7.15
+
+# --- transitive: required by molecule -------------------------------------
+
+ansible-compat==26.8.0
+attrs==26.1.0
+bracex==3.0.1
+click==8.5.0
+enrich==1.2.7
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+markdown-it-py==4.2.0
+mdurl==0.1.2
+pluggy==1.6.0
+Pygments==2.21.0
+referencing==0.37.0
+rich==15.0.0
+rpds-py==2026.6.3
+subprocess-tee==0.4.2
+wcmatch==11.0.1
+
+# --- transitive: required by molecule-plugins -----------------------------
+
+certifi==2026.7.22
+charset-normalizer==3.5.1
+distro==1.9.0
+docker==7.2.0
+idna==3.19
+requests==2.34.2
+selinux==0.3.0
+urllib3==2.7.0
