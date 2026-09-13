@@ -1,3 +1,6 @@
 # {{ ansible_managed }}
 origin_web_ui_allowed = {{ sunshine_origin_web_ui_allowed }}
 file_apps = {{ sunshine_config_dir }}/apps.json
+{% if sunshine_adapter %}
+adapter_name = {{ sunshine_adapter }}
+{% endif %}

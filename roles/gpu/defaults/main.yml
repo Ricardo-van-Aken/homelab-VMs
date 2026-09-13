@@ -1,2 +1,8 @@
 ---
-gpu_vendor: amd
+# Vendors of the GPUs present on the host, e.g. [amd] or [amd, nvidia]. The
+# role installs the union of their userspace, firmware and i386 packages.
+# Which GPU a service uses is chosen in that service's role.
+gpu_vendors: []
+
+# NVIDIA only; untested path. Pick the series that supports your card.
+gpu_nvidia_driver_package: nvidia-driver-580

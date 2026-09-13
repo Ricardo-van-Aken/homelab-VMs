@@ -1,0 +1,5 @@
+---
+# Game streaming settings (Steam + Sunshine on an auto-login session); they
+# follow the service to whichever VM hosts it.
+desktop_user: gamer  # owns the session, Steam and Sunshine
+sunshine_origin_web_ui_allowed: lan  # who may open the Sunshine web UI

@@ -1,14 +1,23 @@
 ---
-ansible_host: 192.0.2.10
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+ansible_host: 10.0.1.150
 
-gpu_vendor: amd
+# GPUs in this VM: any of amd, intel, nvidia.
+gpu_vendors: [amd]
+
+# With more than one GPU, pin each service to its own. Stable device paths
+# come from `ls -l /dev/dri/by-path`, the bus id from `lspci` (01:00.0 ->
+# "PCI:1:0:0"). Empty means "the only GPU".
+jellyfin_gpu_device: /dev/dri  # or /dev/dri/by-path/pci-0000:01:00.0-render
+sunshine_adapter: ""           # e.g. /dev/dri/by-path/pci-0000:02:00.0-render
+desktop_gpu_bus_id: ""         # e.g. PCI:2:0:0
+desktop_xorg_driver: modesetting
 
 # Media library as mounted on the VM (NFS/SMB mount, virtiofs, or a disk).
 jellyfin_media_path: /srv/media
-jellyfin_published_url: http://arcade.lan:8096
 
 # Headless GPU: force a connector on so Xorg finds a screen without a monitor.
-# Find the name with `ls /sys/class/drm` on the VM (e.g. card1-HDMI-A-1 -> HDMI-A-1).
+# Find the name with `ls /sys/class/drm` on the VM (card1-HDMI-A-1 -> HDMI-A-1).
 # Leave empty when a dummy HDMI plug is attached.
 desktop_force_connector: ""
 desktop_force_mode: 1920x1080@60

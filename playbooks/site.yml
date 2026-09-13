@@ -4,10 +4,10 @@
   roles:
     - base
 
-- name: Media servers
-  hosts: media
+- name: Jellyfin media servers
+  hosts: jellyfin
   roles:
-    - jellyfin  # depends on geerlingguy.docker and gpu
+    - jellyfin  # depends on geerlingguy.docker role and gpu
 
 - name: Game streaming hosts
   hosts: gaming
@@ -18,4 +18,4 @@
 - name: Git forges
   hosts: forgejo
   roles:
-    - forgejo  # depends on geerlingguy.docker
+    - forgejo  # depends on geerlingguy.docker role

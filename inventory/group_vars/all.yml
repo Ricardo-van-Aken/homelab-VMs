@@ -1,14 +1,4 @@
 ---
-ansible_user: ansible
+# Settings shared by every VM.
+ansible_user: ansible  # created by cloud-init with your key and passwordless sudo
 base_timezone: Europe/Amsterdam
-
-# GPU vendor for the VM: amd, intel or nvidia. Roles read vendor-specific
-# packages from roles/gpu/vars/<vendor>.yml; everything else stays generic.
-gpu_vendor: amd
-
-# Docker (geerlingguy.docker). Override docker_apt_release when Docker has not
-# published packages for the Ubuntu series yet.
-docker_edition: ce
-docker_install_compose_plugin: true
-docker_apt_release: "{{ ansible_distribution_release }}"
-docker_stacks_dir: /opt/stacks

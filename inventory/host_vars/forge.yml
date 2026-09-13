@@ -1,5 +1,3 @@
 ---
-ansible_host: 192.0.2.20
-
-forgejo_domain: forge.lan
-# forgejo_admin_password lives in a vault file, e.g. inventory/host_vars/forge/vault.yml
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+ansible_host: 192.0.2.20  # replace with the VM's address

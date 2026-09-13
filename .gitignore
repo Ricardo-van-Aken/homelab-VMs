@@ -3,3 +3,4 @@ collections/
 *.retry
 .ansible/
 .reports/
+.vault_pass
