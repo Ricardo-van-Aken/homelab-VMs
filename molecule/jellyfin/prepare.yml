@@ -10,3 +10,18 @@
         owner: root
         group: root
         mode: "0755"
+
+    - name: Create DRM device directory
+      ansible.builtin.file:
+        path: /dev/dri
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # The instance has no GPU. A node with the render device's major/minor
+    # lets Docker resolve the compose device mapping as on a real host.
+    - name: Create fake render device node
+      ansible.builtin.command: mknod /dev/dri/renderD128 c 226 128
+      args:
+        creates: /dev/dri/renderD128

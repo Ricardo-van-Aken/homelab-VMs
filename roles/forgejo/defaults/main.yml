@@ -21,6 +21,6 @@ forgejo_extra_env: {}
 
 # No public sign-up; the first admin is created below when a password is set
 # (put it in a vault), otherwise create one with `forgejo admin user create`.
-forgejo_admin_user: admin
+forgejo_admin_user: sysadmin  # "admin" is a reserved name in Forgejo
 forgejo_admin_email: "admin@{{ forgejo_domain }}"
 forgejo_admin_password: ""

@@ -103,11 +103,13 @@ docker run --rm -it --user root -v "$PWD:/work" \
 | base     |                                                              |
 | gpu      | package-level checks; no GPU in the instance                 |
 | steam    | needs an amd64 host (i386 packages)                          |
-| jellyfin | Docker inside the instance; the compose stack really starts  |
+| jellyfin | Docker engine inside the instance; the compose stack really starts |
 | forgejo  | as jellyfin; also checks health, API and the admin account   |
 
-`desktop` and `sunshine` need a display stack and a user session, which a
-container cannot provide. They are validated on a VM.
+Roles that install Docker get a dedicated engine inside the instance, with
+its storage on volumes so image layers are not stacked on the instance's own
+overlayfs. `desktop` and `sunshine` need a display stack and a user session
+and are validated on a VM.
 
 ## VMs
 
@@ -137,5 +139,5 @@ in a vault to have the first admin created, or create one afterwards:
 
 ```sh
 docker exec --user git forgejo forgejo admin user create --admin \
-  --username admin --email admin@forge.lan --password '...'
+  --username sysadmin --email admin@forge.lan --password '...'
 ```
