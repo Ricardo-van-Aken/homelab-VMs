@@ -1,0 +1,4 @@
+---
+# Inherits .config/molecule/config.yml
+scenario:
+  name: steam

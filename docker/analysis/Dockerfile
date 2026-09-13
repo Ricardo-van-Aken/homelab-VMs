@@ -23,7 +23,9 @@ RUN python -m venv --without-pip /opt/venv \
 
 # Galaxy roles and collections.
 COPY requirements.yml /tmp/requirements.yml
-RUN /opt/venv/bin/ansible-galaxy role install -r /tmp/requirements.yml -p /opt/venv/share/ansible/roles \
+# git: roles are pinned to commits and fetched from their repositories
+RUN apk add --no-cache git \
+    && /opt/venv/bin/ansible-galaxy role install -r /tmp/requirements.yml -p /opt/venv/share/ansible/roles \
     && /opt/venv/bin/ansible-galaxy collection install -r /tmp/requirements.yml -p /opt/venv/share/ansible/collections
 
 # ---------------------------------------------------------------------------

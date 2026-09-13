@@ -1,0 +1,12 @@
+---
+- name: Prepare
+  hosts: all
+  become: true
+  tasks:
+    - name: Create media directory the role expects to be mounted
+      ansible.builtin.file:
+        path: /srv/media
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"

@@ -1,0 +1,20 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: List foreign architectures
+      ansible.builtin.command: dpkg --print-foreign-architectures
+      changed_when: false
+      register: steam_archs
+
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+
+    - name: Assert Steam and i386 support are installed
+      ansible.builtin.assert:
+        that:
+          - "'i386' in steam_archs.stdout_lines"
+          - "'steam-installer' in ansible_facts.packages"
+          - "'mesa-vulkan-drivers' in ansible_facts.packages"

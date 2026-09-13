@@ -1,7 +1,7 @@
 # {{ ansible_managed }}
 services:
   jellyfin:
-    image: jellyfin/jellyfin:{{ jellyfin_image_tag }}
+    image: {{ jellyfin_image }}
     container_name: jellyfin
     restart: unless-stopped
     user: "{{ jellyfin_uid }}:{{ jellyfin_uid }}"

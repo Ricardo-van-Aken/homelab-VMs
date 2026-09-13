@@ -2,3 +2,4 @@ galaxy_roles/
 collections/
 *.retry
 .ansible/
+.reports/
