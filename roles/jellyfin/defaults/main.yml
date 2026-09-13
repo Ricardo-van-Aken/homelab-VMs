@@ -1,0 +1,8 @@
+---
+jellyfin_image_tag: "10.11"
+jellyfin_dir: "{{ docker_stacks_dir }}/jellyfin"
+jellyfin_media_path: /srv/media
+jellyfin_published_url: ""
+# Service account that owns config and cache; media must be readable by it.
+jellyfin_user: jellyfin
+jellyfin_uid: 2000

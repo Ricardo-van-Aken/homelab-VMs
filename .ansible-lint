@@ -1,0 +1,10 @@
+---
+profile: production
+exclude_paths:
+  - .git/
+  - docker/
+  - collections/
+  - galaxy_roles/
+  - .ansible/
+# Dependencies come from the image or a prior ansible-galaxy install.
+offline: true

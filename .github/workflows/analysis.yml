@@ -15,7 +15,8 @@ jobs:
       packages: write
     with:
       image: ansible-analysis
-      context: docker/analysis
+      dockerfile: docker/analysis/Dockerfile
+      hash_paths: docker/analysis requirements.yml
 
   lint:
     needs: image
@@ -34,4 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - run: ansible-lint --strict
+      - name: Lint YAML outside the Ansible tree
+        run: yamllint --strict .github docker
+
+      - name: Lint Ansible
+        run: ansible-lint --strict
+
+      - name: Syntax check
+        run: ansible-playbook --syntax-check playbooks/site.yml

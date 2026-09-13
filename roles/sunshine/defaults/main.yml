@@ -1,0 +1,25 @@
+---
+# Release tag and Ubuntu series of the .deb asset on GitHub. Check
+# https://github.com/LizardByte/Sunshine/releases for available assets and
+# override in host_vars when the exact series is not published.
+sunshine_version: v2025.628.4510
+sunshine_ubuntu_release: "{{ ansible_distribution_version }}"
+sunshine_deb_name: "sunshine-ubuntu-{{ sunshine_ubuntu_release }}-amd64.deb"
+sunshine_deb_url: >-
+  https://github.com/LizardByte/Sunshine/releases/download/{{ sunshine_version }}/{{ sunshine_deb_name }}
+
+sunshine_user: "{{ desktop_user }}"
+sunshine_config_dir: "/home/{{ sunshine_user }}/.config/sunshine"
+
+# Web UI and stream ports are only reachable from the LAN.
+sunshine_origin_web_ui_allowed: lan
+sunshine_apps:
+  - name: Desktop
+    image-path: desktop.png
+  - name: Steam Big Picture
+    image-path: steam.png
+    detached:
+      - setsid steam steam://open/bigpicture
+    prep-cmd:
+      - do: ""
+        undo: setsid steam steam://close/bigpicture
