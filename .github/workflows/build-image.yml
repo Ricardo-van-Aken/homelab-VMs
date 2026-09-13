@@ -8,10 +8,21 @@ on:
         description: Image name under ghcr.io/<repo>/, e.g. ansible-analysis
         required: true
         type: string
-      context:
-        description: Directory with the Dockerfile, e.g. docker/analysis
+      dockerfile:
+        description: Path to the Dockerfile, e.g. docker/analysis/Dockerfile
         required: true
         type: string
+      hash_paths:
+        description: >-
+          Space-separated files and directories whose content defines the
+          image tag. Must cover every path the Dockerfile reads.
+        required: true
+        type: string
+      context:
+        description: Build context; root .dockerignore limits what it exposes
+        required: false
+        type: string
+        default: .
       target:
         description: Dockerfile stage to build (optional)
         required: false
@@ -33,13 +44,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      # The tag is git's own hash of the context directory's content, so the
-      # same files always yield the same tag and any change yields a new one.
-      - name: Derive image reference from directory content
+      # The tag is a hash over git's own object ids of every input path (a
+      # tree id for a directory, a blob id for a file), so the same content
+      # always yields the same tag and a change in any input yields a new one.
+      - name: Derive image reference from input content
         id: ref
         run: |
           repo="ghcr.io/${GITHUB_REPOSITORY,,}/${{ inputs.image }}"
-          echo "image=${repo}:$(git rev-parse "HEAD:${{ inputs.context }}")" >> "$GITHUB_OUTPUT"
+          tag=$(for p in ${{ inputs.hash_paths }}; do git rev-parse "HEAD:${p}"; done | sort | git hash-object --stdin)
+          echo "image=${repo}:${tag}" >> "$GITHUB_OUTPUT"
           echo "cache=${repo}:buildcache" >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
@@ -69,6 +82,7 @@ jobs:
         if: steps.exists.outputs.found == 'false'
         run: |
           docker buildx build \
+            --file "${{ inputs.dockerfile }}" \
             ${{ inputs.target && format('--target {0}', inputs.target) || '' }} \
             --cache-from "type=registry,ref=${{ steps.ref.outputs.cache }}" \
             --cache-to "type=registry,ref=${{ steps.ref.outputs.cache }},mode=max" \

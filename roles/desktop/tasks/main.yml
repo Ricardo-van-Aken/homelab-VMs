@@ -1,0 +1,75 @@
+---
+- name: Install display stack
+  ansible.builtin.apt:
+    name: "{{ desktop_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create autologin group
+  ansible.builtin.group:
+    name: autologin
+    system: true
+
+- name: Create desktop user
+  ansible.builtin.user:
+    name: "{{ desktop_user }}"
+    groups: "{{ desktop_user_groups }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Configure LightDM autologin
+  ansible.builtin.template:
+    src: lightdm.conf.j2
+    dest: /etc/lightdm/lightdm.conf.d/50-autologin.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart lightdm
+
+- name: Create openbox config directory
+  ansible.builtin.file:
+    path: "/home/{{ desktop_user }}/.config/openbox"
+    state: directory
+    owner: "{{ desktop_user }}"
+    group: "{{ desktop_user }}"
+    mode: "0755"
+
+- name: Install session autostart script
+  ansible.builtin.template:
+    src: autostart.j2
+    dest: "/home/{{ desktop_user }}/.config/openbox/autostart"
+    owner: "{{ desktop_user }}"
+    group: "{{ desktop_user }}"
+    mode: "0755"
+
+- name: Boot into the graphical target
+  ansible.builtin.file:
+    src: /usr/lib/systemd/system/graphical.target
+    dest: /etc/systemd/system/default.target
+    state: link
+
+- name: Force DRM connector for headless GPU
+  when: desktop_force_connector | length > 0
+  vars:
+    video_param: "video={{ desktop_force_connector }}:{{ desktop_force_mode }}e"
+  ansible.builtin.copy:
+    dest: /etc/default/grub.d/90-force-display.cfg
+    content: |
+      GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT {{ video_param }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Update grub
+    - Reboot
+
+- name: Remove forced DRM connector
+  when: desktop_force_connector | length == 0
+  ansible.builtin.file:
+    path: /etc/default/grub.d/90-force-display.cfg
+    state: absent
+  notify:
+    - Update grub
+    - Reboot

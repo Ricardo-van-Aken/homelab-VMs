@@ -1,0 +1,27 @@
+---
+# Unprivileged user that owns the graphical session, Steam and Sunshine.
+desktop_user: gamer
+desktop_user_groups:
+  - audio
+  - video
+  - render
+  - input
+  - autologin
+desktop_packages:
+  - xorg
+  - lightdm
+  - lightdm-gtk-greeter
+  - openbox
+  - pipewire
+  - pipewire-pulse
+  - wireplumber
+  - x11-xserver-utils
+  - xdg-utils
+  - fonts-dejavu-core
+desktop_session: openbox
+
+# Force a DRM connector on when no monitor or dummy plug is attached.
+# Works with any KMS driver (amdgpu, i915, nouveau); not with the NVIDIA
+# proprietary driver.
+desktop_force_connector: ""
+desktop_force_mode: 1920x1080@60

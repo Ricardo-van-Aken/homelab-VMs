@@ -1,0 +1,25 @@
+---
+- name: Load vendor-specific GPU variables
+  ansible.builtin.include_vars: "{{ gpu_vendor }}.yml"
+
+- name: Install GPU userspace packages
+  ansible.builtin.apt:
+    name: "{{ gpu_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Read render group
+  ansible.builtin.getent:
+    database: group
+    key: render
+
+- name: Record render group id for container GPU access
+  ansible.builtin.set_fact:
+    gpu_render_gid: "{{ ansible_facts.getent_group.render[1] }}"
+
+- name: Configure NVIDIA container runtime
+  when: gpu_nvidia
+  ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+  args:
+    creates: /etc/docker/daemon.json

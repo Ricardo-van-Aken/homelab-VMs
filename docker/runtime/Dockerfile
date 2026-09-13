@@ -1,13 +1,16 @@
 # python:3.13-alpine3.22 -- digest pushed 2026-04-19 11:07 UTC
 ARG PYTHON_IMAGE=python@sha256:e81548ac35b07a3bd4805f275107592ef458b1e893c0e04d45aedaa19416cca5
 
+# Build from the repo root.
 # Targets:
-#   runtime  -- ansible-core over ssh, for applying playbooks
+#   runtime  -- ansible-core plus the Galaxy dependencies from requirements.yml,
+#               for applying playbooks over ssh with the project mounted at /work
 #   molecule -- runtime + molecule, for testing roles against the host's
 #               Docker daemon (mount /var/run/docker.sock and add its group)
 
 # ---------------------------------------------------------------------------
-# builder: resolve ansible-core into a self-contained virtualenv
+# builder: resolve ansible-core and the Galaxy dependencies into a
+# self-contained virtualenv
 # ---------------------------------------------------------------------------
 FROM ${PYTHON_IMAGE} AS builder
 
@@ -20,7 +23,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     # instead of silently pulling in a compiler at build time.
     PIP_ONLY_BINARY=:all:
 
-COPY requirements.txt /tmp/requirements.txt
+COPY docker/runtime/requirements.txt /tmp/requirements.txt
 
 # The venv is created without pip and populated by the image's own pip via
 # --python, so no installer ever lands in a shipped image. --no-compile
@@ -29,25 +32,19 @@ COPY requirements.txt /tmp/requirements.txt
 RUN python -m venv --without-pip /opt/venv \
     && pip --python /opt/venv/bin/python install --no-compile -r /tmp/requirements.txt
 
+# Galaxy roles and collections.
+COPY requirements.yml /tmp/requirements.yml
+RUN /opt/venv/bin/ansible-galaxy role install -r /tmp/requirements.yml -p /opt/venv/share/ansible/roles \
+    && /opt/venv/bin/ansible-galaxy collection install -r /tmp/requirements.yml -p /opt/venv/share/ansible/collections
+
 # ---------------------------------------------------------------------------
 # builder-molecule: the same virtualenv plus the molecule layer
 # ---------------------------------------------------------------------------
 FROM builder AS builder-molecule
 
-COPY requirements-molecule.txt /tmp/requirements-molecule.txt
+COPY docker/runtime/requirements-molecule.txt /tmp/requirements-molecule.txt
 
 RUN pip --python /opt/venv/bin/python install --no-compile -r /tmp/requirements-molecule.txt
-
-# The docker driver's create/destroy playbooks are Ansible tasks and need
-# these collections present. Pinned like everything else; installed into the
-# venv so the molecule stage picks them up with the same single COPY.
-RUN /opt/venv/bin/ansible-galaxy collection install -p /opt/venv/share/ansible/collections \
-    # docker_container / docker_network modules used by the driver
-    community.docker:==5.3.0 \
-    # pulled in by community.docker
-    community.library_inventory_filtering_v1:==1.1.5 \
-    # synchronize/mount helpers the driver's playbooks reference
-    ansible.posix:==2.2.2
 
 # ---------------------------------------------------------------------------
 # base: everything the shipped images share except the virtualenv
@@ -78,7 +75,7 @@ WORKDIR /work
 CMD ["sh"]
 
 # ---------------------------------------------------------------------------
-# runtime: base + ansible-core
+# runtime: base + ansible-core + Galaxy dependencies
 # ---------------------------------------------------------------------------
 FROM base AS runtime
 
@@ -88,13 +85,16 @@ LABEL org.opencontainers.image.title="ansible-runtime" \
       org.opencontainers.image.description="Execution environment for Ansible: ansible-core over ssh"
 
 # ---------------------------------------------------------------------------
-# molecule: base + ansible-core + molecule
+# molecule: base + ansible-core + Galaxy dependencies + molecule
 # ---------------------------------------------------------------------------
 FROM base AS molecule
 
 COPY --from=builder-molecule --chown=root:root /opt/venv /opt/venv
 
-ENV ANSIBLE_COLLECTIONS_PATH=/opt/venv/share/ansible/collections:/home/operator/.ansible/collections
+# Molecule runs with its own generated ansible.cfg, so the baked-in paths have
+# to come from the environment here.
+ENV ANSIBLE_COLLECTIONS_PATH=/opt/venv/share/ansible/collections:/home/operator/.ansible/collections \
+    ANSIBLE_ROLES_PATH=/opt/venv/share/ansible/roles:/home/operator/.ansible/roles
 
 LABEL org.opencontainers.image.title="ansible-molecule" \
       org.opencontainers.image.description="Role testing for Ansible: molecule with the docker driver"

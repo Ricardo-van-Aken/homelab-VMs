@@ -1,0 +1,12 @@
+---
+- name: Restart sunshine
+  become: true
+  become_user: "{{ sunshine_user }}"
+  ansible.builtin.systemd_service:
+    name: sunshine
+    scope: user
+    state: restarted
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ sunshine_uid }}"
+  # The user session may not be up yet on first run; openbox autostart starts it.
+  failed_when: false

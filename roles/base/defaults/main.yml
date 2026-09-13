@@ -1,0 +1,8 @@
+---
+base_timezone: Etc/UTC
+base_packages:
+  - qemu-guest-agent
+  - unattended-upgrades
+  - curl
+  - htop
+  - vim
