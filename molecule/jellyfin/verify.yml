@@ -5,16 +5,17 @@
   gather_facts: false
   tasks:
     - name: Inspect Jellyfin container
-      community.docker.docker_container_info:
-        name: jellyfin
-      register: jellyfin_info
+      ansible.builtin.command: docker inspect jellyfin
+      changed_when: false
+      register: jellyfin_inspect
 
     - name: Assert Jellyfin is running with GPU access
       ansible.builtin.assert:
         that:
-          - jellyfin_info.exists
-          - jellyfin_info.container.State.Running
-          - jellyfin_info.container.HostConfig.Devices | selectattr('PathOnHost', 'eq', '/dev/dri') | list | length == 1
+          - jellyfin_container.State.Running
+          - jellyfin_container.HostConfig.Devices | selectattr('PathOnHost', 'eq', '/dev/dri') | list | length == 1
+      vars:
+        jellyfin_container: "{{ (jellyfin_inspect.stdout | from_json)[0] }}"
 
     - name: Wait for the web UI
       ansible.builtin.uri:

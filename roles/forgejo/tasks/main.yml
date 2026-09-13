@@ -42,26 +42,36 @@
     wait: true
     wait_timeout: 120
 
+# Plain docker CLI rather than community.docker's exec module, which needs
+# the Docker SDK for Python on the target.
 - name: Create initial admin user
   when: forgejo_admin_password | length > 0
   block:
     - name: List admin users
-      community.docker.docker_container_exec:
-        container: forgejo
-        user: git
-        command: forgejo admin user list --admin
+      ansible.builtin.command: docker exec --user git forgejo forgejo admin user list --admin
       register: forgejo_admins
       changed_when: false
 
     - name: Create admin user
-      community.docker.docker_container_exec:
-        container: forgejo
-        user: git
-        command: >-
-          forgejo admin user create --admin --must-change-password=false
-          --username {{ forgejo_admin_user | quote }}
-          --password {{ forgejo_admin_password | quote }}
-          --email {{ forgejo_admin_email | quote }}
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - --user
+          - git
+          - forgejo
+          - forgejo
+          - admin
+          - user
+          - create
+          - --admin
+          - --must-change-password=false
+          - --username
+          - "{{ forgejo_admin_user }}"
+          - --password
+          - "{{ forgejo_admin_password }}"
+          - --email
+          - "{{ forgejo_admin_email }}"
       when: forgejo_admin_user not in forgejo_admins.stdout
       changed_when: true
       no_log: true

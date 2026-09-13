@@ -19,6 +19,11 @@ platforms:
     cgroupns_mode: host
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      # Roles that install Docker run a dedicated engine inside the instance.
+      # Its storage must be on real volumes, not the instance's overlayfs root
+      # (Docker 29+ keeps image layers under containerd's directory).
+      - /var/lib/docker
+      - /var/lib/containerd
 
 provisioner:
   name: ansible
