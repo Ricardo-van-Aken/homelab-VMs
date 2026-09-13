@@ -1,6 +1,6 @@
 ---
 # Facts about this machine. Service settings live in group_vars/<service>.yml.
-ansible_host: 10.0.1.150
+ansible_host: 10.0.1.160
 
 # GPUs in this VM: any of amd, intel, nvidia.
 gpu_vendors: [amd]
