@@ -1,7 +1,7 @@
 ---
 # Firmware is loaded when the kernel module binds the card, so new firmware
 # only takes effect after a reboot. Only real guests are rebooted.
-- name: Reboot
+- name: Reboot for GPU firmware
   ansible.builtin.reboot:
     reboot_timeout: 300
   when: ansible_facts.virtualization_type in ['kvm', 'qemu']

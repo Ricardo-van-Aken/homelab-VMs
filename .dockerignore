@@ -1,7 +1,0 @@
-# Allowlist: the build context is the repo root, but images may only see the
-# paths listed here. Keep this in sync with `hash_paths` in the workflows so
-# the image tag covers every file a build can read. When a stage starts
-# copying the Ansible project itself, add those paths here and to hash_paths.
-*
-!docker/
-!requirements.yml
