@@ -1,6 +1,24 @@
 ---
-- name: Load vendor-specific GPU variables
-  ansible.builtin.include_vars: "{{ gpu_vendor }}.yml"
+- name: Validate GPU vendors
+  ansible.builtin.assert:
+    that: gpu_vendors | difference(gpu_vendor_packages.keys() | list) | length == 0
+    fail_msg: "gpu_vendors must only contain {{ gpu_vendor_packages.keys() | list | join(', ') }}"
+
+- name: Resolve package sets for the host's GPUs
+  ansible.builtin.set_fact:
+    gpu_packages: "{{ gpu_vendors | map('extract', gpu_vendor_packages, 'packages') | flatten | unique }}"
+    gpu_firmware_packages: "{{ gpu_vendors | map('extract', gpu_vendor_packages, 'firmware') | flatten | unique }}"
+    gpu_packages_i386: "{{ gpu_vendors | map('extract', gpu_vendor_packages, 'i386') | flatten | unique }}"
+    gpu_nvidia: "{{ 'nvidia' in gpu_vendors }}"
+
+- name: Install GPU firmware
+  ansible.builtin.apt:
+    name: "{{ gpu_firmware_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: gpu_firmware_packages | length > 0
+  notify: Reboot
 
 - name: Install GPU userspace packages
   ansible.builtin.apt:
@@ -8,6 +26,7 @@
     state: present
     update_cache: true
     cache_valid_time: 3600
+  when: gpu_packages | length > 0
 
 - name: Ensure render group exists
   ansible.builtin.group:

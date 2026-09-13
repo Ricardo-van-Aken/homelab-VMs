@@ -1,9 +1,19 @@
 ---
 # jellyfin/jellyfin:10.11.11 -- digest pushed 2026-06-06 15:43 UTC
 jellyfin_image: jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db
-jellyfin_dir: "{{ docker_stacks_dir }}/jellyfin"
+jellyfin_dir: /opt/stacks/jellyfin
 jellyfin_media_path: /srv/media
 jellyfin_published_url: ""
 # Service account that owns config and cache; media must be readable by it.
 jellyfin_user: jellyfin
 jellyfin_uid: 2000
+
+# Which of the host's GPUs (gpu_vendors) Jellyfin transcodes on; empty means
+# software transcoding. Defaults to the first one.
+jellyfin_gpu_vendor: "{{ gpu_vendors[0] if gpu_vendors | length > 0 else '' }}"
+# AMD/Intel: device path passed to the container. /dev/dri exposes every GPU;
+# pin one with a stable path such as /dev/dri/by-path/pci-0000:01:00.0-render,
+# which the container then sees as /dev/dri/renderD128 (Jellyfin's default).
+jellyfin_gpu_device: /dev/dri
+# NVIDIA: all, or one GPU's UUID or index.
+jellyfin_nvidia_devices: all

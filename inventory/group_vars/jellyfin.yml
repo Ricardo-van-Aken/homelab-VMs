@@ -1,0 +1,6 @@
+---
+# Jellyfin settings; they follow the service to whichever VM hosts it.
+# The URL Jellyfin advertises to clients: the VM's address until a domain exists.
+jellyfin_published_url: "http://{{ ansible_host }}:8096"
+# Which of the host's GPUs Jellyfin transcodes on; empty for software only.
+jellyfin_gpu_vendor: "{{ gpu_vendors[0] if gpu_vendors | length > 0 else '' }}"

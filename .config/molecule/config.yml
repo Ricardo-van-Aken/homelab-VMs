@@ -36,8 +36,7 @@ provisioner:
     group_vars:
       all:
         base_timezone: Europe/Amsterdam
-        gpu_vendor: amd
-        docker_stacks_dir: /opt/stacks
+        gpu_vendors: [amd]
 
 verifier:
   name: ansible

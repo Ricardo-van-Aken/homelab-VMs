@@ -1,8 +1,0 @@
----
-# Untested path. Pick the driver series that supports your card.
-gpu_packages:
-  - "{{ gpu_nvidia_driver_package | default('nvidia-driver-580') }}"
-  - nvidia-container-toolkit
-  - vulkan-tools
-gpu_packages_i386: []
-gpu_nvidia: true

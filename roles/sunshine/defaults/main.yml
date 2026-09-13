@@ -16,9 +16,15 @@ sunshine_deb_checksum: "{{ sunshine_deb_checksums[sunshine_ubuntu_release ~ '/' 
 
 sunshine_user: "{{ desktop_user }}"
 sunshine_config_dir: "/home/{{ sunshine_user }}/.config/sunshine"
+# Name of the user unit shipped in the .deb (sunshine.service is only an alias
+# that exists after enabling).
+sunshine_unit: app-dev.lizardbyte.app.Sunshine.service
 
 # Web UI and stream ports are only reachable from the LAN.
 sunshine_origin_web_ui_allowed: lan
+# GPU used for capture and encoding; empty lets Sunshine pick. With several
+# GPUs, set a stable path such as /dev/dri/by-path/pci-0000:01:00.0-render.
+sunshine_adapter: ""
 sunshine_apps:
   - name: Desktop
     image-path: desktop.png

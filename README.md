@@ -16,6 +16,26 @@
 Ansible for the VMs in my homelab. Each VM runs one or more services.
 
 
+## Prerequisites
+
+The VMs are Ubuntu 26.04 cloud images. Before the first run:
+
+* **Ansible user.** `ansible_user` is `ansible`; cloud-init must create it with
+  your SSH key and passwordless sudo (or set `ansible_user: ubuntu`). The
+  image already has python3, sudo and gpg, so nothing else is needed.
+* **Addresses.** Set each VM's `ansible_host` in `host_vars/`. Services are
+  reached by that address for now; when you own a domain, point
+  `forgejo_domain` and `jellyfin_published_url` at names instead.
+* **Vault password.** Put it in a gitignored `.vault_pass` and export
+  `ANSIBLE_VAULT_PASSWORD_FILE=.vault_pass` (see Secrets).
+* **SSH host keys.** Accept them once (`ssh ansible@<vm>`) or manage
+  `known_hosts`; the runtime image has no interactive prompt.
+* **arcade:** pass the GPU through, attach a dummy HDMI plug or set
+  `desktop_force_connector`, and mount the media library at
+  `jellyfin_media_path`. The first run installs GPU firmware and reboots.
+* **forge:** replace the placeholder `forgejo_admin_password` with a real one
+  (see Secrets), or create the admin by hand afterwards.
+
 ## Usage
 
 Locally, with ansible-core installed:
@@ -32,9 +52,25 @@ dependencies:
 docker run --rm -it \
   -v "$PWD:/work:ro" \
   -v "$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
+  -e ANSIBLE_VAULT_PASSWORD_FILE=/work/.vault_pass \
   ghcr.io/ricardo-van-aken/homelab-vms/ansible-runtime:<tag> \
   ansible-playbook playbooks/site.yml
 ```
+
+## Secrets
+
+A secret lives next to the settings it belongs to, as an inline-encrypted
+value in the group or host vars file, so it moves with its service:
+
+```sh
+export ANSIBLE_VAULT_PASSWORD_FILE=.vault_pass
+ansible-vault encrypt_string --name forgejo_admin_password 'the-real-password'
+```
+
+Paste the output into `inventory/group_vars/forgejo.yml`. Inline values keep
+the inventory parseable without the password, so lint, syntax check and CI
+never need it; only a real run does. The password itself stays in a
+gitignored `.vault_pass`.
 
 ## Layout
 
@@ -45,8 +81,9 @@ docker run --rm -it \
 ├── requirements.yml       Galaxy roles and collections, exact pins
 ├── inventory/
 │   ├── hosts.yml          one group per service, VMs join what they host
-│   ├── group_vars/        settings per service group
-│   └── host_vars/         settings per VM
+│   ├── group_vars/        per service, follows it between VMs (all.yml: every VM)
+│   └── host_vars/         facts about one machine: address, GPUs, mounts
+│                          both list the usual knobs; roles/*/defaults has them all
 ├── playbooks/
 │   └── site.yml           maps groups to roles
 ├── roles/                 one role per service or building block
@@ -66,7 +103,7 @@ docker run --rm -it \
 | Role     | Purpose                                                      |
 |----------|--------------------------------------------------------------|
 | base     | guest agent, unattended upgrades, timezone                   |
-| gpu      | vendor userspace packages, render group id (`gpu_vendor`)    |
+| gpu      | firmware, userspace and i386 packages for `gpu_vendors`      |
 | desktop  | Xorg + LightDM autologin + openbox session for `gamer`       |
 | steam    | Steam with i386 libraries, gamemode, mangohud                |
 | sunshine | Sunshine .deb, config, apps, user service                    |
@@ -120,8 +157,11 @@ hosts; the sections describe what is specific to that machine.
 
 Runs Jellyfin, Steam and Sunshine on one VM with a passed-through GPU.
 
-* Set `gpu_vendor` in host_vars (`amd`, `intel`, `nvidia`). Vendor packages
-  live in `roles/gpu/vars/`; everything else is vendor-neutral.
+* List the VM's GPUs in `gpu_vendors` (`amd`, `intel`, `nvidia`); package
+  sets per vendor live in `roles/gpu/vars/main.yml`. With several GPUs, pin
+  each service to its own: `jellyfin_gpu_device` and `sunshine_adapter` take
+  a stable `/dev/dri/by-path/...-render` path, `desktop_gpu_bus_id` the PCI
+  bus id for Xorg.
 * Headless: attach a dummy HDMI plug, or set `desktop_force_connector` to the
   DRM connector name (see `ls /sys/class/drm`) so Xorg finds a screen.
 * Sunshine ships one `.deb` per Ubuntu series and architecture. The role
@@ -139,5 +179,5 @@ in a vault to have the first admin created, or create one afterwards:
 
 ```sh
 docker exec --user git forgejo forgejo admin user create --admin \
-  --username sysadmin --email admin@forge.lan --password '...'
+  --username sysadmin --email admin@example.com --password '...'
 ```

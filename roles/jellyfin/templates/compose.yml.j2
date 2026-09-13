@@ -5,18 +5,19 @@ services:
     container_name: jellyfin
     restart: unless-stopped
     user: "{{ jellyfin_uid }}:{{ jellyfin_uid }}"
+{% if jellyfin_gpu_vendor == 'nvidia' %}
+    runtime: nvidia
+{% elif jellyfin_gpu_vendor %}
     group_add:
       - "{{ gpu_render_gid }}"
-{% if gpu_nvidia %}
-    runtime: nvidia
-{% else %}
     devices:
-      - /dev/dri:/dev/dri
+{# A single pinned node is exposed as renderD128, Jellyfin's default VA-API device. #}
+      - {{ jellyfin_gpu_device }}:{{ '/dev/dri' if jellyfin_gpu_device == '/dev/dri' else '/dev/dri/renderD128' }}
 {% endif %}
     environment:
       TZ: {{ base_timezone }}
-{% if gpu_nvidia %}
-      NVIDIA_VISIBLE_DEVICES: all
+{% if jellyfin_gpu_vendor == 'nvidia' %}
+      NVIDIA_VISIBLE_DEVICES: {{ jellyfin_nvidia_devices }}
       NVIDIA_DRIVER_CAPABILITIES: all
 {% endif %}
 {% if jellyfin_published_url %}

@@ -25,3 +25,8 @@ desktop_session: openbox
 # proprietary driver.
 desktop_force_connector: ""
 desktop_force_mode: 1920x1080@60
+
+# Pin the X server to one GPU when the host has several; empty lets Xorg pick
+# the boot GPU. Bus id as in `lspci` (01:00.0) -> "PCI:1:0:0".
+desktop_gpu_bus_id: ""
+desktop_xorg_driver: modesetting  # amdgpu, intel or nvidia to use a vendor DDX

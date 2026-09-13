@@ -8,4 +8,4 @@ xset s off -dpms
 # Hand the X session to user services (Sunshine needs DISPLAY and XAUTHORITY).
 systemctl --user import-environment DISPLAY XAUTHORITY
 systemctl --user start graphical-session.target
-systemctl --user start sunshine.service
+systemctl --user start app-dev.lizardbyte.app.Sunshine.service

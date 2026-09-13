@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+Section "Device"
+    Identifier "GPU0"
+    Driver     "{{ desktop_xorg_driver }}"
+    BusID      "{{ desktop_gpu_bus_id }}"
+EndSection
