@@ -1,5 +1,18 @@
 # homelab-VMs
 
+<div align="center">
+
+[![Analysis](https://github.com/Ricardo-van-Aken/homelab-VMs/actions/workflows/analysis.yml/badge.svg?branch=main)](https://github.com/Ricardo-van-Aken/homelab-VMs/actions/workflows/analysis.yml)
+[![Molecule](https://github.com/Ricardo-van-Aken/homelab-VMs/actions/workflows/molecule.yml/badge.svg?branch=main)](https://github.com/Ricardo-van-Aken/homelab-VMs/actions/workflows/molecule.yml)
+[![ansible-lint](https://img.shields.io/badge/ansible--lint-production-EE0000?logo=ansible&logoColor=white)](https://ansible.readthedocs.io/projects/lint/)
+<br>
+[![Ansible](https://img.shields.io/badge/ansible-%23EE0000.svg?logo=ansible&logoColor=white)](https://www.ansible.com)
+[![Molecule](https://img.shields.io/badge/molecule-testing-000000?logo=ansible&logoColor=white)](https://ansible.readthedocs.io/projects/molecule/)
+[![Ubuntu 26.04](https://img.shields.io/badge/ubuntu-26.04_LTS-E95420?logo=ubuntu&logoColor=white)](https://releases.ubuntu.com/26.04/)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)](https://www.docker.com)
+[![License](https://img.shields.io/github/license/Ricardo-van-Aken/homelab-VMs)](LICENSE)
+</div>
+
 Ansible for the VMs in my homelab. Each VM runs one or more services.
 
 
@@ -27,6 +40,7 @@ docker run --rm -it \
 
 ```
 .
+├── AGENTS.md              rules for AI agents (dependency pinning); CLAUDE.md imports it
 ├── ansible.cfg            inventory, role and collection search paths
 ├── requirements.yml       Galaxy roles and collections, exact pins
 ├── inventory/
@@ -95,7 +109,27 @@ docker run --rm -it --user root -v "$PWD:/work" \
 `desktop` and `sunshine` need a display stack and a user session, which a
 container cannot provide. They are validated on a VM.
 
-## The `forge` VM
+## VMs
+
+One subsection per VM. Each VM joins the inventory groups of the services it
+hosts; the sections describe what is specific to that machine.
+
+### arcade
+
+Runs Jellyfin, Steam and Sunshine on one VM with a passed-through GPU.
+
+* Set `gpu_vendor` in host_vars (`amd`, `intel`, `nvidia`). Vendor packages
+  live in `roles/gpu/vars/`; everything else is vendor-neutral.
+* Headless: attach a dummy HDMI plug, or set `desktop_force_connector` to the
+  DRM connector name (see `ls /sys/class/drm`) so Xorg finds a screen.
+* Sunshine ships one `.deb` per Ubuntu series and architecture. The role
+  refuses any asset without a sha256 in `sunshine_deb_checksums`; add an entry
+  when targeting a new series or architecture.
+* First Sunshine pairing: open `https://arcade:47990` from the LAN and set a
+  password, then pair the Moonlight client.
+* Jellyfin reads media from `jellyfin_media_path`; mount it before running.
+
+### forge
 
 Runs Forgejo from `/opt/stacks/forgejo`. HTTP on 3000, SSH on 2222 so the
 VM's own sshd keeps 22. Registration is closed; set `forgejo_admin_password`
@@ -105,34 +139,3 @@ in a vault to have the first admin created, or create one afterwards:
 docker exec --user git forgejo forgejo admin user create --admin \
   --username admin --email admin@forge.lan --password '...'
 ```
-
-## Dependency pinning
-
-Every external input is immutable: container images by digest, GitHub
-actions by commit, Galaxy roles by commit, collections and Python packages by
-exact version, downloaded packages by sha256, runners by OS version. Bumping
-is a deliberate commit that changes the pin and its comment together.
-
-## Container images
-
-`docker/analysis` (lint, CI) and `docker/runtime` (apply, molecule) are built
-from the repo root. The image tag is a hash over the git object ids of every
-input path (`hash_paths` in the workflow), and the root `.dockerignore` is an
-allowlist of the same paths, so a build can never read a file the tag does not
-cover. Galaxy roles and collections are baked in from `requirements.yml`; the
-Ansible project itself is mounted at run time. A self-contained image with the
-project copied in can be added later as an extra stage.
-
-## The `arcade` VM
-
-Runs Jellyfin, Steam and Sunshine on one VM with a passed-through GPU.
-
-* Set `gpu_vendor` in host_vars (`amd`, `intel`, `nvidia`). Vendor packages
-  live in `roles/gpu/vars/`; everything else is vendor-neutral.
-* Headless: attach a dummy HDMI plug, or set `desktop_force_connector` to the
-  DRM connector name (see `ls /sys/class/drm`) so Xorg finds a screen.
-* Sunshine ships one `.deb` per Ubuntu series. If there is no asset for the
-  running series yet, override `sunshine_ubuntu_release` or `sunshine_deb_url`.
-* First Sunshine pairing: open `https://arcade:47990` from the LAN and set a
-  password, then pair the Moonlight client.
-* Jellyfin reads media from `jellyfin_media_path`; mount it before running.
