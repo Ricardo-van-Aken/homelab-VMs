@@ -9,7 +9,7 @@
 
 - name: Create stacks directory
   ansible.builtin.file:
-    path: "{{ docker_stacks_dir }}"
+    path: "{{ forgejo_dir | dirname }}"
     state: directory
     owner: root
     group: root

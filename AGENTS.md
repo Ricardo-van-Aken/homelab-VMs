@@ -59,3 +59,14 @@ updates and unattended-upgrades is enabled on purpose.
 One commit per bump, or one per related group. Resolve the new digest or
 commit as above, update the comment with the new tag and date, and let CI
 rebuild the images; their tags are content hashes so nothing else changes.
+
+## Secrets
+
+Never write a plaintext secret into the repository. A secret is an inline
+`!vault` value produced by `ansible-vault encrypt_string --name <variable>`,
+placed in the group or host vars file where the setting belongs (a Forgejo
+password goes in `group_vars/forgejo.yml`, not `group_vars/all.yml`). Do not
+create fully encrypted vars files: they cannot be parsed without the password
+and break lint and CI. Do not add `vault_password_file` to `ansible.cfg` for
+the same reason; the password comes from `ANSIBLE_VAULT_PASSWORD_FILE`.
+Tasks that handle a secret carry `no_log: true`.

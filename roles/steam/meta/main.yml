@@ -1,0 +1,3 @@
+---
+dependencies:
+  - role: gpu  # provides gpu_packages_i386

@@ -44,6 +44,31 @@
     group: "{{ desktop_user }}"
     mode: "0755"
 
+- name: Create Xorg config directory
+  ansible.builtin.file:
+    path: /etc/X11/xorg.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Pin Xorg to a GPU
+  when: desktop_gpu_bus_id | length > 0
+  ansible.builtin.template:
+    src: xorg-gpu.conf.j2
+    dest: /etc/X11/xorg.conf.d/10-gpu.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart lightdm
+
+- name: Remove Xorg GPU pin
+  when: desktop_gpu_bus_id | length == 0
+  ansible.builtin.file:
+    path: /etc/X11/xorg.conf.d/10-gpu.conf
+    state: absent
+  notify: Restart lightdm
+
 - name: Boot into the graphical target
   ansible.builtin.file:
     src: /usr/lib/systemd/system/graphical.target

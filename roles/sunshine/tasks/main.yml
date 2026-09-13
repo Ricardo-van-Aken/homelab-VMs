@@ -48,11 +48,23 @@
     mode: "0600"
   notify: Restart sunshine
 
+# systemctl --user needs the user's systemd instance. Before the first
+# graphical login there is none; lingering starts it and keeps it running.
+- name: Enable lingering for the Sunshine user
+  ansible.builtin.command: loginctl enable-linger {{ sunshine_user | quote }}
+  args:
+    creates: "/var/lib/systemd/linger/{{ sunshine_user }}"
+
+- name: Wait for the user's systemd bus
+  ansible.builtin.wait_for:
+    path: "/run/user/{{ sunshine_uid }}/bus"
+    timeout: 30
+
 - name: Enable Sunshine user service
   become: true
   become_user: "{{ sunshine_user }}"
   ansible.builtin.systemd_service:
-    name: sunshine
+    name: "{{ sunshine_unit }}"
     scope: user
     enabled: true
   environment:
