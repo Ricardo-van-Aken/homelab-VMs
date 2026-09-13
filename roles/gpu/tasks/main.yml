@@ -9,6 +9,11 @@
     update_cache: true
     cache_valid_time: 3600
 
+- name: Ensure render group exists
+  ansible.builtin.group:
+    name: render
+    system: true
+
 - name: Read render group
   ansible.builtin.getent:
     database: group

@@ -1,5 +1,6 @@
 ---
-jellyfin_image_tag: "10.11"
+# jellyfin/jellyfin:10.11.11 -- digest pushed 2026-06-06 15:43 UTC
+jellyfin_image: jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db
 jellyfin_dir: "{{ docker_stacks_dir }}/jellyfin"
 jellyfin_media_path: /srv/media
 jellyfin_published_url: ""

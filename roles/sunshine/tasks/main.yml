@@ -2,7 +2,8 @@
 - name: Download Sunshine package
   ansible.builtin.get_url:
     url: "{{ sunshine_deb_url }}"
-    dest: "/var/cache/apt/archives/sunshine-{{ sunshine_version }}.deb"
+    checksum: "{{ sunshine_deb_checksum }}"
+    dest: "/var/cache/apt/archives/{{ sunshine_deb_name }}"
     owner: root
     group: root
     mode: "0644"

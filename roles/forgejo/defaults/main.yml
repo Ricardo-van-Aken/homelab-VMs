@@ -1,0 +1,26 @@
+---
+# codeberg.org/forgejo/forgejo:11.0.16 (LTS line) -- digest pushed 2026-07-09 10:21 UTC
+forgejo_image: codeberg.org/forgejo/forgejo@sha256:946243edbab116d5bb78b73ea68af6f3d69229ba1b1ed958dd82c3481167f3e0
+forgejo_dir: "{{ docker_stacks_dir }}/forgejo"
+
+# Service account owning the data directory; the container's git user maps
+# to the same ids.
+forgejo_user: forgejo
+forgejo_uid: 2001
+
+# Public names as seen by clients. SSH is published on a non-22 port so it
+# does not collide with the VM's own sshd; clone URLs include it.
+forgejo_domain: "{{ inventory_hostname }}"
+forgejo_root_url: "http://{{ forgejo_domain }}:{{ forgejo_http_port }}/"
+forgejo_http_port: 3000
+forgejo_ssh_port: 2222
+
+# sqlite3 keeps a single-VM homelab instance to one container. Switch to
+# postgres by overriding the FORGEJO__database__* keys in forgejo_extra_env.
+forgejo_extra_env: {}
+
+# No public sign-up; the first admin is created below when a password is set
+# (put it in a vault), otherwise create one with `forgejo admin user create`.
+forgejo_admin_user: admin
+forgejo_admin_email: "admin@{{ forgejo_domain }}"
+forgejo_admin_password: ""

@@ -1,0 +1,21 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read render group
+      ansible.builtin.getent:
+        database: group
+        key: render
+
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+
+    - name: Assert GPU userspace is present
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.getent_group.render is defined
+          - "'mesa-libgallium' in ansible_facts.packages"
+          - "'mesa-vulkan-drivers' in ansible_facts.packages"
+          - "'vainfo' in ansible_facts.packages"

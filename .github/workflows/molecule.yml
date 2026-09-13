@@ -1,0 +1,87 @@
+---
+name: Molecule
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  image:
+    uses: ./.github/workflows/build-image.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      image: ansible-molecule
+      dockerfile: docker/runtime/Dockerfile
+      target: molecule
+      hash_paths: docker/runtime requirements.yml
+
+  target:
+    uses: ./.github/workflows/build-image.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      image: molecule-target
+      dockerfile: docker/molecule-target/Dockerfile
+      hash_paths: docker/molecule-target
+
+  test:
+    needs: [image, target]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [base, gpu, steam, jellyfin, forgejo]
+    container:
+      image: ${{ needs.image.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      # Root for the same reason as the analysis job, and to reach the Docker
+      # socket the runner mounts into job containers. Molecule instances are
+      # created on the runner's daemon through that socket.
+      options: --user root
+    env:
+      REPORT_DIR: ${{ github.workspace }}/.reports/${{ matrix.scenario }}
+      MOLECULE_TARGET_IMAGE: ${{ needs.target.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # Full default sequence: destroy, syntax, create, prepare, converge,
+      # idempotence, verify, destroy. Every playbook run also writes a JUnit
+      # file through ansible-core's junit callback.
+      # Instances are pulled by the runner's daemon through the socket; log
+      # the docker client in so it can fetch the target image from ghcr.
+      - name: Log in to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Molecule test
+        run: molecule test --scenario-name ${{ matrix.scenario }} --report
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_CALLBACKS_ENABLED: ansible.builtin.junit
+          JUNIT_OUTPUT_DIR: ${{ env.REPORT_DIR }}
+          JUNIT_TASK_CLASS: "true"
+          JUNIT_HIDE_TASK_ARGUMENTS: "true"
+
+      - name: Summarise results
+        if: always()
+        run: >-
+          python3 .github/scripts/junit-summary.py
+          "Molecule: ${{ matrix.scenario }}" "$REPORT_DIR"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: always()
+        with:
+          name: molecule-junit-${{ matrix.scenario }}
+          path: ${{ env.REPORT_DIR }}
+          retention-days: 14
+          if-no-files-found: warn

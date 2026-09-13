@@ -1,12 +1,18 @@
 ---
-# Release tag and Ubuntu series of the .deb asset on GitHub. Check
-# https://github.com/LizardByte/Sunshine/releases for available assets and
-# override in host_vars when the exact series is not published.
-sunshine_version: v2025.628.4510
+# Release tag on https://github.com/LizardByte/Sunshine/releases. Assets are
+# built per Ubuntu series and architecture; every asset used must have its
+# sha256 listed in sunshine_deb_checksums or the download is refused.
+sunshine_version: v2026.906.222525
 sunshine_ubuntu_release: "{{ ansible_distribution_version }}"
-sunshine_deb_name: "sunshine-ubuntu-{{ sunshine_ubuntu_release }}-amd64.deb"
+sunshine_deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_architecture] }}"
+sunshine_deb_name: >-
+  sunshine_{{ sunshine_version | regex_replace('^v', '') }}-1+ubuntu{{ sunshine_ubuntu_release
+  }}_{{ sunshine_deb_arch }}.deb
 sunshine_deb_url: >-
   https://github.com/LizardByte/Sunshine/releases/download/{{ sunshine_version }}/{{ sunshine_deb_name }}
+sunshine_deb_checksums:
+  "26.04/amd64": sha256:454fde456eb8f429f94e5a1297cb6f2f55a46bbab4832f71752ec5bc9b0fa453
+sunshine_deb_checksum: "{{ sunshine_deb_checksums[sunshine_ubuntu_release ~ '/' ~ sunshine_deb_arch] }}"
 
 sunshine_user: "{{ desktop_user }}"
 sunshine_config_dir: "/home/{{ sunshine_user }}/.config/sunshine"

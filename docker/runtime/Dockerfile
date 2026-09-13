@@ -34,7 +34,9 @@ RUN python -m venv --without-pip /opt/venv \
 
 # Galaxy roles and collections.
 COPY requirements.yml /tmp/requirements.yml
-RUN /opt/venv/bin/ansible-galaxy role install -r /tmp/requirements.yml -p /opt/venv/share/ansible/roles \
+# git: roles are pinned to commits and fetched from their repositories
+RUN apk add --no-cache git \
+    && /opt/venv/bin/ansible-galaxy role install -r /tmp/requirements.yml -p /opt/venv/share/ansible/roles \
     && /opt/venv/bin/ansible-galaxy collection install -r /tmp/requirements.yml -p /opt/venv/share/ansible/collections
 
 # ---------------------------------------------------------------------------
@@ -88,6 +90,10 @@ LABEL org.opencontainers.image.title="ansible-runtime" \
 # molecule: base + ansible-core + Galaxy dependencies + molecule
 # ---------------------------------------------------------------------------
 FROM base AS molecule
+
+USER root
+RUN apk add --no-cache docker-cli
+USER operator
 
 COPY --from=builder-molecule --chown=root:root /opt/venv /opt/venv
 
