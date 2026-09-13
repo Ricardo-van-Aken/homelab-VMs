@@ -16,9 +16,10 @@ jobs:
       packages: write
     with:
       image: ansible-molecule
-      dockerfile: docker/runtime/Dockerfile
+      context: ansible
+      dockerfile: ansible/docker/runtime/Dockerfile
       target: molecule
-      hash_paths: docker/runtime requirements.yml
+      hash_paths: ansible/docker/runtime ansible/requirements.yml
 
   target:
     uses: ./.github/workflows/build-image.yml
@@ -27,8 +28,9 @@ jobs:
       packages: write
     with:
       image: molecule-target
-      dockerfile: docker/molecule-target/Dockerfile
-      hash_paths: docker/molecule-target
+      context: ansible
+      dockerfile: ansible/docker/molecule-target/Dockerfile
+      hash_paths: ansible/docker/molecule-target
 
   test:
     needs: [image, target]
@@ -52,6 +54,9 @@ jobs:
     env:
       REPORT_DIR: ${{ github.workspace }}/.reports/${{ matrix.scenario }}
       MOLECULE_TARGET_IMAGE: ${{ needs.target.outputs.image }}
+    defaults:
+      run:
+        working-directory: ansible
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
@@ -75,7 +80,7 @@ jobs:
       - name: Summarise results
         if: always()
         run: >-
-          python3 .github/scripts/junit-summary.py
+          python3 "$GITHUB_WORKSPACE/.github/scripts/junit-summary.py"
           "Molecule: ${{ matrix.scenario }}" "$REPORT_DIR"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1

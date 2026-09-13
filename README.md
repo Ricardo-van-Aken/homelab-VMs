@@ -38,9 +38,11 @@ The VMs are Ubuntu 26.04 cloud images. Before the first run:
 
 ## Usage
 
-Locally, with ansible-core installed:
+All Ansible commands run from `ansible/`. Locally, with ansible-core
+installed:
 
 ```sh
+cd ansible
 ansible-galaxy install -r requirements.yml
 ansible-playbook playbooks/site.yml
 ```
@@ -50,9 +52,9 @@ dependencies:
 
 ```sh
 docker run --rm -it \
-  -v "$PWD:/work:ro" \
+  -v "$PWD:/work:ro" -w /work/ansible \
   -v "$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
-  -e ANSIBLE_VAULT_PASSWORD_FILE=/work/.vault_pass \
+  -e ANSIBLE_VAULT_PASSWORD_FILE=/work/ansible/.vault_pass \
   ghcr.io/ricardo-van-aken/homelab-vms/ansible-runtime:<tag> \
   ansible-playbook playbooks/site.yml
 ```
@@ -67,35 +69,35 @@ export ANSIBLE_VAULT_PASSWORD_FILE=.vault_pass
 ansible-vault encrypt_string --name forgejo_admin_password 'the-real-password'
 ```
 
-Paste the output into `inventory/group_vars/forgejo.yml`. Inline values keep
-the inventory parseable without the password, so lint, syntax check and CI
-never need it; only a real run does. The password itself stays in a
-gitignored `.vault_pass`.
+Paste the output into `ansible/inventory/group_vars/forgejo.yml`. Inline
+values keep the inventory parseable without the password, so lint, syntax
+check and CI never need it; only a real run does. The password itself stays
+in a gitignored `.vault_pass`.
 
 ## Layout
 
 ```
 .
-├── AGENTS.md              rules for AI agents (dependency pinning); CLAUDE.md imports it
-├── ansible.cfg            inventory, role and collection search paths
-├── requirements.yml       Galaxy roles and collections, exact pins
-├── inventory/
-│   ├── hosts.yml          one group per service, VMs join what they host
-│   ├── group_vars/        per service, follows it between VMs (all.yml: every VM)
-│   └── host_vars/         facts about one machine: address, GPUs, mounts
-│                          both list the usual knobs; roles/*/defaults has them all
-├── playbooks/
-│   └── site.yml           maps groups to roles
-├── roles/                 one role per service or building block
-├── molecule/              one test scenario per container-testable role
-├── .config/molecule/      settings shared by every scenario
-├── docker/
-│   ├── analysis/          image for lint and syntax check (CI)
-│   ├── molecule-target/   Ubuntu 26.04 + systemd, the VM stand-in for tests
-│   └── runtime/           image for applying playbooks; molecule stage for tests
+├── ansible/                 everything Ansible; run commands from here
+│   ├── ansible.cfg          inventory, role and collection search paths
+│   ├── requirements.yml     Galaxy roles and collections, exact pins
+│   ├── inventory/
+│   │   ├── hosts.yml        one group per service, VMs join what they host
+│   │   ├── group_vars/      per service, follows it between VMs (all.yml: every VM)
+│   │   └── host_vars/       facts about one machine: address, GPUs, mounts
+│   │                        both list the usual knobs; roles/*/defaults has them all
+│   ├── playbooks/site.yml   maps groups to roles
+│   ├── roles/               one role per service or building block
+│   ├── molecule/            one test scenario per container-testable role
+│   └── docker/              analysis (lint), runtime (apply, molecule stage),
+│                            molecule-target (Ubuntu 26.04 VM stand-in)
+├── .config/molecule/        settings shared by every scenario (Molecule reads
+│                            this from the git root only)
 ├── .github/
-│   └── workflows/         analysis, molecule, and the shared image build
-└── galaxy_roles/          external roles installed locally (gitignored)
+│   ├── workflows/           analysis, molecule, and the shared image build
+│   └── scripts/             JUnit to job-summary renderer
+├── AGENTS.md                rules for AI agents; CLAUDE.md imports it
+└── .yamllint                one YAML style for the whole repo
 ```
 
 ### Own roles
@@ -121,15 +123,16 @@ into the container images.
 
 ## Testing
 
-Roles that can run in a container have a Molecule scenario under `molecule/`;
-shared settings live in `.config/molecule/config.yml`. Instances are
-containers from `docker/molecule-target`: Ubuntu 26.04 with systemd and
-python3, the same release as the VMs. Build it once, then run a scenario from
-the molecule image with the socket mounted:
+Roles that can run in a container have a Molecule scenario under
+`ansible/molecule/`; shared settings live in `.config/molecule/config.yml`.
+Instances are containers from `ansible/docker/molecule-target`: Ubuntu 26.04
+with systemd and python3, the same release as the VMs. Build it once, then run
+a scenario from the molecule image with the socket mounted:
 
 ```sh
+cd ansible
 docker build -t molecule-target:local docker/molecule-target
-docker run --rm -it --user root -v "$PWD:/work" \
+docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
   -v /var/run/docker.sock:/var/run/docker.sock \
   ghcr.io/ricardo-van-aken/homelab-vms/ansible-molecule:<tag> \
   molecule test --scenario-name base

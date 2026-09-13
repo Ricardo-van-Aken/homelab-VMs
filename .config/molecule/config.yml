@@ -1,6 +1,7 @@
 ---
-# Shared base for every scenario under molecule/. Scenario files only add
-# what differs.
+# Shared base for every scenario under ansible/molecule/. Scenario files only
+# add what differs. This file lives at the repository root because Molecule
+# looks for .config/molecule/config.yml at the git root only.
 dependency:
   name: galaxy
   enabled: false  # roles and collections are baked into the molecule image

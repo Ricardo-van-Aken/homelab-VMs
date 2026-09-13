@@ -1,5 +1,9 @@
 # Instructions for AI agents
 
+All Ansible lives under `ansible/`; run `ansible-*` and `molecule` commands
+from that directory. Terraform for the Proxmox host is planned as a sibling
+`terraform/` directory with its own images and lint.
+
 Guidance for automated changes to this repository. Humans are welcome to read
 it, but the README is written for them.
 
@@ -14,7 +18,7 @@ and when touching a pin, update the pin and its comment in the same change.
 | GitHub action | full commit SHA | `# vX.Y.Z` |
 | Galaxy role | git `src` + `scm: git` + commit SHA as `version` | `# X.Y.Z` |
 | Galaxy collection | exact `version:` | none needed; published versions are immutable |
-| Python package | exact `==` version, transitives included | grouped and annotated as in `docker/*/requirements*.txt` |
+| Python package | exact `==` version, transitives included | grouped and annotated as in `ansible/docker/*/requirements*.txt` |
 | Downloaded file | `checksum: sha256:…` on the download task | the release it came from |
 | GitHub runner | `ubuntu-XX.04`, never `ubuntu-latest` | none |
 
@@ -64,8 +68,9 @@ rebuild the images; their tags are content hashes so nothing else changes.
 
 Never write a plaintext secret into the repository. A secret is an inline
 `!vault` value produced by `ansible-vault encrypt_string --name <variable>`,
-placed in the group or host vars file where the setting belongs (a Forgejo
-password goes in `group_vars/forgejo.yml`, not `group_vars/all.yml`). Do not
+placed in the group or host vars file under `ansible/inventory/` where the
+setting belongs (a Forgejo password goes in `group_vars/forgejo.yml`, not
+`group_vars/all.yml`). Do not
 create fully encrypted vars files: they cannot be parsed without the password
 and break lint and CI. Do not add `vault_password_file` to `ansible.cfg` for
 the same reason; the password comes from `ANSIBLE_VAULT_PASSWORD_FILE`.

@@ -88,7 +88,7 @@
     mode: "0644"
   notify:
     - Update grub
-    - Reboot
+    - Reboot for kernel parameters
 
 - name: Remove forced DRM connector
   when: desktop_force_connector | length == 0
@@ -97,4 +97,4 @@
     state: absent
   notify:
     - Update grub
-    - Reboot
+    - Reboot for kernel parameters
