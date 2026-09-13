@@ -14,3 +14,8 @@
   roles:
     - steam
     - sunshine  # depends on gpu and desktop
+
+- name: Git forges
+  hosts: forgejo
+  roles:
+    - forgejo  # depends on geerlingguy.docker

@@ -1,0 +1,32 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+
+    - name: Assert base packages are installed
+      ansible.builtin.assert:
+        that:
+          - "'qemu-guest-agent' in ansible_facts.packages"
+          - "'unattended-upgrades' in ansible_facts.packages"
+
+    - name: Read auto-upgrades config
+      ansible.builtin.slurp:
+        src: /etc/apt/apt.conf.d/20auto-upgrades
+      register: base_auto_upgrades
+
+    - name: Assert unattended upgrades are on
+      ansible.builtin.assert:
+        that: "'Unattended-Upgrade \"1\"' in (base_auto_upgrades.content | b64decode)"
+
+    - name: Read timezone
+      ansible.builtin.command: timedatectl show -p Timezone --value
+      changed_when: false
+      register: base_tz
+
+    - name: Assert timezone is set
+      ansible.builtin.assert:
+        that: base_tz.stdout == 'Europe/Amsterdam'

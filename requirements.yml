@@ -1,9 +1,14 @@
 ---
 # Galaxy roles and collections. Exact pins: these are baked into the runtime
 # and analysis images, whose tags are derived from this file's content.
+#
+# Roles come from git by commit, since Galaxy role versions are git tags and
+# tags can move. Collection versions are immutable once published to Galaxy.
 roles:
   - name: geerlingguy.docker
-    version: 7.4.7
+    src: https://github.com/geerlingguy/ansible-role-docker.git
+    scm: git
+    version: 9115e969c1e57a1639160d9af3477f09734c94ac  # 7.4.7
 
 collections:
   - name: community.docker

@@ -1,0 +1,38 @@
+---
+# Shared base for every scenario under molecule/. Scenario files only add
+# what differs.
+dependency:
+  name: galaxy
+  enabled: false  # roles and collections are baked into the molecule image
+
+driver:
+  name: docker
+
+platforms:
+  - name: instance
+    # Ubuntu 26.04 with systemd, built from docker/molecule-target. CI passes
+    # the registry reference; locally build it with the tag below.
+    image: ${MOLECULE_TARGET_IMAGE:-molecule-target:local}
+    pre_build_image: true
+    command: /lib/systemd/systemd
+    privileged: true
+    cgroupns_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: >-
+      ${MOLECULE_PROJECT_DIRECTORY}/roles:${MOLECULE_PROJECT_DIRECTORY}/galaxy_roles:/opt/venv/share/ansible/roles
+    ANSIBLE_COLLECTIONS_PATH: >-
+      ${MOLECULE_PROJECT_DIRECTORY}/collections:/opt/venv/share/ansible/collections
+  inventory:
+    group_vars:
+      all:
+        base_timezone: Europe/Amsterdam
+        gpu_vendor: amd
+        docker_stacks_dir: /opt/stacks
+
+verifier:
+  name: ansible

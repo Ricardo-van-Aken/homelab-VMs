@@ -1,0 +1,44 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Inspect Forgejo container
+      community.docker.docker_container_info:
+        name: forgejo
+      register: forgejo_info
+
+    - name: Assert Forgejo is running and healthy
+      ansible.builtin.assert:
+        that:
+          - forgejo_info.exists
+          - forgejo_info.container.State.Running
+          - forgejo_info.container.State.Health.Status == 'healthy'
+
+    - name: Check the API answers
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3000/api/v1/version
+        return_content: true
+      register: forgejo_version
+
+    - name: Check registration is closed
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3000/user/sign_up
+        status_code: [200, 302, 403]
+      register: forgejo_signup
+
+    - name: List admin users
+      community.docker.docker_container_exec:
+        container: forgejo
+        user: git
+        command: forgejo admin user list --admin
+      register: forgejo_admins
+      changed_when: false
+
+    - name: Assert version, closed registration and admin account
+      ansible.builtin.assert:
+        that:
+          - forgejo_version.json.version is defined
+          - forgejo_signup.status != 200
+          - "'admin' in forgejo_admins.stdout"

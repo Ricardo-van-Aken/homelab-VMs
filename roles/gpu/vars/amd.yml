@@ -1,7 +1,9 @@
 ---
 # Any GCN 3+ card (R9 380X is Tonga) is driven by the in-kernel amdgpu module.
 gpu_packages:
-  - mesa-va-drivers
+  # Ubuntu 26.04 ships the VA-API and VDPAU drivers inside mesa-libgallium
+  # (which Provides: mesa-va-drivers); the old package name is gone.
+  - mesa-libgallium
   - mesa-vulkan-drivers
   - libgl1-mesa-dri
   - vainfo

@@ -10,11 +10,13 @@
   community.general.timezone:
     name: "{{ base_timezone }}"
 
-- name: Enable QEMU guest agent
+# The unit is static (udev-activated) and depends on the virtio serial
+# device, which only a QEMU guest has, so it is started, never enabled.
+- name: Start QEMU guest agent
   ansible.builtin.systemd_service:
     name: qemu-guest-agent
-    enabled: true
     state: started
+  when: ansible_facts.virtualization_type in ['kvm', 'qemu']
 
 - name: Enable unattended security upgrades
   ansible.builtin.copy:
