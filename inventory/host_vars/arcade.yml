@@ -1,0 +1,14 @@
+---
+ansible_host: 192.0.2.10
+
+gpu_vendor: amd
+
+# Media library as mounted on the VM (NFS/SMB mount, virtiofs, or a disk).
+jellyfin_media_path: /srv/media
+jellyfin_published_url: http://arcade.lan:8096
+
+# Headless GPU: force a connector on so Xorg finds a screen without a monitor.
+# Find the name with `ls /sys/class/drm` on the VM (e.g. card1-HDMI-A-1 -> HDMI-A-1).
+# Leave empty when a dummy HDMI plug is attached.
+desktop_force_connector: ""
+desktop_force_mode: 1920x1080@60

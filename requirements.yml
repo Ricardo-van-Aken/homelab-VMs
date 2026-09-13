@@ -1,0 +1,14 @@
+---
+# Galaxy roles and collections. Exact pins: these are baked into the runtime
+# and analysis images, whose tags are derived from this file's content.
+roles:
+  - name: geerlingguy.docker
+    version: 7.4.7
+
+collections:
+  - name: community.docker
+    version: 5.3.0
+  - name: community.general
+    version: 13.4.0
+  - name: ansible.posix
+    version: 2.2.2

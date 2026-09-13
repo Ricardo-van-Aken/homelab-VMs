@@ -1,0 +1,42 @@
+---
+- name: Create Jellyfin service account
+  ansible.builtin.user:
+    name: "{{ jellyfin_user }}"
+    uid: "{{ jellyfin_uid }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create stacks directory
+  ansible.builtin.file:
+    path: "{{ docker_stacks_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create Jellyfin directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ jellyfin_user }}"
+    group: "{{ jellyfin_user }}"
+    mode: "0750"
+  loop:
+    - "{{ jellyfin_dir }}"
+    - "{{ jellyfin_dir }}/config"
+    - "{{ jellyfin_dir }}/cache"
+
+- name: Render compose file
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ jellyfin_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Deploy Jellyfin stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ jellyfin_dir }}"
+    state: present
+    remove_orphans: true

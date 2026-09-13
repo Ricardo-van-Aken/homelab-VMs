@@ -1,0 +1,16 @@
+---
+- name: Base configuration for every VM
+  hosts: all
+  roles:
+    - base
+
+- name: Media servers
+  hosts: media
+  roles:
+    - jellyfin  # depends on geerlingguy.docker and gpu
+
+- name: Game streaming hosts
+  hosts: gaming
+  roles:
+    - steam
+    - sunshine  # depends on gpu and desktop

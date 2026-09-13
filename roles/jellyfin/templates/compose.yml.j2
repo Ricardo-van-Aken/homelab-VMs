@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:{{ jellyfin_image_tag }}
+    container_name: jellyfin
+    restart: unless-stopped
+    user: "{{ jellyfin_uid }}:{{ jellyfin_uid }}"
+    group_add:
+      - "{{ gpu_render_gid }}"
+{% if gpu_nvidia %}
+    runtime: nvidia
+{% else %}
+    devices:
+      - /dev/dri:/dev/dri
+{% endif %}
+    environment:
+      TZ: {{ base_timezone }}
+{% if gpu_nvidia %}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+{% endif %}
+{% if jellyfin_published_url %}
+      JELLYFIN_PublishedServerUrl: {{ jellyfin_published_url }}
+{% endif %}
+    ports:
+      - "8096:8096"        # HTTP
+      - "7359:7359/udp"    # client auto-discovery
+      - "1900:1900/udp"    # DLNA
+    volumes:
+      - {{ jellyfin_dir }}/config:/config
+      - {{ jellyfin_dir }}/cache:/cache
+      - {{ jellyfin_media_path }}:/media:ro

@@ -1,0 +1,58 @@
+---
+- name: Download Sunshine package
+  ansible.builtin.get_url:
+    url: "{{ sunshine_deb_url }}"
+    dest: "/var/cache/apt/archives/sunshine-{{ sunshine_version }}.deb"
+    owner: root
+    group: root
+    mode: "0644"
+  register: sunshine_download
+
+- name: Install Sunshine
+  ansible.builtin.apt:
+    deb: "{{ sunshine_download.dest }}"
+
+- name: Look up Sunshine user
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ sunshine_user }}"
+
+- name: Record Sunshine user id
+  ansible.builtin.set_fact:
+    sunshine_uid: "{{ ansible_facts.getent_passwd[sunshine_user][1] }}"
+
+- name: Create Sunshine config directory
+  ansible.builtin.file:
+    path: "{{ sunshine_config_dir }}"
+    state: directory
+    owner: "{{ sunshine_user }}"
+    group: "{{ sunshine_user }}"
+    mode: "0700"
+
+- name: Write Sunshine configuration
+  ansible.builtin.template:
+    src: sunshine.conf.j2
+    dest: "{{ sunshine_config_dir }}/sunshine.conf"
+    owner: "{{ sunshine_user }}"
+    group: "{{ sunshine_user }}"
+    mode: "0600"
+  notify: Restart sunshine
+
+- name: Write Sunshine apps
+  ansible.builtin.template:
+    src: apps.json.j2
+    dest: "{{ sunshine_config_dir }}/apps.json"
+    owner: "{{ sunshine_user }}"
+    group: "{{ sunshine_user }}"
+    mode: "0600"
+  notify: Restart sunshine
+
+- name: Enable Sunshine user service
+  become: true
+  become_user: "{{ sunshine_user }}"
+  ansible.builtin.systemd_service:
+    name: sunshine
+    scope: user
+    enabled: true
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ sunshine_uid }}"

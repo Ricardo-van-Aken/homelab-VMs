@@ -1,0 +1,13 @@
+---
+- name: Restart lightdm
+  ansible.builtin.systemd_service:
+    name: lightdm
+    state: restarted
+
+- name: Update grub
+  ansible.builtin.command: update-grub
+  changed_when: true
+
+- name: Reboot
+  ansible.builtin.reboot:
+    reboot_timeout: 300

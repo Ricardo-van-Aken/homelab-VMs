@@ -1,0 +1,6 @@
+---
+steam_packages:
+  - steam-installer
+  - steam-devices
+  - gamemode
+  - mangohud

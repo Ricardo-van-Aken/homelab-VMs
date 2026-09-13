@@ -1,0 +1,35 @@
+---
+- name: Check foreign architectures
+  ansible.builtin.command: dpkg --print-foreign-architectures
+  register: steam_foreign_archs
+  changed_when: false
+
+- name: Enable i386 architecture for Steam
+  ansible.builtin.command: dpkg --add-architecture i386
+  when: "'i386' not in steam_foreign_archs.stdout_lines"
+  changed_when: true
+  notify: Update apt cache
+
+- name: Flush handlers so i386 packages are visible
+  ansible.builtin.meta: flush_handlers
+
+- name: Accept Steam licence
+  ansible.builtin.debconf:
+    name: steam
+    question: steam/question
+    value: I AGREE
+    vtype: select
+
+- name: Accept Steam licence note
+  ansible.builtin.debconf:
+    name: steam
+    question: steam/license
+    value: ""
+    vtype: note
+
+- name: Install Steam and 32-bit GPU libraries
+  ansible.builtin.apt:
+    name: "{{ steam_packages + (gpu_packages_i386 | default([])) }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
