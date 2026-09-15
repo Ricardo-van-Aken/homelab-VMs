@@ -1,4 +1,3 @@
 ---
-# Settings shared by every VM.
-ansible_user: ansible  # created by cloud-init with your key and passwordless sudo
+# Settings shared by every machine.
 base_timezone: Europe/Amsterdam

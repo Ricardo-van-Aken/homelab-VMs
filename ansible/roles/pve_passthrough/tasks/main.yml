@@ -1,0 +1,143 @@
+---
+- name: Validate settings
+  ansible.builtin.assert:
+    that:
+      - pve_passthrough_iommu in ['intel', 'amd']
+      - pve_passthrough_bootloader in ['grub', 'proxmox-boot-tool']
+      - pve_passthrough_gpu_vendors | difference(pve_passthrough_vendor_modules.keys() | list) | length == 0
+    fail_msg: check pve_passthrough_iommu, pve_passthrough_bootloader and pve_passthrough_gpu_vendors
+
+- name: Resolve kernel parameters and modules
+  ansible.builtin.set_fact:
+    pve_passthrough_kernel_params: >-
+      {{ [pve_passthrough_iommu ~ '_iommu=on', 'iommu=pt']
+         + ([] if pve_passthrough_host_console else ['initcall_blacklist=sysfb_init']) }}
+    pve_passthrough_blacklist_modules: >-
+      {{ pve_passthrough_gpu_vendors | map('extract', pve_passthrough_vendor_modules) | flatten | unique }}
+
+- name: Install driverctl for address-based driver binding
+  ansible.builtin.apt:
+    name: driverctl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# --- kernel command line ---------------------------------------------------
+- name: Keep the base GRUB command line plain; parameters come from the drop-in
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet"'
+  when: pve_passthrough_bootloader == 'grub'
+  notify: Update bootloader
+
+- name: Create GRUB drop-in directory
+  ansible.builtin.file:
+    path: /etc/default/grub.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: pve_passthrough_bootloader == 'grub'
+
+- name: Set kernel parameters (GRUB)
+  ansible.builtin.template:
+    src: grub.cfg.j2
+    dest: /etc/default/grub.d/pve-passthrough.cfg
+    owner: root
+    group: root
+    mode: "0644"
+  when: pve_passthrough_bootloader == 'grub'
+  notify: Update bootloader
+
+- name: Read the kernel command line (proxmox-boot-tool)
+  ansible.builtin.slurp:
+    path: /etc/kernel/cmdline
+  register: pve_passthrough_cmdline
+  when: pve_passthrough_bootloader == 'proxmox-boot-tool'
+
+- name: Set kernel parameters (proxmox-boot-tool)
+  ansible.builtin.copy:
+    dest: /etc/kernel/cmdline
+    content: "{{ (pve_passthrough_cmdline_kept + pve_passthrough_kernel_params) | join(' ') }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    # everything currently there except the parameters this role owns
+    pve_passthrough_cmdline_kept: >-
+      {{ (pve_passthrough_cmdline.content | b64decode).split()
+         | reject('match', '^(intel_iommu|amd_iommu|iommu|initcall_blacklist)=') | list }}
+  when: pve_passthrough_bootloader == 'proxmox-boot-tool'
+  notify: Update bootloader
+
+# --- modules -----------------------------------------------------------------
+- name: Load vfio modules at boot
+  ansible.builtin.lineinfile:
+    path: /etc/modules
+    line: "{{ item }}"
+    create: true
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ pve_passthrough_vfio_modules }}"
+  notify: Update initramfs
+
+- name: Blacklist host GPU drivers
+  ansible.builtin.template:
+    src: blacklist.conf.j2
+    dest: /etc/modprobe.d/pve-passthrough-blacklist.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Update initramfs
+
+- name: Remove the hand-written blacklist this role replaces
+  ansible.builtin.file:
+    path: /etc/modprobe.d/blacklist-amd.conf
+    state: absent
+  notify: Update initramfs
+
+# --- bind devices to vfio-pci by PCI address --------------------------------
+- name: List current driver overrides
+  ansible.builtin.command: driverctl list-overrides
+  register: pve_passthrough_overrides
+  changed_when: false
+  failed_when: pve_passthrough_overrides.rc not in [0, 1]  # 1 means "no overrides yet"
+
+- name: Bind passthrough devices to vfio-pci
+  ansible.builtin.command: driverctl set-override {{ item }} vfio-pci
+  loop: "{{ pve_passthrough_devices }}"
+  when: (item ~ ' vfio-pci') not in pve_passthrough_overrides.stdout
+  changed_when: true
+  notify: Reboot host
+
+- name: Apply boot changes now
+  ansible.builtin.meta: flush_handlers
+
+# --- verify ------------------------------------------------------------------
+- name: Check IOMMU groups exist
+  ansible.builtin.find:
+    paths: /sys/kernel/iommu_groups
+    file_type: directory
+  register: pve_passthrough_iommu_groups
+
+- name: Read the driver bound to each passthrough device
+  ansible.builtin.stat:
+    path: "/sys/bus/pci/devices/{{ item }}/driver"
+  loop: "{{ pve_passthrough_devices }}"
+  register: pve_passthrough_drivers
+
+- name: Assert the host is ready for passthrough
+  ansible.builtin.assert:
+    that:
+      - pve_passthrough_iommu_groups.matched > 0
+      - pve_passthrough_bound_drivers | unique == ['vfio-pci']
+    fail_msg: >-
+      IOMMU groups: {{ pve_passthrough_iommu_groups.matched }}; drivers:
+      {{ pve_passthrough_bound_drivers }}.
+      Check BIOS virtualisation settings and `dmesg | grep -iE 'DMAR|IOMMU|vfio'`.
+  vars:
+    pve_passthrough_bound_drivers: >-
+      {{ pve_passthrough_drivers.results | map(attribute='stat.lnk_target', default='none') | map('basename') | list }}
+  when: pve_passthrough_reboot

@@ -1,0 +1,102 @@
+---
+- name: "Read the config of {{ pve_vms_name }}"
+  ansible.builtin.command: qm config {{ pve_vms_spec.vmid }}
+  register: pve_vms_config
+  failed_when: false
+  changed_when: false
+
+- name: "Clone the template into {{ pve_vms_name }}"
+  ansible.builtin.command: >-
+    qm clone {{ pve_vms_template_vmid }} {{ pve_vms_spec.vmid }}
+    --name {{ pve_vms_name }} --full --storage {{ pve_vms_storage }}
+  when: pve_vms_config.rc != 0
+  changed_when: true
+
+- name: "Read the config after cloning {{ pve_vms_name }}"
+  ansible.builtin.command: qm config {{ pve_vms_spec.vmid }}
+  register: pve_vms_config
+  changed_when: false
+
+# `qm config` prints `key: value` lines. Only the settings this role owns are
+# compared, and only those that differ are set, so a converged VM is left alone.
+- name: "Compare wanted settings with {{ pve_vms_name }}"
+  vars:
+    current: >-
+      {{ dict(pve_vms_config.stdout_lines | map('regex_replace', '^([^:]+): ?(.*)$', '\1')
+              | zip(pve_vms_config.stdout_lines | map('regex_replace', '^([^:]+): ?(.*)$', '\2'))) }}
+    wanted: >-
+      {{ {'name': pve_vms_name,
+          'cores': pve_vms_spec.cores | string,
+          'memory': pve_vms_spec.memory | string,
+          'bios': pve_vms_spec.bios,
+          'vga': pve_vms_spec.vga,
+          'ipconfig0': 'ip=' ~ hostvars[pve_vms_name].ansible_host ~ '/' ~ pve_vms_network_prefix
+                       ~ ',gw=' ~ pve_vms_gateway}
+         | combine({'balloon': pve_vms_spec.balloon | string} if pve_vms_spec.balloon is defined else {})
+         | combine(dict(range(pve_vms_spec.hostpci | length)
+                        | map('regex_replace', '^', 'hostpci')
+                        | zip(pve_vms_spec.hostpci)))
+         | combine(dict(range(pve_vms_spec.shares | length)
+                        | map('regex_replace', '^', 'virtiofs')
+                        | zip(pve_vms_spec.shares | map(attribute='dataset')
+                              | map('regex_replace', '^', 'dirid=')))) }}
+  ansible.builtin.set_fact:
+    pve_vms_needs_efidisk: "{{ pve_vms_spec.bios == 'ovmf' and 'efidisk0' not in current }}"
+    # Proxmox may print a virtiofs entry with its defaults filled in; only the
+    # mapping id is compared.
+    pve_vms_changes: >-
+      {%- set ns = namespace(out={}) -%}
+      {%- for key, value in wanted.items() -%}
+      {%- set cur = current.get(key, '') -%}
+      {%- if key.startswith('virtiofs') -%}
+      {%- set cur = cur | regex_search('dirid=[^,]*') or '' -%}
+      {%- endif -%}
+      {%- if cur != value -%}
+      {%- set ns.out = ns.out | combine({key: value}) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.out }}
+
+- name: "Apply settings to {{ pve_vms_name }}"
+  ansible.builtin.command: >-
+    qm set {{ pve_vms_spec.vmid }}
+    {% for key, value in pve_vms_changes.items() %} --{{ key }} {{ value }}{% endfor %}
+  when: pve_vms_changes | length > 0
+  changed_when: true
+
+# OVMF keeps its variables on a disk of its own. Secure Boot keys are not
+# pre-enrolled: the guest boots signed Ubuntu either way, and unsigned
+# out-of-tree drivers stay possible.
+- name: "Add the EFI variables disk to {{ pve_vms_name }}"
+  ansible.builtin.command: >-
+    qm set {{ pve_vms_spec.vmid }}
+    --efidisk0 {{ pve_vms_storage }}:1,efitype=4m,pre-enrolled-keys=0
+  when: pve_vms_needs_efidisk
+  changed_when: true
+
+- name: "Read the power state of {{ pve_vms_name }}"
+  ansible.builtin.command: qm status {{ pve_vms_spec.vmid }}
+  register: pve_vms_status
+  changed_when: false
+
+# Hardware changes on a running VM are pending until it is powered off. Shut
+# it down cleanly (never `qm stop`: a GPU without function-level reset would
+# not come back) and start it again below.
+- name: "Shut down for hardware changes on {{ pve_vms_name }}"
+  ansible.builtin.command: qm shutdown {{ pve_vms_spec.vmid }} --timeout {{ pve_vms_ssh_timeout }}
+  when:
+    - "'status: running' in pve_vms_status.stdout"
+    - pve_vms_changes | length > 0 or pve_vms_needs_efidisk
+  register: pve_vms_shutdown
+  changed_when: true
+
+- name: "Start {{ pve_vms_name }}"
+  ansible.builtin.command: qm start {{ pve_vms_spec.vmid }}
+  when: "'status: running' not in pve_vms_status.stdout or pve_vms_shutdown is not skipped"
+  changed_when: true
+
+- name: "Wait for SSH on {{ pve_vms_name }}"
+  ansible.builtin.wait_for:
+    host: "{{ hostvars[pve_vms_name].ansible_host }}"
+    port: 22
+    timeout: "{{ pve_vms_ssh_timeout }}"

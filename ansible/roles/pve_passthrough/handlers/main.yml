@@ -1,0 +1,18 @@
+---
+- name: Update initramfs
+  ansible.builtin.command: update-initramfs -u -k all
+  changed_when: true
+  notify: Reboot host
+
+- name: Update bootloader
+  ansible.builtin.command: >-
+    {{ 'update-grub' if pve_passthrough_bootloader == 'grub' else 'proxmox-boot-tool refresh' }}
+  changed_when: true
+  notify: Reboot host
+
+# A warm reboot. Cards without a function-level reset (Tonga) also need one
+# cold power cycle after the very first setup so they start untouched.
+- name: Reboot host
+  ansible.builtin.reboot:
+    reboot_timeout: 600
+  when: pve_passthrough_reboot

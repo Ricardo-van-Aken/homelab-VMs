@@ -11,9 +11,9 @@ jellyfin_uid: 2000
 # Which of the host's GPUs (gpu_vendors) Jellyfin transcodes on; empty means
 # software transcoding. Defaults to the first one.
 jellyfin_gpu_vendor: "{{ gpu_vendors[0] if gpu_vendors | length > 0 else '' }}"
-# AMD/Intel: device path passed to the container. /dev/dri exposes every GPU;
-# pin one with a stable path such as /dev/dri/by-path/pci-0000:01:00.0-render,
-# which the container then sees as /dev/dri/renderD128 (Jellyfin's default).
-jellyfin_gpu_device: /dev/dri
+# AMD/Intel: render node passed to the container, as a stable path such as
+# /dev/dri/by-path/pci-0000:01:00.0-render; the container sees it as
+# /dev/dri/renderD128 (Jellyfin's default). Empty exposes all of /dev/dri.
+jellyfin_gpu_device: ""
 # NVIDIA: all, or one GPU's UUID or index.
 jellyfin_nvidia_devices: all

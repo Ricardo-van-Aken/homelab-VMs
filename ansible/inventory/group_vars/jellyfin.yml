@@ -4,3 +4,9 @@
 jellyfin_published_url: "http://{{ ansible_host }}:8096"
 # Which of the host's GPUs Jellyfin transcodes on; empty for software only.
 jellyfin_gpu_vendor: "{{ gpu_vendors[0] if gpu_vendors | length > 0 else '' }}"
+# Media library root; the VM mounts its media shares (pve_vm.shares) under it.
+jellyfin_media_path: /srv/media
+# Render node of the GPU Jellyfin uses, by its address inside the VM. hostpci0
+# with pcie=1 lands on the first PCIe root port, which the guest sees as
+# 01:00.0; check with `ls -l /dev/dri/by-path` on the VM. Empty means any GPU.
+jellyfin_gpu_device: /dev/dri/by-path/pci-0000:01:00.0-render

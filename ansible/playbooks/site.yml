@@ -1,8 +1,18 @@
 ---
+- name: Proxmox hosts
+  hosts: proxmox
+  roles:
+    - role: pve_passthrough  # only for hosts that pass a GPU to a VM
+      when: pve_passthrough_devices | default([]) | length > 0
+    - pve_storage
+    - pve_template
+    - pve_vms
+
 - name: Base configuration for every VM
-  hosts: all
+  hosts: vms
   roles:
     - base
+    - shares
 
 - name: Jellyfin media servers
   hosts: jellyfin

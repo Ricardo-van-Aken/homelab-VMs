@@ -1,0 +1,15 @@
+---
+# Passthrough is opt-in: the playbook applies this role only to hosts that
+# list devices. A host without them keeps its GPU, console and kernel
+# parameters as they are.
+pve_passthrough_iommu: intel  # intel or amd
+pve_passthrough_devices: []   # PCI functions to bind to vfio-pci, e.g. "0000:84:00.0"
+pve_passthrough_gpu_vendors: []  # amd, nvidia, intel: host drivers to blacklist
+# Set false when the passed-through card is the host's only GPU: the kernel's
+# console framebuffer then stays off the card, otherwise the host initialises
+# it and cards without a function-level reset (e.g. Tonga) fail in the guest.
+pve_passthrough_host_console: true
+pve_passthrough_bootloader: grub  # grub or proxmox-boot-tool
+# Reboot the host when kernel parameters, modules or bindings changed. Only
+# a changed host reboots; a converged one never does.
+pve_passthrough_reboot: true

@@ -1,9 +1,11 @@
 ---
+# Shared by every scenario (see .config/molecule/config.yml). The instance is
+# a container: fake what the roles expect from a real VM.
 - name: Prepare
   hosts: all
   become: true
   tasks:
-    - name: Create media directory the role expects to be mounted
+    - name: Create media directory the jellyfin role expects to be mounted
       ansible.builtin.file:
         path: /srv/media
         state: directory
@@ -19,8 +21,8 @@
         group: root
         mode: "0755"
 
-    # The instance has no GPU. A node with the render device's major/minor
-    # lets Docker resolve the compose device mapping as on a real host.
+    # No GPU here. A node with the render device's major/minor lets the gpu
+    # role's check pass and Docker resolve the compose device mapping.
     - name: Create fake render device node
       ansible.builtin.command: mknod /dev/dri/renderD128 c 226 128
       args:
