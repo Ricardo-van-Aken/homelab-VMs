@@ -5,13 +5,16 @@
   hosts: all
   become: true
   tasks:
-    - name: Create media directory the jellyfin role expects to be mounted
+    - name: Create media directories the jellyfin role expects to be mounted
       ansible.builtin.file:
-        path: /srv/media
+        path: "{{ item }}"
         state: directory
         owner: root
         group: root
         mode: "0755"
+      loop:
+        - /srv/media
+        - /srv/media/movies  # a mounted share on the VM
 
     - name: Create DRM device directory
       ansible.builtin.file:

@@ -1,0 +1,176 @@
+---
+# First-run wizard and settings through the API. The wizard steps run once,
+# while StartupWizardCompleted is false; everything after logs in and
+# reconciles.
+- name: Wait for the Jellyfin API
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/System/Info/Public"
+  register: jellyfin_public
+  # A 200 with a partial body is possible while the server is still starting.
+  until: jellyfin_public.status == 200 and jellyfin_public.json.StartupWizardCompleted is defined
+  retries: 30
+  delay: 5
+
+- name: Run the startup wizard
+  when: not jellyfin_public.json.StartupWizardCompleted
+  block:
+    - name: Set language and metadata defaults
+      ansible.builtin.uri:
+        url: "{{ jellyfin_api_url }}/Startup/Configuration"
+        method: POST
+        headers:
+          Authorization: "{{ jellyfin_api_client }}"
+        body_format: json
+        body:
+          UICulture: "{{ jellyfin_ui_culture }}"
+          MetadataCountryCode: "{{ jellyfin_metadata_country }}"
+          PreferredMetadataLanguage: "{{ jellyfin_metadata_language }}"
+        status_code: 204
+      changed_when: true
+
+    # Reading the user first is what the wizard does; it initialises the
+    # placeholder account the next call renames.
+    - name: Read the initial user
+      ansible.builtin.uri:
+        url: "{{ jellyfin_api_url }}/Startup/User"
+        headers:
+          Authorization: "{{ jellyfin_api_client }}"
+
+    - name: Create the admin user
+      ansible.builtin.uri:
+        url: "{{ jellyfin_api_url }}/Startup/User"
+        method: POST
+        headers:
+          Authorization: "{{ jellyfin_api_client }}"
+        body_format: json
+        body:
+          Name: "{{ jellyfin_admin_user }}"
+          Password: "{{ jellyfin_admin_password }}"
+        status_code: 204
+      changed_when: true
+      no_log: true
+
+    - name: Set remote access
+      ansible.builtin.uri:
+        url: "{{ jellyfin_api_url }}/Startup/RemoteAccess"
+        method: POST
+        headers:
+          Authorization: "{{ jellyfin_api_client }}"
+        body_format: json
+        body:
+          EnableRemoteAccess: "{{ jellyfin_remote_access }}"
+          EnableAutomaticPortMapping: false
+        status_code: 204
+      changed_when: true
+
+    - name: Complete the wizard
+      ansible.builtin.uri:
+        url: "{{ jellyfin_api_url }}/Startup/Complete"
+        method: POST
+        headers:
+          Authorization: "{{ jellyfin_api_client }}"
+        status_code: 204
+      changed_when: true
+
+- name: Log in as the admin
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Users/AuthenticateByName"
+    method: POST
+    headers:
+      Authorization: "{{ jellyfin_api_client }}"
+    body_format: json
+    body:
+      Username: "{{ jellyfin_admin_user }}"
+      Pw: "{{ jellyfin_admin_password }}"
+  register: jellyfin_login
+  no_log: true
+
+- name: Set the API token
+  ansible.builtin.set_fact:
+    jellyfin_auth: '{{ jellyfin_api_client }}, Token="{{ jellyfin_login.json.AccessToken }}"'
+  no_log: true
+
+# --- server name -------------------------------------------------------------
+- name: Read the server configuration
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/System/Configuration"
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+  register: jellyfin_config
+
+- name: Set the server name
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/System/Configuration"
+    method: POST
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+    body_format: json
+    body: "{{ jellyfin_config.json | combine({'ServerName': jellyfin_server_name}) }}"
+    status_code: 204
+  when: jellyfin_config.json.ServerName != jellyfin_server_name
+  changed_when: true
+
+# --- libraries ---------------------------------------------------------------
+# Jellyfin refuses a library path that does not exist. Container paths under
+# /media map to jellyfin_media_path on the VM.
+- name: Create library directories
+  ansible.builtin.file:
+    path: "{{ item | regex_replace('^/media', jellyfin_media_path) }}"
+    state: directory
+    owner: "{{ jellyfin_user }}"
+    group: "{{ jellyfin_user }}"
+    mode: "0755"
+  loop: "{{ jellyfin_libraries | map(attribute='paths') | flatten | select('match', '^/media/') | list }}"
+
+- name: Read the libraries
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Library/VirtualFolders"
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+  register: jellyfin_folders
+
+- name: Create missing libraries
+  vars:
+    jellyfin_library_query: "name={{ item.name | urlencode }}&collectionType={{ item.type }}&refreshLibrary=true"
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Library/VirtualFolders?{{ jellyfin_library_query }}"
+    method: POST
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+    body_format: json
+    body:
+      LibraryOptions:
+        PathInfos: "{{ item.paths | map('community.general.dict_kv', 'Path') | list }}"
+    status_code: 204
+  loop: "{{ jellyfin_libraries }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in (jellyfin_folders.json | map(attribute='Name') | list)
+  changed_when: true
+
+# --- hardware transcoding ----------------------------------------------------
+- name: Read the encoding configuration
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/System/Configuration/encoding"
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+  register: jellyfin_encoding
+
+- name: Set hardware transcoding
+  vars:
+    wanted:
+      HardwareAccelerationType: "{{ jellyfin_hw_acceleration[jellyfin_gpu_vendor] | default('none') }}"
+      VaapiDevice: "{{ jellyfin_vaapi_device }}"
+      EnableHardwareEncoding: "{{ jellyfin_gpu_vendor | length > 0 }}"
+      HardwareDecodingCodecs: "{{ jellyfin_hw_decoding_codecs if jellyfin_gpu_vendor else [] }}"
+    current: "{{ jellyfin_encoding.json }}"
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/System/Configuration/encoding"
+    method: POST
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+    body_format: json
+    body: "{{ current | combine(wanted) }}"
+    status_code: 204
+  when: current | combine(wanted) != current
+  changed_when: true

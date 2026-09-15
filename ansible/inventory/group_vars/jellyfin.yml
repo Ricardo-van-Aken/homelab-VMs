@@ -10,3 +10,69 @@ jellyfin_media_path: /srv/media
 # with pcie=1 lands on the first PCIe root port, which the guest sees as
 # 01:00.0; check with `ls -l /dev/dri/by-path` on the VM. Empty means any GPU.
 jellyfin_gpu_device: /dev/dri/by-path/pci-0000:01:00.0-render
+# The R9 380X (Tonga) decodes H.264, MPEG-2 and VC-1 only.
+jellyfin_hw_decoding_codecs: [h264, mpeg2video, vc1]
+
+# First-run setup (see roles/jellyfin/defaults). The wizard runs once with
+# these; change the password afterwards in Jellyfin itself.
+jellyfin_server_name: Jelly
+jellyfin_metadata_country: NL
+jellyfin_admin_user: Admin
+jellyfin_admin_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          34336366386266333965333562616331396266323238386336306633653865376665396136633139
+          3739616562623430633164623039336465393166313135630a616361313965353162623334613631
+          37363561666335386237613238663736373965643632303232626565333631653436313735323431
+          6631303839393134300a386133303763396632646433346334626134663434386464343436306566
+          32306539643435653437336131323032326633643765643965313534376131666661393931623734
+          6231356362656536643366346261646162363939396564303663
+
+# Libraries, as folders inside the movies, series and music shares; paths are
+# as the container sees them (/media is jellyfin_media_path). Placeholder
+# names.
+jellyfin_libraries:
+  - name: Series - Sitcom
+    type: tvshows
+    paths: [/media/series/sitcom]
+  - name: Series - Fantasy
+    type: tvshows
+    paths: [/media/series/fantasy]
+  - name: Series - Documentary
+    type: tvshows
+    paths: [/media/series/documentary]
+  - name: Series - Comedy
+    type: tvshows
+    paths: [/media/series/comedy]
+  - name: Movies - Disney
+    type: movies
+    paths: [/media/movies/disney]
+  - name: Movies - Superhero
+    type: movies
+    paths: [/media/movies/superhero]
+  - name: Movies - Action
+    type: movies
+    paths: [/media/movies/action]
+  - name: Movies - Fantasy
+    type: movies
+    paths: [/media/movies/fantasy]
+  - name: Movies - Documentary
+    type: movies
+    paths: [/media/movies/documentary]
+  - name: Movies - Comedy
+    type: movies
+    paths: [/media/movies/comedy]
+  - name: Music - Hardcore
+    type: music
+    paths: [/media/music/hardcore]
+  - name: Music - DnB
+    type: music
+    paths: [/media/music/drum-and-bass]
+  - name: Music - Electronic
+    type: music
+    paths: [/media/music/electronic]
+  - name: Music - Pop
+    type: music
+    paths: [/media/music/pop]
+  - name: Music - R&B
+    type: music
+    paths: [/media/music/rnb]
