@@ -10,6 +10,8 @@
     gpu_firmware_packages: "{{ gpu_vendors | map('extract', gpu_vendor_packages, 'firmware') | flatten | unique }}"
     gpu_packages_i386: "{{ gpu_vendors | map('extract', gpu_vendor_packages, 'i386') | flatten | unique }}"
     gpu_nvidia: "{{ 'nvidia' in gpu_vendors }}"
+    # amd and intel expose the card through the DRM subsystem as /dev/dri
+    gpu_expects_dri: "{{ gpu_vendors | intersect(['amd', 'intel']) | length > 0 }}"
 
 - name: Install GPU firmware
   ansible.builtin.apt:
@@ -18,7 +20,44 @@
     update_cache: true
     cache_valid_time: 3600
   when: gpu_firmware_packages | length > 0
-  notify: Reboot for GPU firmware
+
+# The driver binds the card at boot, and only with its firmware present. A
+# host without /dev/dri has not booted with the firmware yet; reboot it now so
+# everything after this role finds the GPU. Healthy hosts never reboot.
+- name: Check whether the GPU driver has bound a device
+  ansible.builtin.stat:
+    path: /dev/dri
+  register: gpu_dri
+  when: gpu_expects_dri
+
+- name: Reboot so the driver loads with its firmware
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+  when:
+    - gpu_expects_dri
+    - not gpu_dri.stat.exists
+    - ansible_facts.virtualization_type in ['kvm', 'qemu']
+
+- name: Re-check the GPU device after boot
+  ansible.builtin.stat:
+    path: /dev/dri
+  register: gpu_dri
+  when: gpu_expects_dri
+
+- name: Assert the GPU is usable
+  ansible.builtin.assert:
+    that: gpu_dri.stat.exists
+    fail_msg: >-
+      /dev/dri is missing on {{ inventory_hostname }} even after a reboot.
+      Check that the GPU is passed through (lspci -nnk) and why the driver
+      did not bind it (dmesg | grep -iE 'amdgpu|i915|drm|nvidia').
+      A firmware load failure (for amdgpu: 'SMU load firmware failed') means
+      the card still holds state from an earlier driver load; a reboot does
+      not clear that on cards without function-level reset. Cold power cycle
+      the Proxmox host: shut down every VM, run `poweroff` on the host, wait
+      until it is fully off (fans stopped, about 30 seconds), power it on
+      again with the button, IPMI or Wake-on-LAN, then rerun this playbook.
+  when: gpu_expects_dri
 
 - name: Install GPU userspace packages
   ansible.builtin.apt:

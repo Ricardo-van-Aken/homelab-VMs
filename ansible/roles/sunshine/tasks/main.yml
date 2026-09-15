@@ -60,6 +60,16 @@
     path: "/run/user/{{ sunshine_uid }}/bus"
     timeout: 30
 
+# Ansible's remote temp dir for tasks run as the user; created up front so
+# Ansible does not have to and warn about it.
+- name: Create the Ansible temp dir for the Sunshine user
+  ansible.builtin.file:
+    path: "/home/{{ sunshine_user }}/.ansible/tmp"
+    state: directory
+    owner: "{{ sunshine_user }}"
+    group: "{{ sunshine_user }}"
+    mode: "0700"
+
 - name: Enable Sunshine user service
   become: true
   become_user: "{{ sunshine_user }}"

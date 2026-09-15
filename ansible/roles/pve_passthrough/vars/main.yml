@@ -1,0 +1,9 @@
+---
+pve_passthrough_vendor_modules:
+  amd: [amdgpu, radeon]
+  nvidia: [nouveau, nvidia, nvidiafb]
+  intel: [i915, xe]
+pve_passthrough_vfio_modules:
+  - vfio
+  - vfio_iommu_type1
+  - vfio_pci

@@ -1,0 +1,23 @@
+---
+# Mounts the host datasets listed in this VM's definition (pve_vm.shares).
+# The virtiofs tag is the dataset name, as pve_vms configured it.
+- name: Create mount points
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ shares_mounts }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+# nofail: a VM whose share is missing still boots and stays reachable.
+- name: Mount shares
+  ansible.posix.mount:
+    src: "{{ item.dataset }}"
+    path: "{{ item.path }}"
+    fstype: virtiofs
+    opts: defaults,nofail
+    state: mounted
+  loop: "{{ shares_mounts }}"
+  loop_control:
+    label: "{{ item.dataset }} -> {{ item.path }}"

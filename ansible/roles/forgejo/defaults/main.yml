@@ -2,6 +2,9 @@
 # codeberg.org/forgejo/forgejo:11.0.16 (LTS line) -- digest pushed 2026-07-09 10:21 UTC
 forgejo_image: codeberg.org/forgejo/forgejo@sha256:946243edbab116d5bb78b73ea68af6f3d69229ba1b1ed958dd82c3481167f3e0
 forgejo_dir: /opt/stacks/forgejo
+# Repositories and database. Point it at a mounted share to keep the data
+# apart from the VM.
+forgejo_data_dir: "{{ forgejo_dir }}/data"
 
 # Service account owning the data directory; the container's git user maps
 # to the same ids.

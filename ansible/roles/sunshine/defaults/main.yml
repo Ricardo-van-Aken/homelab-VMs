@@ -3,8 +3,8 @@
 # built per Ubuntu series and architecture; every asset used must have its
 # sha256 listed in sunshine_deb_checksums or the download is refused.
 sunshine_version: v2026.906.222525
-sunshine_ubuntu_release: "{{ ansible_distribution_version }}"
-sunshine_deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_architecture] }}"
+sunshine_ubuntu_release: "{{ ansible_facts.distribution_version }}"
+sunshine_deb_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts.architecture] }}"
 sunshine_deb_name: >-
   sunshine_{{ sunshine_version | regex_replace('^v', '') }}-1+ubuntu{{ sunshine_ubuntu_release
   }}_{{ sunshine_deb_arch }}.deb

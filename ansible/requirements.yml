@@ -8,7 +8,7 @@ roles:
   - name: geerlingguy.docker
     src: https://github.com/geerlingguy/ansible-role-docker.git
     scm: git
-    version: 9115e969c1e57a1639160d9af3477f09734c94ac  # 7.4.7
+    version: 1d3968dbf0df48515ffda0f6561cbd25206f502a  # 8.0.0
 
 collections:
   - name: community.docker

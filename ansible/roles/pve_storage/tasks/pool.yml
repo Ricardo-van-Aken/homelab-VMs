@@ -1,0 +1,93 @@
+---
+- name: Check the disks for {{ pve_storage_pool.name }}
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ pve_storage_pool.disks }}"
+  register: pve_storage_disks
+  failed_when: not pve_storage_disks.stat.exists
+  when: pve_storage_pool.name not in pve_storage_zpools.stdout_lines
+
+# No -f: zpool refuses disks that still carry a filesystem or pool label,
+# which is the protection wanted here. Wipe such disks deliberately first.
+- name: Create pool {{ pve_storage_pool.name }}
+  vars:
+    properties: "{{ pve_storage_root_properties | combine(pve_storage_pool.properties | default({})) }}"
+  ansible.builtin.command: >-
+    zpool create
+    {% for key, value in pve_storage_pool_options.items() %}-o {{ key }}={{ value }} {% endfor %}
+    {% for key, value in properties.items() %}-O {{ key }}={{ value }} {% endfor %}
+    {{ pve_storage_pool.name }} {{ pve_storage_pool.layout | default('') }}
+    {{ pve_storage_pool.disks | join(' ') }}
+  when: pve_storage_pool.name not in pve_storage_zpools.stdout_lines
+  changed_when: true
+
+- name: Create datasets of {{ pve_storage_pool.name }}
+  ansible.builtin.command: >-
+    zfs create
+    {% for key, value in (item.properties | default({})).items() %}-o {{ key }}={{ value }} {% endfor %}
+    {{ pve_storage_pool.name }}/{{ item.name }}
+  loop: "{{ pve_storage_pool.datasets | default([]) }}"
+  loop_control:
+    label: "{{ pve_storage_pool.name }}/{{ item.name }}"
+  when: pve_storage_pool.name ~ '/' ~ item.name not in pve_storage_datasets.stdout_lines
+  changed_when: true
+
+# Properties are read back and only set when they differ, so a converged
+# pool reports no change.
+- name: Read properties of {{ pve_storage_pool.name }}
+  ansible.builtin.command: >-
+    zfs get -H -o name,property,value
+    {{ (pve_storage_root_properties | combine(pve_storage_pool.properties | default({}))).keys() | join(',') }}
+    {{ pve_storage_pool.name }}
+  register: pve_storage_current
+  changed_when: false
+
+- name: Set properties of {{ pve_storage_pool.name }}
+  ansible.builtin.command: zfs set {{ item.key }}={{ item.value }} {{ pve_storage_pool.name }}
+  loop: "{{ pve_storage_root_properties | combine(pve_storage_pool.properties | default({})) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"
+  when: (pve_storage_pool.name ~ '\t' ~ item.key ~ '\t' ~ item.value) not in pve_storage_current.stdout_lines
+  changed_when: true
+
+# virtiofs passes ids through unchanged, so the owner set here is the uid
+# the service runs as inside its VM.
+- name: Set ownership of datasets on {{ pve_storage_pool.name }}
+  vars:
+    dataset: "{{ pve_storage_dataset_defaults | combine(item) }}"
+  ansible.builtin.file:
+    path: "/{{ pve_storage_pool.name }}/{{ dataset.name }}"
+    state: directory
+    owner: "{{ dataset.owner }}"
+    group: "{{ dataset.owner }}"
+    mode: "{{ dataset.mode }}"
+  loop: "{{ pve_storage_pool.datasets | default([]) }}"
+  loop_control:
+    label: "{{ pve_storage_pool.name }}/{{ item.name }}"
+
+# The mapping id is the dataset name; VMs mount it under that tag.
+- name: Create directory mappings for datasets on {{ pve_storage_pool.name }}
+  vars:
+    dataset: "{{ pve_storage_dataset_defaults | combine(item) }}"
+  ansible.builtin.command: >-
+    pvesh create /cluster/mapping/dir --id {{ dataset.name }}
+    --map node={{ ansible_facts.hostname }},path=/{{ pve_storage_pool.name }}/{{ dataset.name }}
+  loop: "{{ pve_storage_pool.datasets | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - dataset.share
+    - dataset.name not in (pve_storage_mappings.stdout | from_json | map(attribute='id'))
+  changed_when: true
+
+- name: Register Proxmox storages on {{ pve_storage_pool.name }}
+  ansible.builtin.command: >-
+    pvesm add zfspool {{ item.storage }}
+    --pool {{ pve_storage_pool.name }}/{{ item.name }}
+    --content {{ item.content | default('images,rootdir') }}
+    --sparse 1
+  loop: "{{ pve_storage_pool.datasets | default([]) | selectattr('storage', 'defined') }}"
+  loop_control:
+    label: "{{ item.storage }}"
+  when: pve_storage_pvesm.stdout_lines | select('match', '^' ~ item.storage ~ '\\s') | length == 0
+  changed_when: true
