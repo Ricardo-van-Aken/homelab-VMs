@@ -90,6 +90,17 @@
   register: pve_vms_shutdown
   changed_when: true
 
+# qm shutdown returns once the guest acknowledges; the process may still be
+# on its way down. Fail here, with the guest's state, rather than at start.
+- name: "Wait for the shutdown of {{ pve_vms_name }}"
+  ansible.builtin.command: qm status {{ pve_vms_spec.vmid }}
+  register: pve_vms_stopped
+  until: "'status: stopped' in pve_vms_stopped.stdout"
+  retries: "{{ (pve_vms_ssh_timeout / 5) | int }}"
+  delay: 5
+  changed_when: false
+  when: pve_vms_shutdown is not skipped
+
 - name: "Start {{ pve_vms_name }}"
   ansible.builtin.command: qm start {{ pve_vms_spec.vmid }}
   when: "'status: running' not in pve_vms_status.stdout or pve_vms_shutdown is not skipped"

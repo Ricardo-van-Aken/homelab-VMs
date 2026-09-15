@@ -25,3 +25,37 @@
       retries: 30
       delay: 5
       until: jellyfin_health.status == 200
+
+    - name: Read public server info
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8096/System/Info/Public
+      register: jellyfin_public
+
+    - name: Assert the startup wizard was completed by the role
+      ansible.builtin.assert:
+        that: jellyfin_public.json.StartupWizardCompleted
+
+    - name: Log in with the admin created by the role
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8096/Users/AuthenticateByName
+        method: POST
+        headers:
+          Authorization: MediaBrowser Client="Molecule", Device="verify", DeviceId="verify", Version="1.0"
+        body_format: json
+        body:
+          Username: sysadmin
+          Pw: molecule
+      register: jellyfin_login
+
+    - name: Read the libraries
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8096/Library/VirtualFolders
+        headers:
+          Authorization: >-
+            MediaBrowser Client="Molecule", Device="verify", DeviceId="verify",
+            Version="1.0", Token="{{ jellyfin_login.json.AccessToken }}"
+      register: jellyfin_folders
+
+    - name: Assert the Movies library exists
+      ansible.builtin.assert:
+        that: "'Movies' in (jellyfin_folders.json | map(attribute='Name') | list)"

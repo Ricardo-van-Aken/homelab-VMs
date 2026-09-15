@@ -74,4 +74,6 @@ setting belongs (a Forgejo password goes in `group_vars/forgejo.yml`, not
 create fully encrypted vars files: they cannot be parsed without the password
 and break lint and CI. Do not add `vault_password_file` to `ansible.cfg` for
 the same reason; runs take `--ask-vault-pass` or `ANSIBLE_VAULT_PASSWORD_FILE`.
-Tasks that handle a secret carry `no_log: true`.
+Tasks that handle a secret carry `no_log: true`. Placeholders for secrets
+are vaulted too, encrypted with a throwaway password, so a run that still
+carries one fails to decrypt instead of applying a known value.

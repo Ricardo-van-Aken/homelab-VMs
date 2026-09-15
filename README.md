@@ -184,11 +184,15 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
 <summary><h3 id="arcade" style="display:inline; margin:0; vertical-align:middle">arcade</h3></summary>
 
 * Attach a dummy HDMI plug or set `desktop_force_connector`.
+* Replace the placeholder `jellyfin_admin_password` in `group_vars/jellyfin.yml`
+  with a `!vault` value (see Secrets). The role runs Jellyfin's setup wizard
+  with it: admin user, libraries from `jellyfin_libraries`, hardware
+  transcoding. Leave it empty to do the wizard in the browser instead.
 * The first run installs GPU firmware and reboots once, as does any run that
   finds the GPU driver not yet bound.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit arcade
+ansible-playbook playbooks/site.yml --limit arcade --ask-vault-pass
 ```
 
 </details>
@@ -252,7 +256,7 @@ In the order the playbook runs them.
 | desktop         | Xorg + LightDM autologin + openbox session for `gamer`       |
 | steam           | Steam with i386 libraries, gamemode, mangohud                |
 | sunshine        | Sunshine .deb, config, apps, user service                    |
-| jellyfin        | Jellyfin compose stack with GPU render node                  |
+| jellyfin        | Jellyfin compose stack, GPU render node, wizard via API      |
 | forgejo         | Forgejo compose stack (sqlite, closed registration, admin)   |
 
 </details>

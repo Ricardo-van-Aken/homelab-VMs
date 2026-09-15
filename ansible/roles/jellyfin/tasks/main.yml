@@ -59,3 +59,7 @@
     project_src: "{{ jellyfin_dir }}"
     state: present
     remove_orphans: true
+
+- name: Configure Jellyfin through its API
+  ansible.builtin.include_tasks: setup.yml
+  when: jellyfin_admin_password | length > 0
