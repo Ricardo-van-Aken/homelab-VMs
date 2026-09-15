@@ -2,4 +2,18 @@
 # Game streaming settings (Steam + Sunshine on an auto-login session); they
 # follow the service to whichever VM hosts it.
 desktop_user: gamer  # owns the session, Steam and Sunshine
+desktop_xorg_driver: modesetting  # amdgpu, intel or nvidia for a vendor DDX
 sunshine_origin_web_ui_allowed: lan  # who may open the Sunshine web UI
+
+# The GPU Xorg and Sunshine use, by its address inside the VM. hostpci0 with
+# pcie=1 lands on the first PCIe root port, which the guest sees as 01:00.0;
+# check with `lspci` and `ls -l /dev/dri/by-path` on the VM. Empty means any
+# GPU.
+desktop_gpu_bus_id: PCI:1:0:0
+sunshine_adapter: /dev/dri/by-path/pci-0000:01:00.0-render
+
+# Headless GPU: force a connector on so Xorg finds a screen without a monitor.
+# Find the name with `ls /sys/class/drm` on the VM (card1-HDMI-A-1 -> HDMI-A-1).
+# Leave empty when a dummy HDMI plug is attached.
+desktop_force_connector: ""
+desktop_force_mode: 1920x1080@60

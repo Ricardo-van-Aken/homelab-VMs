@@ -1,0 +1,28 @@
+---
+- name: List existing pools
+  ansible.builtin.command: zpool list -H -o name
+  register: pve_storage_zpools
+  changed_when: false
+
+- name: List existing datasets
+  ansible.builtin.command: zfs list -H -o name
+  register: pve_storage_datasets
+  changed_when: false
+
+- name: List Proxmox storages
+  ansible.builtin.command: pvesm status
+  register: pve_storage_pvesm
+  changed_when: false
+
+# Directory mappings are what a VM's virtiofs share points at.
+- name: List directory mappings
+  ansible.builtin.command: pvesh get /cluster/mapping/dir --output-format json
+  register: pve_storage_mappings
+  changed_when: false
+
+- name: Manage each pool
+  ansible.builtin.include_tasks: pool.yml
+  loop: "{{ pve_storage_pools }}"
+  loop_control:
+    loop_var: pve_storage_pool
+    label: "{{ pve_storage_pool.name }}"

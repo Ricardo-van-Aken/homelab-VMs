@@ -1,0 +1,21 @@
+---
+# Settings shared by every Proxmox host. Proxmox has no sudo; connect as root.
+ansible_user: root
+ansible_become: false
+
+# Cloud-init template that VMs are cloned from (role pve_template).
+pve_template_vmid: 1000
+pve_template_name: ubuntu-26.04-cloudimg
+pve_template_storage: local-lvm
+pve_template_bridge: vmbr0
+pve_template_disk_size: 20G
+# Public keys cloud-init installs for the `ubuntu` user on every clone.
+pve_template_ssh_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDEb07SmW4aQhUAC9ZKYBtaQ4XDnwDn03+mPR7cGmjJK ricardovanaken@Mac.localdomain
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP8fbzNpDy0ZkUiuOn899MIsR7cFVhOk6aG3ocdWx3YT rvake@DESKTOP-DK4AJRE
+
+# Network the VMs are on (role pve_vms). Each VM gets a static address via
+# cloud-init (determined by `ansible_host` in their corresponding
+# host_vars/<vmname>.yml), with this prefix length and gateway.
+pve_vms_network_prefix: 24
+pve_vms_gateway: 10.0.1.1

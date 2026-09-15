@@ -1,0 +1,4 @@
+---
+# Shares to mount: the VM's own definition by default, so the list lives in
+# one place (host_vars/<vm>.yml, pve_vm.shares).
+shares_mounts: "{{ pve_vm.shares | default([]) }}"

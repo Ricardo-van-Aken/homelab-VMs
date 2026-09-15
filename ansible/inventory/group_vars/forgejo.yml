@@ -1,12 +1,13 @@
 ---
-# Forgejo settings; they follow the service to whichever VM hosts it.
 # Clients reach Forgejo by the VM's address until a domain exists; then set
 # forgejo_domain to e.g. forge.home.example.com and resolve it locally.
 forgejo_domain: "{{ ansible_host }}"
+# Repositories and database, on the host's forgejo dataset (pve_vm.shares).
+forgejo_data_dir: /srv/forgejo
 forgejo_http_port: 3000
-forgejo_ssh_port: 2222  # keeps 22 for the VM's own sshd; clone URLs include it
+forgejo_ssh_port: 2222  # keeps 22 for the VM's own ssh
 
-# First admin account, created on the first run. "admin" is reserved.
+# First admin account, created on the first run.
 forgejo_admin_user: sysadmin
 
 forgejo_admin_email: !vault |

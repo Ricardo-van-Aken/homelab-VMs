@@ -1,0 +1,37 @@
+---
+# ZFS pools on the Proxmox host. A pool is created once, from empty disks,
+# and never recreated or destroyed; afterwards only dataset properties,
+# ownership and directory mappings are kept in line.
+#   pve_storage_pools:
+#     - name: tank
+#       layout: mirror              # mirror, raidz, raidz2, or "" for a stripe
+#       disks:                      # stable ids from /dev/disk/by-id, never sdX
+#         - /dev/disk/by-id/ata-...
+#       properties:                 # zfs properties set on the pool's root dataset
+#         compression: zstd
+#       datasets:
+#         - name: movies            # tank/movies, mounted at /tank/movies
+#           properties: {}          # zfs properties for this dataset
+#           owner: 2000             # uid/gid that own it; VMs see the same ids
+#           mode: "0750"
+#           share: true             # directory mapping so VMs can mount it
+#                                   # with virtiofs (pve_vm.shares); default true
+#           storage: tank-vms       # also register with Proxmox under this name
+#           content: images,rootdir # for VM disks and container roots
+pve_storage_pools: []
+
+# Applied to every pool at creation.
+pve_storage_pool_options:
+  ashift: "12"  # 4K sectors; right for every current disk
+pve_storage_root_properties:
+  compression: zstd
+  atime: "off"
+  xattr: sa
+  acltype: posixacl
+
+# Defaults for the optional dataset keys.
+pve_storage_dataset_defaults:
+  properties: {}
+  owner: root
+  mode: "0755"
+  share: true

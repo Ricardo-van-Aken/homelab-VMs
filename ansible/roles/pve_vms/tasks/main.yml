@@ -1,0 +1,37 @@
+---
+# Creates and reconciles the VMs defined in the inventory. A VM is cloned
+# once; afterwards only the settings in its pve_vm dict are kept in line.
+# VMs are never deleted.
+- name: Require a gateway for the static addresses
+  ansible.builtin.assert:
+    that: pve_vms_gateway | length > 0
+    fail_msg: set pve_vms_gateway in group_vars/proxmox.yml
+
+- name: Require an address and a definition for every VM
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].ansible_host is defined
+      - hostvars[item].pve_vm is defined
+    fail_msg: "{{ item }} needs ansible_host and a pve_vm dict in its host_vars"
+  loop: "{{ groups['vms'] }}"
+
+# The inventory name becomes the VM name, which Proxmox validates as a DNS
+# label: letters, digits and hyphens only.
+- name: Require DNS-safe VM names
+  ansible.builtin.assert:
+    that: item is match('^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$')
+    fail_msg: "{{ item }} is not a valid VM name; use letters, digits and hyphens"
+  loop: "{{ groups['vms'] }}"
+
+- name: Manage each VM on this node
+  ansible.builtin.include_tasks: vm.yml
+  loop: "{{ groups['vms'] }}"
+  loop_control:
+    loop_var: pve_vms_name
+  vars:
+    # The VMID is the last octet of the address: 10.0.1.160 -> 160.
+    pve_vms_spec: >-
+      {{ pve_vms_defaults
+         | combine({'vmid': hostvars[pve_vms_name].ansible_host | split('.') | last})
+         | combine(hostvars[pve_vms_name].pve_vm) }}
+  when: pve_vms_spec.node | default(groups['proxmox'] | first) == inventory_hostname

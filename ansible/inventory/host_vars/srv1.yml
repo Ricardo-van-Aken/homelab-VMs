@@ -1,0 +1,48 @@
+---
+# Facts about this machine.
+ansible_host: 10.0.1.200
+
+# --- GPU passthrough (role pve_passthrough) ----------------------------------
+pve_passthrough_iommu: intel  # intel or amd, after the CPU
+# PCI functions handed to VMs, as `lspci -D` prints them on the host. List
+# every function of a card (GPU and its HDMI audio).
+pve_passthrough_devices:
+  - "0000:84:00.0"  # Radeon R9 380X
+  - "0000:84:00.1"  # its HDMI audio
+# Vendors of the cards above. Their drivers on the host will be 'blacklisted',
+# so they don't run on the host.
+pve_passthrough_gpu_vendors: [amd]
+# For my case, currently the passed-through GPU is the host's only GPU. We need
+# to make sure the host will not use this GPU, so we can pass it to VM. The
+# hosts kernel will attempt to start the console using the GPU, so we need to
+# disable this.
+pve_passthrough_host_console: false
+# grub, or proxmox-boot-tool for ZFS-root installs that boot via the ESP.
+pve_passthrough_bootloader: grub
+
+# --- ZFS pools (role pve_storage) --------------------------------------------
+# Disks by stable id: `ls -l /dev/disk/by-id`.
+# A pool is created only when absent. Created pools are never destroyed by our
+# Ansible.
+pve_storage_pools:
+  - name: tank
+    layout: mirror
+    disks:
+      - /dev/disk/by-id/ata-ST8000VN004-2M2101_WSD8PP01
+      - /dev/disk/by-id/ata-ST8000VN004-2M2101_WSD8PP4M
+    # owner: the uid the service runs as in its VM (jellyfin_uid, desktop_uid,
+    # forgejo_uid); virtiofs passes ids through unchanged.
+    datasets:
+      - name: movies  # Jellyfin
+        owner: 2000
+        properties:
+          recordsize: 1M  # large sequential files
+      - name: music  # Jellyfin
+        owner: 2000
+        properties:
+          recordsize: 1M
+      - name: games  # Steam library, owned by the desktop user
+        owner: 2002
+      - name: forgejo  # repositories and database
+        owner: 2001
+      # later: minecraft, s3, forgejo-runners

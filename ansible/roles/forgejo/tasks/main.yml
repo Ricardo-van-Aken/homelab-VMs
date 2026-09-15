@@ -24,7 +24,7 @@
     mode: "0750"
   loop:
     - "{{ forgejo_dir }}"
-    - "{{ forgejo_dir }}/data"
+    - "{{ forgejo_data_dir }}"
 
 - name: Render compose file
   ansible.builtin.template:

@@ -1,4 +1,23 @@
 ---
+- name: Check the render device exists
+  when: jellyfin_gpu_vendor in ['amd', 'intel']
+  block:
+    - name: Stat GPU device
+      ansible.builtin.stat:
+        path: "{{ jellyfin_gpu_device | default('/dev/dri', true) }}"
+      register: jellyfin_gpu_stat
+
+    - name: Fail early when the GPU is not usable
+      ansible.builtin.assert:
+        that: jellyfin_gpu_stat.stat.exists
+        fail_msg: >-
+          {{ jellyfin_gpu_device | default('/dev/dri', true) }} does not exist
+          on {{ inventory_hostname }}.
+          Check that the GPU is passed through (lspci), that its firmware is
+          installed and the VM rebooted since, and that the driver bound it
+          (dmesg | grep -i drm). Set jellyfin_gpu_vendor to '' for software
+          transcoding.
+
 - name: Create Jellyfin service account
   ansible.builtin.user:
     name: "{{ jellyfin_user }}"

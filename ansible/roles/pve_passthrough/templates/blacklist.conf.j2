@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+# Host drivers for GPUs that are passed through to VMs.
+{% for module in pve_passthrough_blacklist_modules %}
+blacklist {{ module }}
+{% endfor %}

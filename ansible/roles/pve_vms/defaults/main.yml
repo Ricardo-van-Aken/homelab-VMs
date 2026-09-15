@@ -1,0 +1,34 @@
+---
+# Template every VM is cloned from (built by pve_template).
+pve_vms_template_vmid: "{{ pve_template_vmid }}"
+# Storage for full clones and EFI disks.
+pve_vms_storage: "{{ pve_template_storage }}"
+# Seconds to wait for a VM to answer on SSH after it is started.
+pve_vms_ssh_timeout: 300
+# VMs get a static address from cloud-init: ansible_host in this network.
+pve_vms_network_prefix: 24
+pve_vms_gateway: ""  # required, e.g. 10.0.1.1
+
+# Each VM is a host in the `vms` group with an ansible_host and a `pve_vm`
+# dict. Its VMID is the last octet of ansible_host (10.0.1.160 -> 160).
+#   pve_vm:
+#     node: srv1           # Proxmox host it runs on; default: the only one
+#     cores: 4
+#     memory: 8192         # MiB, the maximum
+#     balloon: 2048        # MiB kept at least; the balloon driver gives the rest
+#                          # back to the host. Omit to leave ballooning alone.
+#     bios: seabios        # or ovmf, which gets an EFI disk
+#     vga: serial0         # none when a passed-through GPU is the display
+#     hostpci:             # PCI devices from pve_passthrough_devices, as
+#       - 0000:84:00,pcie=1,x-vga=1   # `qm set --hostpciN` takes them
+#     shares:              # host datasets (pve_storage) mounted with virtiofs;
+#       - dataset: movies  # the guest mounts the tag at path (role shares)
+#         path: /srv/media/movies
+# Defaults for the optional keys:
+pve_vms_defaults:
+  cores: 2
+  memory: 2048
+  bios: seabios
+  vga: serial0
+  hostpci: []
+  shares: []

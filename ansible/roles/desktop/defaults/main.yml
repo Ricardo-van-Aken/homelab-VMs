@@ -1,6 +1,9 @@
 ---
-# Unprivileged user that owns the graphical session, Steam and Sunshine.
+# Unprivileged user that owns the graphical session, Steam and Sunshine. The
+# uid is fixed so a host dataset owned by it (the games share) stays owned
+# by it on any VM.
 desktop_user: gamer
+desktop_uid: 2002
 desktop_user_groups:
   - audio
   - video

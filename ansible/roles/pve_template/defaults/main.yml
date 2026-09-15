@@ -1,0 +1,29 @@
+---
+pve_template_vmid: 1000
+pve_template_name: ubuntu-26.04-cloudimg
+pve_template_storage: local-lvm
+pve_template_bridge: vmbr0
+pve_template_disk_size: 20G
+pve_template_memory: 2048
+pve_template_cores: 2
+pve_template_ssh_keys: []
+
+# Ubuntu 26.04 cloud image, release serial 20260823 (immutable URL; `current`
+# moves). Checksum from that release's SHA256SUMS.
+pve_template_image_url: >-
+  https://cloud-images.ubuntu.com/releases/resolute/release-20260823/ubuntu-26.04-server-cloudimg-amd64.img
+pve_template_image_checksum: sha256:8196be9d7958059cb56c6c75c80fdf6cee8a8885bc149ea791d7db1c7ef93035
+pve_template_image_path: "/var/lib/vz/template/iso/{{ pve_template_name }}.img"
+
+# Packages baked into the image with virt-customize before import, so every
+# clone has them from its first boot. The guest agent lets Proxmox see the
+# VM's addresses and shut it down cleanly before any playbook has run.
+pve_template_packages:
+  - qemu-guest-agent
+# Kernel parameters for every clone. Proxmox writes its cloud-init network
+# config for `eth0`; with predictable names the guest has to rename `ens18`
+# and fails when the link is already up, leaving the VM on DHCP. Classic
+# names skip the rename.
+pve_template_kernel_parameters:
+  - net.ifnames=0
+pve_template_customized_image_path: "/var/lib/vz/template/iso/{{ pve_template_name }}-customized.img"

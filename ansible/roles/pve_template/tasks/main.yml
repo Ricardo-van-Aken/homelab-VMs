@@ -1,0 +1,130 @@
+---
+# Builds the cloud-init template once. A finished template is left alone;
+# an interrupted build resumes at the missing step.
+- name: Require SSH keys for the cloud-init user
+  ansible.builtin.assert:
+    that: pve_template_ssh_keys | length > 0
+    fail_msg: set pve_template_ssh_keys, otherwise clones have no way to log in
+
+- name: Read template VM config
+  ansible.builtin.command: qm config {{ pve_template_vmid }}
+  register: pve_template_config
+  failed_when: false
+  changed_when: false
+
+- name: Build the template
+  when: "'template: 1' not in pve_template_config.stdout"
+  block:
+    - name: Download the cloud image
+      ansible.builtin.get_url:
+        url: "{{ pve_template_image_url }}"
+        checksum: "{{ pve_template_image_checksum }}"
+        dest: "{{ pve_template_image_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install libguestfs for image customisation
+      ansible.builtin.apt:
+        name: libguestfs-tools
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    # The downloaded image stays pristine for its checksum; a copy is
+    # customised. machine-id is emptied so each clone generates its own.
+    - name: Check for a customised image from an interrupted run
+      ansible.builtin.stat:
+        path: "{{ pve_template_customized_image_path }}"
+      register: pve_template_customized
+
+    - name: Copy the image for customisation
+      ansible.builtin.copy:
+        src: "{{ pve_template_image_path }}"
+        dest: "{{ pve_template_customized_image_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      when: not pve_template_customized.stat.exists
+
+    - name: Bake packages and kernel parameters into the image
+      ansible.builtin.command:
+        argv:
+          - virt-customize
+          - -a
+          - "{{ pve_template_customized_image_path }}"
+          - --install
+          - "{{ pve_template_packages | join(',') }}"
+          - --truncate
+          - /etc/machine-id
+          - --write
+          - >-
+            /etc/default/grub.d/90-pve-template.cfg:GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT
+            {{ pve_template_kernel_parameters | join(' ') }}"
+          - --run-command
+          - update-grub
+      environment:
+        LIBGUESTFS_BACKEND: direct
+      when: not pve_template_customized.stat.exists
+      changed_when: true
+
+    - name: Create the VM
+      ansible.builtin.command: >-
+        qm create {{ pve_template_vmid }}
+        --name {{ pve_template_name }}
+        --ostype l26 --machine q35 --cpu host
+        --memory {{ pve_template_memory }} --cores {{ pve_template_cores }}
+        --net0 virtio,bridge={{ pve_template_bridge }}
+        --scsihw virtio-scsi-single
+        --agent enabled=1
+        --serial0 socket --vga serial0
+      when: pve_template_config.rc != 0
+      changed_when: true
+
+    - name: Import the cloud image as the system disk
+      ansible.builtin.command: >-
+        qm set {{ pve_template_vmid }}
+        --scsi0 {{ pve_template_storage }}:0,import-from={{ pve_template_customized_image_path }},iothread=1,discard=on
+      when: "'scsi0:' not in pve_template_config.stdout"
+      changed_when: true
+
+    - name: Grow the system disk
+      ansible.builtin.command: qm disk resize {{ pve_template_vmid }} scsi0 {{ pve_template_disk_size }}
+      when: "'scsi0:' not in pve_template_config.stdout"
+      changed_when: true
+
+    - name: Add the cloud-init drive
+      ansible.builtin.command: qm set {{ pve_template_vmid }} --ide2 {{ pve_template_storage }}:cloudinit
+      when: "'ide2:' not in pve_template_config.stdout"
+      changed_when: true
+
+    - name: Write SSH keys for cloud-init
+      ansible.builtin.copy:
+        dest: "/tmp/{{ pve_template_name }}.pub"
+        content: "{{ pve_template_ssh_keys | join('\n') }}\n"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Set boot order and cloud-init defaults
+      ansible.builtin.command: >-
+        qm set {{ pve_template_vmid }}
+        --boot order=scsi0
+        --ciuser ubuntu --sshkeys /tmp/{{ pve_template_name }}.pub
+        --ipconfig0 ip=dhcp
+      changed_when: true
+
+    - name: Remove the temporary key file
+      ansible.builtin.file:
+        path: "/tmp/{{ pve_template_name }}.pub"
+        state: absent
+
+    - name: Convert to template
+      ansible.builtin.command: qm template {{ pve_template_vmid }}
+      changed_when: true
+
+    - name: Remove the customised image
+      ansible.builtin.file:
+        path: "{{ pve_template_customized_image_path }}"
+        state: absent

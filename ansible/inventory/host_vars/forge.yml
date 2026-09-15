@@ -1,3 +1,0 @@
----
-# Facts about this machine. Service settings live in group_vars/<service>.yml.
-ansible_host: 10.0.1.110

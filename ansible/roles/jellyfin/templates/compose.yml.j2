@@ -11,8 +11,12 @@ services:
     group_add:
       - "{{ gpu_render_gid }}"
     devices:
-{# A single pinned node is exposed as renderD128, Jellyfin's default VA-API device. #}
-      - {{ jellyfin_gpu_device }}:{{ '/dev/dri' if jellyfin_gpu_device == '/dev/dri' else '/dev/dri/renderD128' }}
+{# A pinned node is exposed as renderD128, Jellyfin's default VA-API device. #}
+{% if jellyfin_gpu_device %}
+      - {{ jellyfin_gpu_device }}:/dev/dri/renderD128
+{% else %}
+      - /dev/dri:/dev/dri
+{% endif %}
 {% endif %}
     environment:
       TZ: {{ base_timezone }}

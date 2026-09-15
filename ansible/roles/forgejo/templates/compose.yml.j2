@@ -22,7 +22,7 @@ services:
       - "{{ forgejo_http_port }}:3000"
       - "{{ forgejo_ssh_port }}:22"
     volumes:
-      - {{ forgejo_dir }}/data:/data
+      - {{ forgejo_data_dir }}:/data
       - /etc/localtime:/etc/localtime:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/healthz"]

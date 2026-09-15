@@ -1,23 +1,27 @@
 ---
-# Facts about this machine. Service settings live in group_vars/<service>.yml.
+# Configuration of the VM. Service settings live in group_vars/<service>.yml.
 ansible_host: 10.0.1.160
 
-# GPUs in this VM: any of amd, intel, nvidia.
+# The VM as the Proxmox host builds it.
+# Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 160). There
+# is no hard requirement to do this, it is just personal preference.
+pve_vm:
+  cores: 8
+  memory: 16384
+  balloon: 4096  # reserved; the rest is given back when idle
+  bios: ovmf   # the passed-through card is the guest's display; it wants UEFI
+  vga: none
+  hostpci:
+    - 0000:84:00,pcie=1,x-vga=1  # Radeon R9 380X, both functions
+  # Host datasets (pve_storage on srv1) mounted with virtiofs.
+  shares:
+    - dataset: movies
+      path: /srv/media/movies
+    - dataset: music
+      path: /srv/media/music
+    - dataset: games
+      path: /srv/games
+
+# Vendors of the GPUs in this VM (hostpci above): any of amd, intel, nvidia.
+# Which GPU each service uses is set in group_vars/<service>.yml.
 gpu_vendors: [amd]
-
-# With more than one GPU, pin each service to its own. Stable device paths
-# come from `ls -l /dev/dri/by-path`, the bus id from `lspci` (01:00.0 ->
-# "PCI:1:0:0"). Empty means "the only GPU".
-jellyfin_gpu_device: /dev/dri  # or /dev/dri/by-path/pci-0000:01:00.0-render
-sunshine_adapter: ""           # e.g. /dev/dri/by-path/pci-0000:02:00.0-render
-desktop_gpu_bus_id: ""         # e.g. PCI:2:0:0
-desktop_xorg_driver: modesetting
-
-# Media library as mounted on the VM (NFS/SMB mount, virtiofs, or a disk).
-jellyfin_media_path: /srv/media
-
-# Headless GPU: force a connector on so Xorg finds a screen without a monitor.
-# Find the name with `ls /sys/class/drm` on the VM (card1-HDMI-A-1 -> HDMI-A-1).
-# Leave empty when a dummy HDMI plug is attached.
-desktop_force_connector: ""
-desktop_force_mode: 1920x1080@60
