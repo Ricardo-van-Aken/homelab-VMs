@@ -1,0 +1,4 @@
+---
+# Inherits .config/molecule/config.yml. A real smbd runs in the instance.
+scenario:
+  name: samba

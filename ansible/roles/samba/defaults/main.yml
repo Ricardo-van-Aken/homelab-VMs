@@ -1,0 +1,16 @@
+---
+# SMB file server for filling the media libraries from a laptop. One share
+# user; its uid is the datasets' owner (Jellyfin's) so uploaded files belong
+# to the service that reads them without a chown.
+samba_user: media
+samba_uid: 2000
+samba_password: ""  # a !vault value in group_vars; the role refuses to run without one
+# Shares: the name clients see, and the path on the VM (a mounted share from
+# pve_vm.shares).
+samba_shares: []
+#  - name: movies
+#    path: /srv/media/movies
+# Only these networks may connect.
+samba_allowed_networks:
+  - 10.0.1.0/24
+samba_workgroup: WORKGROUP

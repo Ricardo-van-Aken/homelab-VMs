@@ -1,0 +1,21 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars:
+    samba_password: molecule
+    samba_allowed_networks: [127.0.0.0/8]
+    samba_shares:
+      - name: movies
+        path: /srv/media
+  pre_tasks:
+    # On a VM the mounted dataset is owned by uid 2000 (pve_storage); mirror it.
+    - name: Give the share path the datasets' owner
+      ansible.builtin.file:
+        path: /srv/media
+        state: directory
+        owner: "2000"
+        group: "2000"
+        mode: "0755"
+  roles:
+    - samba
