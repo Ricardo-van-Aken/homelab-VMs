@@ -29,3 +29,8 @@
   hosts: forgejo
   roles:
     - forgejo  # depends on geerlingguy.docker role
+
+- name: File shares
+  hosts: samba
+  roles:
+    - samba

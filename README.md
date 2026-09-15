@@ -22,6 +22,8 @@ more services:
   * Sunshine: streams the desktop and games to Moonlight clients
 * **forgejo-git**: code hosting
   * Forgejo: Git forge with web UI and SSH access
+* **nas**: network share of the media library, for filling it from a laptop
+  * Samba: SMB shares of the movies, series and music datasets
 
 <details>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="prerequisites" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Prerequisites</h2></summary>
@@ -210,6 +212,23 @@ ansible-playbook playbooks/site.yml --limit forgejo-git --ask-vault-pass
 
 </details>
 
+<details>
+<summary><h3 id="nas" style="display:inline; margin:0; vertical-align:middle">nas</h3></summary>
+
+* Replace the encrypted `samba_password` in `group_vars/samba.yml` with your
+  own (see Secrets). It is set once; change it later with `smbpasswd media`
+  on the VM.
+
+```sh
+ansible-playbook playbooks/site.yml --limit nas --ask-vault-pass
+```
+
+Then connect from a laptop with `smb://10.0.1.120/movies` (or `series`,
+`music`) as user `media`. Files land in the datasets owned by Jellyfin's
+uid, so they show up in the library on the next scan.
+
+</details>
+
 </details>
 
 <details>
@@ -258,6 +277,7 @@ In the order the playbook runs them.
 | sunshine        | Sunshine .deb, config, apps, user service                    |
 | jellyfin        | Jellyfin compose stack, GPU render node, wizard via API      |
 | forgejo         | Forgejo compose stack (sqlite, closed registration, admin)   |
+| samba           | SMB shares of the mounted media datasets                     |
 
 </details>
 
@@ -300,6 +320,7 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | steam    | needs an amd64 host (i386 packages)                          |
 | jellyfin | Docker engine inside the instance; the compose stack really starts |
 | forgejo  | as jellyfin; also checks health, API and the admin account   |
+| samba    | real smbd; lists the share and writes a file through it       |
 
 </details>
 
@@ -335,6 +356,9 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
   * 22/tcp: SSH to the VM
   * 3000/tcp: Forgejo web UI and HTTP clone
   * 2222/tcp: Forgejo SSH clone
+* **nas** (10.0.1.120)
+  * 22/tcp: SSH
+  * 445/tcp: SMB shares
 
 </details>
 

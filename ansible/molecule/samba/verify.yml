@@ -1,0 +1,52 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read smbd state
+      ansible.builtin.systemd_service:
+        name: smbd
+      register: samba_smbd
+
+    - name: Assert smbd is running and nmbd is masked
+      ansible.builtin.assert:
+        that:
+          - samba_smbd.status.ActiveState == 'active'
+          - samba_smbd.status.UnitFileState == 'enabled'
+
+    - name: Install the SMB client
+      ansible.builtin.apt:
+        name: smbclient
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: List the shares as the share user
+      ansible.builtin.command: smbclient -L 127.0.0.1 -U media%molecule
+      register: samba_list
+      changed_when: false
+
+    - name: Assert the share is listed
+      ansible.builtin.assert:
+        that: (samba_list.stdout | regex_search('^\s*movies\s+Disk', multiline=True)) is not none
+
+    - name: Write a file through the share
+      ansible.builtin.shell: >-
+        set -o pipefail;
+        echo verify > /tmp/verify.txt &&
+        smbclient //127.0.0.1/movies -U media%molecule -c 'put /tmp/verify.txt verify.txt'
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Read the uploaded file's owner
+      ansible.builtin.stat:
+        path: /srv/media/verify.txt
+      register: samba_upload
+
+    - name: Assert the upload belongs to the datasets' owner
+      ansible.builtin.assert:
+        that:
+          - samba_upload.stat.exists
+          - samba_upload.stat.uid == 2000

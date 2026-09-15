@@ -1,0 +1,33 @@
+# {{ ansible_managed }}
+[global]
+    server role = standalone server
+    workgroup = {{ samba_workgroup }}
+    server string = {{ inventory_hostname }}
+    disable netbios = yes
+    smb ports = 445
+    server min protocol = SMB3
+    map to guest = never
+    hosts allow = {{ samba_allowed_networks | join(' ') }}
+    hosts deny = ALL
+    log level = 1
+    # The shares are virtiofs mounts, which carry neither ACLs nor extended
+    # attributes. Present plain POSIX permissions so clients do not try to set
+    # ACLs (macOS does on rename and delete, and fails), and keep Finder
+    # metadata in ._ sidecar files rather than xattrs.
+    nt acl support = no
+    ea support = no
+    store dos attributes = no
+    map archive = no
+    map hidden = no
+    map system = no
+
+{% for share in samba_shares %}
+[{{ share.name }}]
+    path = {{ share.path }}
+    valid users = {{ samba_user }}
+    read only = no
+    create mask = 0644
+    directory mask = 0755
+    browseable = yes
+
+{% endfor %}

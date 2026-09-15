@@ -1,0 +1,19 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+ansible_host: 10.0.1.120
+
+# The VM as the Proxmox host builds it.
+# Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 120). There
+# is no hard requirement to do this, it is just personal preference.
+pve_vm:
+  cores: 2
+  memory: 2048
+  # Host datasets (pve_storage on srv1) mounted with virtiofs; the samba role
+  # exports them (group_vars/samba.yml).
+  shares:
+    - dataset: movies
+      path: /srv/media/movies
+    - dataset: series
+      path: /srv/media/series
+    - dataset: music
+      path: /srv/media/music
