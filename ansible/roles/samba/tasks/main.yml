@@ -1,0 +1,62 @@
+---
+- name: Require a share password
+  ansible.builtin.assert:
+    that: samba_password | length > 0
+    fail_msg: set samba_password to a !vault value in group_vars/samba.yml
+
+- name: Install Samba
+  ansible.builtin.apt:
+    name: samba
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the share user
+  ansible.builtin.user:
+    name: "{{ samba_user }}"
+    uid: "{{ samba_uid }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: List Samba users
+  ansible.builtin.command: pdbedit -L
+  register: samba_users
+  changed_when: false
+
+# Set once. The stored hash cannot be compared with the variable, so a later
+# change is applied with `smbpasswd <user>` on the VM.
+- name: Set the share user's Samba password
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    printf '%s\n%s\n' {{ samba_password | quote }} {{ samba_password | quote }}
+    | smbpasswd -s -a {{ samba_user | quote }}
+  args:
+    executable: /bin/bash
+  when: samba_users.stdout_lines | select('match', '^' ~ samba_user ~ ':') | length == 0
+  changed_when: true
+  no_log: true
+
+- name: Write the Samba configuration
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: testparm -s %s
+  notify: Restart smbd
+
+# SMB over TCP only; the NetBIOS name service is not needed.
+- name: Disable nmbd
+  ansible.builtin.systemd_service:
+    name: nmbd
+    enabled: false
+    state: stopped
+    masked: true
+
+- name: Enable smbd
+  ansible.builtin.systemd_service:
+    name: smbd
+    enabled: true
+    state: started
