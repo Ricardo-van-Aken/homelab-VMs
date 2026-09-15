@@ -28,6 +28,8 @@ platforms:
 
 provisioner:
   name: ansible
+  playbooks:
+    prepare: ../prepare.yml  # relative to each scenario directory
   env:
     ANSIBLE_ROLES_PATH: >-
       ${MOLECULE_PROJECT_DIRECTORY}/roles:${MOLECULE_PROJECT_DIRECTORY}/galaxy_roles:/opt/venv/share/ansible/roles
