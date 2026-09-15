@@ -10,12 +10,18 @@ services:
 {% elif jellyfin_gpu_vendor %}
     group_add:
       - "{{ gpu_render_gid }}"
+{# Long form: by-path names contain colons, which the short host:container
+   form would misread as separators. A pinned node is exposed as renderD128,
+   Jellyfin's default VA-API device. #}
     devices:
-{# A pinned node is exposed as renderD128, Jellyfin's default VA-API device. #}
 {% if jellyfin_gpu_device %}
-      - {{ jellyfin_gpu_device }}:/dev/dri/renderD128
+      - source: {{ jellyfin_gpu_device }}
+        target: /dev/dri/renderD128
+        permissions: rwm
 {% else %}
-      - /dev/dri:/dev/dri
+      - source: /dev/dri
+        target: /dev/dri
+        permissions: rwm
 {% endif %}
 {% endif %}
     environment:

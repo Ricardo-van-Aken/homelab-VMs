@@ -2,5 +2,11 @@
 - name: Converge
   hosts: all
   become: true
+  vars:
+    jellyfin_admin_password: molecule
+    jellyfin_libraries:
+      - name: Movies
+        type: movies
+        paths: [/media/movies/a]
   roles:
     - jellyfin

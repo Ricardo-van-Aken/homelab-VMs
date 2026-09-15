@@ -41,6 +41,10 @@ pve_storage_pools:
         owner: 2000
         properties:
           recordsize: 1M
+      - name: series  # Jellyfin
+        owner: 2000
+        properties:
+          recordsize: 1M
       - name: games  # Steam library, owned by the desktop user
         owner: 2002
       - name: forgejo  # repositories and database

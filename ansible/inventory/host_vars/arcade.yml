@@ -19,6 +19,8 @@ pve_vm:
       path: /srv/media/movies
     - dataset: music
       path: /srv/media/music
+    - dataset: series
+      path: /srv/media/series
     - dataset: games
       path: /srv/games
 

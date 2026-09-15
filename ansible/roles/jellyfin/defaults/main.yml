@@ -17,3 +17,26 @@ jellyfin_gpu_vendor: "{{ gpu_vendors[0] if gpu_vendors | length > 0 else '' }}"
 jellyfin_gpu_device: ""
 # NVIDIA: all, or one GPU's UUID or index.
 jellyfin_nvidia_devices: all
+
+# First-run setup through the API, replacing the browser wizard. Runs only
+# while the wizard is pending, so an existing server is never reconfigured;
+# libraries and transcoding settings are reconciled on every run. Empty
+# password: the setup is skipped and the wizard stays for the browser.
+jellyfin_admin_user: sysadmin
+jellyfin_admin_password: ""  # put a !vault value in group_vars
+jellyfin_server_name: "{{ inventory_hostname }}"
+jellyfin_ui_culture: en-GB
+jellyfin_metadata_language: en
+jellyfin_metadata_country: GB
+jellyfin_remote_access: false  # LAN only; no UPnP port mapping either
+# Libraries, with paths as the container sees them (jellyfin_media_path is
+# mounted at /media). type: movies, tvshows, music, books, photos, ...
+jellyfin_libraries: []
+#  - name: Movies
+#    type: movies
+#    paths: [/media/movies]
+# Hardware transcoding, derived from jellyfin_gpu_vendor. Codecs the GPU can
+# decode; trim for older cards (the R9 380X has no HEVC or VP9 decoder).
+jellyfin_hw_decoding_codecs: [h264, hevc, mpeg2video, vc1, vp8, vp9, av1]
+jellyfin_vaapi_device: /dev/dri/renderD128  # inside the container
+jellyfin_api_url: http://127.0.0.1:8096

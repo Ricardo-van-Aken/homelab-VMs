@@ -1,0 +1,10 @@
+---
+# Jellyfin's HardwareAccelerationType per GPU vendor.
+jellyfin_hw_acceleration:
+  amd: vaapi
+  intel: vaapi
+  nvidia: nvenc
+
+# Jellyfin requires a client identity on every API call, token or not.
+jellyfin_api_client: >-
+  MediaBrowser Client="Ansible", Device="ansible", DeviceId="ansible-{{ inventory_hostname }}", Version="1.0"
