@@ -147,6 +147,115 @@
     label: "{{ item.name }}"
   when: item.name not in (jellyfin_folders.json | map(attribute='Name') | list)
   changed_when: true
+  register: jellyfin_created
+
+# The list is authoritative: libraries not in it are removed. Files stay.
+- name: Remove libraries not in the list
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Library/VirtualFolders?name={{ item | urlencode }}&refreshLibrary=true"
+    method: DELETE
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+    status_code: 204
+  loop: "{{ jellyfin_folders.json | map(attribute='Name') | difference(jellyfin_libraries | map(attribute='name')) }}"
+  changed_when: true
+  register: jellyfin_removed
+
+# Paths of existing libraries follow the list too.
+- name: Compute path changes for existing libraries
+  ansible.builtin.set_fact:
+    jellyfin_paths_add: >-
+      {%- set out = [] -%}
+      {%- for lib in jellyfin_libraries -%}
+      {%- for folder in jellyfin_folders.json if folder.Name == lib.name -%}
+      {%- for path in lib.paths if path not in folder.Locations -%}
+      {%- set _ = out.append({'name': lib.name, 'path': path}) -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ out }}
+    jellyfin_paths_remove: >-
+      {%- set out = [] -%}
+      {%- for lib in jellyfin_libraries -%}
+      {%- for folder in jellyfin_folders.json if folder.Name == lib.name -%}
+      {%- for path in folder.Locations if path not in lib.paths -%}
+      {%- set _ = out.append({'name': lib.name, 'path': path}) -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ out }}
+
+- name: Add paths to existing libraries
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Library/VirtualFolders/Paths"
+    method: POST
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+    body_format: json
+    body:
+      Name: "{{ item.name }}"
+      PathInfo:
+        Path: "{{ item.path }}"
+    status_code: 204
+  loop: "{{ jellyfin_paths_add }}"
+  loop_control:
+    label: "{{ item.name }}: {{ item.path }}"
+  changed_when: true
+
+- name: Remove paths from existing libraries
+  vars:
+    jellyfin_path_query: "name={{ item.name | urlencode }}&path={{ item.path | urlencode }}"
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Library/VirtualFolders/Paths?{{ jellyfin_path_query }}"
+    method: DELETE
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+    status_code: 204
+  loop: "{{ jellyfin_paths_remove }}"
+  loop_control:
+    label: "{{ item.name }}: {{ item.path }}"
+  changed_when: true
+
+# New content and the library tile collages appear after a scan; do not wait
+# for the scheduled one when libraries changed.
+- name: Scan the libraries
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Library/Refresh"
+    method: POST
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+    status_code: 204
+  when: >-
+    jellyfin_created is changed or jellyfin_removed is changed
+    or jellyfin_paths_add | length > 0 or jellyfin_paths_remove | length > 0
+  changed_when: true
+
+# --- users -------------------------------------------------------------------
+- name: Read the users
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Users"
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+  register: jellyfin_existing_users
+  no_log: true  # the response lists the user names
+
+# Created once with the given password; later changes happen in Jellyfin.
+- name: Create missing users
+  ansible.builtin.uri:
+    url: "{{ jellyfin_api_url }}/Users/New"
+    method: POST
+    headers:
+      Authorization: "{{ jellyfin_auth }}"
+    body_format: json
+    body:
+      Name: "{{ item.name }}"
+      Password: "{{ item.password }}"
+  loop: "{{ jellyfin_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in (jellyfin_existing_users.json | map(attribute='Name') | list)
+  changed_when: true
+  no_log: true
 
 # --- hardware transcoding ----------------------------------------------------
 - name: Read the encoding configuration

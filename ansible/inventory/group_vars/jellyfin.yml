@@ -27,52 +27,81 @@ jellyfin_admin_password: !vault |
           32306539643435653437336131323032326633643765643965313534376131666661393931623734
           6231356362656536643366346261646162363939396564303663
 
-# Libraries, as folders inside the movies, series and music shares; paths are
-# as the container sees them (/media is jellyfin_media_path). Placeholder
-# names.
+# One library per media type, each spanning the genre folders inside its
+# share; paths are as the container sees them (/media is jellyfin_media_path).
+# The home screen gets one "Latest ..." row per library; genres are browsed
+# through Jellyfin's metadata genre filter. Libraries not listed are removed.
 jellyfin_libraries:
-  - name: Series - Sitcom
+  - name: Movies
+    type: movies
+    paths:
+      - /media/movies/disney
+      - /media/movies/superhero
+      - /media/movies/action
+      - /media/movies/fantasy
+      - /media/movies/documentary
+      - /media/movies/comedy
+  - name: Series
     type: tvshows
-    paths: [/media/series/sitcom]
-  - name: Series - Fantasy
-    type: tvshows
-    paths: [/media/series/fantasy]
-  - name: Series - Documentary
-    type: tvshows
-    paths: [/media/series/documentary]
-  - name: Series - Comedy
-    type: tvshows
-    paths: [/media/series/comedy]
-  - name: Movies - Disney
-    type: movies
-    paths: [/media/movies/disney]
-  - name: Movies - Superhero
-    type: movies
-    paths: [/media/movies/superhero]
-  - name: Movies - Action
-    type: movies
-    paths: [/media/movies/action]
-  - name: Movies - Fantasy
-    type: movies
-    paths: [/media/movies/fantasy]
-  - name: Movies - Documentary
-    type: movies
-    paths: [/media/movies/documentary]
-  - name: Movies - Comedy
-    type: movies
-    paths: [/media/movies/comedy]
-  - name: Music - Hardcore
+    paths:
+      - /media/series/sitcom
+      - /media/series/fantasy
+      - /media/series/documentary
+      - /media/series/comedy
+  - name: Music
     type: music
-    paths: [/media/music/hardcore]
-  - name: Music - DnB
-    type: music
-    paths: [/media/music/drum-and-bass]
-  - name: Music - Electronic
-    type: music
-    paths: [/media/music/electronic]
-  - name: Music - Pop
-    type: music
-    paths: [/media/music/pop]
-  - name: Music - R&B
-    type: music
-    paths: [/media/music/rnb]
+    paths:
+      - /media/music/hardcore
+      - /media/music/drum-and-bass
+      - /media/music/electronic
+      - /media/music/pop
+      - /media/music/rnb
+
+# Extra users, created once. Names are vaulted too, so the repo does not
+# list who uses the server. Placeholders encrypted with a throwaway vault
+# password; replace them with your own (see Secrets).
+jellyfin_users:
+  - name: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          30656233643739363037656464303366623163633830663230353736626465316630356361306530
+          6331653431633331386464626666353438396662373733660a653064313264386361303266363036
+          36623463396431346163333936386535353432383039373330373333396231353466333933313962
+          6534306132303366630a316335666333353737323734393131616562363633393730323265306466
+          3237
+    password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          30316664613062656131636661656433313537623663623638353637646262326336623366333438
+          6532613365316232356630373164366237346361316663350a613466626330346235303939393036
+          61303632643038396630613436333466666162363636313364306231643062656166636566333366
+          3431633961623263630a653732386336646239636332393433333832373930303338643536373534
+          39396265353037633063353063356332316134623061366432316239363963646636643731313861
+          3266616262383130333032306264633365666134303965646639
+  - name: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          34383562666362333935626336326362663737303135656139666235303533623932636466623964
+          6132653962313266336634623537353936326263653433390a613834323764653765373336386436
+          61653165643736353762366431653639666333383938643163653962393261653138633539366266
+          6264376135396466620a613530353064393663373035386431383033656539633930373564313865
+          3235
+    password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          65333238656238653735316637313963646430633933343833653666336163316139303137323264
+          6563376531393338336530633735613132306534333564620a356364306431363561383331313466
+          63663766613438353739666431306366333263353935343261366336623766666133366535333537
+          3939646431303137310a346461323136326466346236363964306634323735343738643134373365
+          62346236376230393662396264343037373636363038383636313134386633303765
+  - name: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          62333030663161353739353061363563363464333237663536386538386334313862386239373430
+          3761303465633734623635383733636138306566636663340a323963643838363239636136393531
+          65623537656236363230646664653466333764316536666435336262623633633535356165353664
+          3538306438653731350a323164383939303863643432386663363432303835353165313064333834
+          3235
+    password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          37643163333834613730656332393866653638383263396362396132336336333564663037393936
+          6461636132636161666161646461636334623735353038340a346565326138666233663266326434
+          35323161306534393736313765303764366130303565333238616436373531396261346361653136
+          6534303935666534330a373562623837396564663530323361313234363065653238333561633364
+          61656137353665363933653231313131393531386133616234636161313661616466383461666466
+          3961623835626462636437663432623335383335653363653633
