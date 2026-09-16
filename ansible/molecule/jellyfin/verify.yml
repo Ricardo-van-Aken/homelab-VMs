@@ -56,6 +56,23 @@
             Version="1.0", Token="{{ jellyfin_login.json.AccessToken }}"
       register: jellyfin_folders
 
-    - name: Assert the Movies library exists
+    - name: Assert the Movies library exists with both paths
+      vars:
+        movies: "{{ jellyfin_folders.json | selectattr('Name', 'eq', 'Movies') | list }}"
       ansible.builtin.assert:
-        that: "'Movies' in (jellyfin_folders.json | map(attribute='Name') | list)"
+        that:
+          - movies | length == 1
+          - movies[0].Locations | sort == ['/media/movies/a', '/media/movies/b']
+
+    - name: Read the users
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8096/Users
+        headers:
+          Authorization: >-
+            MediaBrowser Client="Molecule", Device="verify", DeviceId="verify",
+            Version="1.0", Token="{{ jellyfin_login.json.AccessToken }}"
+      register: jellyfin_users_list
+
+    - name: Assert the extra user was created
+      ansible.builtin.assert:
+        that: "'alice' in (jellyfin_users_list.json | map(attribute='Name') | list)"
