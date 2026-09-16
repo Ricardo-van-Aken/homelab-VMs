@@ -7,6 +7,9 @@
     jellyfin_libraries:
       - name: Movies
         type: movies
-        paths: [/media/movies/a]
+        paths: [/media/movies/a, /media/movies/b]
+    jellyfin_users:
+      - name: alice
+        password: molecule
   roles:
     - jellyfin

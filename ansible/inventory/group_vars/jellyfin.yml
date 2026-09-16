@@ -20,52 +20,43 @@ jellyfin_metadata_country: NL
 jellyfin_admin_user: Admin
 jellyfin_admin_password: ""
 
-# Libraries, as folders inside the movies, series and music shares; paths are
-# as the container sees them (/media is jellyfin_media_path). Placeholder
-# names.
+# One library per media type, each spanning the genre folders inside its
+# share; paths are as the container sees them (/media is jellyfin_media_path).
+# The home screen gets one "Latest ..." row per library; genres are browsed
+# through Jellyfin's metadata genre filter. Libraries not listed are removed.
 jellyfin_libraries:
-  - name: Series - Sitcom
+  - name: Movies
+    type: movies
+    paths:
+      - /media/movies/disney
+      - /media/movies/superhero
+      - /media/movies/action
+      - /media/movies/fantasy
+      - /media/movies/documentary
+      - /media/movies/comedy
+  - name: Series
     type: tvshows
-    paths: [/media/series/sitcom]
-  - name: Series - Fantasy
-    type: tvshows
-    paths: [/media/series/fantasy]
-  - name: Series - Documentary
-    type: tvshows
-    paths: [/media/series/documentary]
-  - name: Series - Comedy
-    type: tvshows
-    paths: [/media/series/comedy]
-  - name: Movies - Disney
-    type: movies
-    paths: [/media/movies/disney]
-  - name: Movies - Superhero
-    type: movies
-    paths: [/media/movies/superhero]
-  - name: Movies - Action
-    type: movies
-    paths: [/media/movies/action]
-  - name: Movies - Fantasy
-    type: movies
-    paths: [/media/movies/fantasy]
-  - name: Movies - Documentary
-    type: movies
-    paths: [/media/movies/documentary]
-  - name: Movies - Comedy
-    type: movies
-    paths: [/media/movies/comedy]
-  - name: Music - Hardcore
+    paths:
+      - /media/series/sitcom
+      - /media/series/fantasy
+      - /media/series/documentary
+      - /media/series/comedy
+  - name: Music
     type: music
-    paths: [/media/music/hardcore]
-  - name: Music - DnB
-    type: music
-    paths: [/media/music/drum-and-bass]
-  - name: Music - Electronic
-    type: music
-    paths: [/media/music/electronic]
-  - name: Music - Pop
-    type: music
-    paths: [/media/music/pop]
-  - name: Music - R&B
-    type: music
-    paths: [/media/music/rnb]
+    paths:
+      - /media/music/hardcore
+      - /media/music/drum-and-bass
+      - /media/music/electronic
+      - /media/music/pop
+      - /media/music/rnb
+
+# Extra users, created once. Names are vaulted too, so the repo does not
+# list who uses the server. Placeholders encrypted with a throwaway vault
+# password; replace them with your own (see Secrets).
+jellyfin_users:
+  - name: ""
+    password: ""
+  - name: ""
+    password: ""
+  - name: ""
+    password: ""

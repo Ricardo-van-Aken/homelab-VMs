@@ -186,10 +186,11 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
 <summary><h3 id="arcade" style="display:inline; margin:0; vertical-align:middle">arcade</h3></summary>
 
 * Attach a dummy HDMI plug or set `desktop_force_connector`.
-* Replace the placeholder `jellyfin_admin_password` in `group_vars/jellyfin.yml`
-  with a `!vault` value (see Secrets). The role runs Jellyfin's setup wizard
-  with it: admin user, libraries from `jellyfin_libraries`, hardware
-  transcoding. Leave it empty to do the wizard in the browser instead.
+* Replace the placeholder `jellyfin_admin_password` and the passwords in
+  `jellyfin_users` in `group_vars/jellyfin.yml` with `!vault` values (see
+  Secrets). The role runs Jellyfin's setup wizard with them: admin user,
+  extra users, libraries from `jellyfin_libraries`, hardware transcoding.
+  Leave the admin password empty to do the wizard in the browser instead.
 * The first run installs GPU firmware and reboots once, as does any run that
   finds the GPU driver not yet bound.
 
@@ -275,7 +276,7 @@ In the order the playbook runs them.
 | desktop         | Xorg + LightDM autologin + openbox session for `gamer`       |
 | steam           | Steam with i386 libraries, gamemode, mangohud                |
 | sunshine        | Sunshine .deb, config, apps, user service                    |
-| jellyfin        | Jellyfin compose stack, GPU render node, wizard via API      |
+| jellyfin        | Jellyfin compose stack, GPU node; wizard, libraries, users via API |
 | forgejo         | Forgejo compose stack (sqlite, closed registration, admin)   |
 | samba           | SMB shares of the mounted media datasets                     |
 
