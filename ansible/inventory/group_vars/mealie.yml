@@ -1,0 +1,19 @@
+---
+# Mealie settings.
+mealie_url: "http://{{ ansible_host }}:{{ mealie_http_port }}"
+# Recipes, images and database, on the host's mealie dataset (pve_vm.shares).
+mealie_data_dir: /srv/mealie
+mealie_http_port: 9925
+
+# LAN only: anyone who can reach the VM reads the recipes at
+# <mealie_url>/g/home without an account.
+mealie_public: true
+
+# Sent by the Caddy proxy with every request; Mealie rejects requests
+# without it. Any long random string. You don't need to save this in
+# any password manager.
+mealie_proxy_secret: ""
+
+
+# Password of the `admin` account; the role sets it on the first run.
+mealie_admin_password: ""

@@ -1,0 +1,121 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Inspect Mealie container
+      ansible.builtin.command: docker inspect mealie
+      changed_when: false
+      register: mealie_inspect
+
+    - name: Assert Mealie is running and healthy
+      ansible.builtin.assert:
+        that:
+          - mealie_state.Running
+          - mealie_state.Health.Status == 'healthy'
+      vars:
+        mealie_state: "{{ (mealie_inspect.stdout | from_json)[0].State }}"
+
+    - name: Inspect the proxy container
+      ansible.builtin.command: docker inspect mealie-proxy
+      changed_when: false
+      register: mealie_proxy_inspect
+
+    # Mealie's own port stays unpublished: the proxy is the only way in.
+    - name: Assert the proxy runs in front of Mealie
+      ansible.builtin.assert:
+        that:
+          - (mealie_proxy_inspect.stdout | from_json)[0].State.Running
+          - (mealie_inspect.stdout | from_json)[0].NetworkSettings.Ports.get('9000/tcp') is none
+
+    - name: Read the public app information
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9925/api/app/about
+      register: mealie_about
+
+    # The slugs are only reported while group and household are public.
+    - name: Assert version, closed sign-up and public access
+      ansible.builtin.assert:
+        that:
+          - mealie_about.json.version is defined
+          - not mealie_about.json.allowSignup
+          - mealie_about.json.defaultGroupSlug == 'home'
+          - mealie_about.json.defaultHouseholdSlug == 'family'
+
+    - name: List the public recipes without logging in
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9925/api/explore/groups/home/recipes
+      register: mealie_explore
+
+    - name: Assert the public listing answers
+      ansible.builtin.assert:
+        that: mealie_explore.json['items'] is defined
+
+    - name: Log in with the configured password
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9925/api/auth/token
+        method: POST
+        body_format: form-urlencoded
+        body:
+          username: admin
+          password: molecule-test-only
+      register: mealie_login
+
+    - name: Log in with Mealie's first-run password
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9925/api/auth/token
+        method: POST
+        body_format: form-urlencoded
+        body:
+          username: admin
+          password: MyPassword
+        status_code: 401
+
+    - name: Read the admin account
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9925/api/users/self
+        headers:
+          Authorization: "Bearer {{ mealie_login.json.access_token }}"
+      register: mealie_self
+
+    - name: Assert the seeded account was taken over
+      ansible.builtin.assert:
+        that:
+          - mealie_self.json.admin
+          - mealie_self.json.email == 'admin@localhost'
+          - mealie_self.json.fullName == 'Administrator'
+
+    # What the login page does by itself. The header a client sends must be
+    # replaced by the proxy, or anyone could sign in as anyone.
+    - name: Sign in through the proxy without credentials, claiming to be admin
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9925/api/auth/reverse-proxy
+        headers:
+          X-Forwarded-User: admin
+      register: mealie_proxy_login
+
+    - name: Read the account the proxy signed in
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9925/api/users/self
+        headers:
+          Authorization: "Bearer {{ mealie_proxy_login.json.access_token }}"
+      register: mealie_shared_self
+
+    - name: Assert it is the shared account, not an admin
+      ansible.builtin.assert:
+        that:
+          - mealie_shared_self.json.username == 'family'
+          - not mealie_shared_self.json.admin
+          - mealie_shared_self.json.authMethod == 'ReverseProxy'
+          - mealie_shared_self.json.canOrganize
+
+    - name: Refuse a password login for the shared account
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9925/api/auth/token
+        method: POST
+        body_format: form-urlencoded
+        body:
+          username: family
+          password: REVERSE_PROXY
+        status_code: 401
