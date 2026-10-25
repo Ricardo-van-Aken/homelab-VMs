@@ -24,8 +24,11 @@ more services:
   * Forgejo: Git forge with web UI and SSH access
 * **nas**: network share of the media library, for filling it from a laptop
   * Samba: SMB shares of the movies, series and music datasets
+* **recipes**: the household cookbook
+  * Mealie: recipe manager and meal planner; the whole LAN reads and edits
+    without signing in
 
-<details>
+<details open>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="prerequisites" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Prerequisites</h2></summary>
 
 This section contains the prerequisites for setting up the complete ansible
@@ -61,20 +64,35 @@ up certain VMs, follow the instructions at
 
 </details>
 
-<details>
+<details open>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="full-setup" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Full Setup</h2></summary>
 
 You can run the Ansible playbooks from `ansible/` if you have ansible-core
 installed. Alternatively, if you have docker installed, you can run it from the
 docker image in `ansible/docker/runtime/`.
 
-(Optional) build the image and open a shell in it.
 ```sh
 cd ansible
+```
+
+**(Optional)** build the image and open a shell in it. This allows you to **skip step 1**
+
+```sh
 docker build -t ansible-runtime:local --target runtime \
   -f docker/runtime/Dockerfile .
+```
+
+The container uses your SSH agent; load the key first (`ssh-add -l` lists
+it). On macOS the agent is reached through a fixed path, on Linux through
+your own socket:
+
+```sh
+agent=$SSH_AUTH_SOCK; [ "$(uname)" = Darwin ] && agent=/run/host-services/ssh-auth.sock
+```
+
+```sh
 docker run --rm -it -v "$PWD/..:/work" -w /work/ansible \
-  -v "$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
+  -v "$agent:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
   ansible-runtime:local
 ```
 
@@ -83,7 +101,6 @@ docker run --rm -it -v "$PWD/..:/work" -w /work/ansible \
 Once:
 
 ```sh
-cd ansible
 ansible-galaxy install -r requirements.yml
 ```
 
@@ -206,6 +223,8 @@ ansible-playbook playbooks/site.yml --limit arcade --ask-vault-pass
 * Replace the encrypted `forgejo_admin_email` and `forgejo_admin_password` in
   `group_vars/forgejo.yml` with your own (see Secrets), or create the admin
   by hand afterwards.
+* Add your own accounts to `forgejo_users` in the same file, name, email and
+  password each encrypted. Every account needs its own address.
 
 ```sh
 ansible-playbook playbooks/site.yml --limit forgejo-git --ask-vault-pass
@@ -227,6 +246,23 @@ ansible-playbook playbooks/site.yml --limit nas --ask-vault-pass
 Then connect from a laptop with `smb://10.0.1.120/movies` (or `series`,
 `music`) as user `media`. Files land in the datasets owned by Jellyfin's
 uid, so they show up in the library on the next scan.
+
+</details>
+
+<details>
+<summary><h3 id="recipes" style="display:inline; margin:0; vertical-align:middle">recipes</h3></summary>
+
+* Replace the encrypted `mealie_admin_password` and `mealie_proxy_secret` in
+  `group_vars/mealie.yml` with your own (see Secrets). The secret is any
+  long random string.
+
+```sh
+ansible-playbook playbooks/site.yml --limit recipes --ask-vault-pass
+```
+
+Then open `http://10.0.1.130:9925`. Everyone on the LAN is signed in as the
+shared `family` account and can add and edit recipes. To use the admin
+account, log out from the menu and sign in on the page that follows.
 
 </details>
 
@@ -277,8 +313,9 @@ In the order the playbook runs them.
 | steam           | Steam with i386 libraries, gamemode, mangohud                |
 | sunshine        | Sunshine .deb, config, apps, user service                    |
 | jellyfin        | Jellyfin compose stack, GPU node; wizard, libraries, users via API |
-| forgejo         | Forgejo compose stack (sqlite, closed registration, admin)   |
+| forgejo         | Forgejo compose stack (sqlite, closed registration, admin and users) |
 | samba           | SMB shares of the mounted media datasets                     |
+| mealie          | Mealie behind a Caddy proxy that signs the LAN in as one shared account; admin takeover, accounts and public access via API |
 
 </details>
 
@@ -319,9 +356,10 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | base     |                                                              |
 | gpu      | package-level checks; no GPU in the instance                 |
 | steam    | needs an amd64 host (i386 packages)                          |
-| jellyfin | Docker engine inside the instance; the compose stack really starts |
-| forgejo  | as jellyfin; also checks health, API and the admin account   |
-| samba    | real smbd; lists the share and writes a file through it       |
+| jellyfin | logs in as the admin the role made; the libraries and extra user exist |
+| forgejo  | admin and regular user exist, public registration is blocked |
+| samba    | logs in as `media` and copies a file to the share; Jellyfin owns the file afterwards |
+| mealie   | a visit without credentials lands on the shared account through a reverse proxy(Caddy) |
 
 </details>
 
@@ -360,6 +398,9 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 * **nas** (10.0.1.120)
   * 22/tcp: SSH
   * 445/tcp: SMB shares
+* **recipes** (10.0.1.130)
+  * 22/tcp: SSH
+  * 9925/tcp: Mealie web UI and API, through the Caddy proxy
 
 </details>
 

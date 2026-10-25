@@ -33,9 +33,35 @@
       register: forgejo_admins
       changed_when: false
 
-    - name: Assert version, closed registration and admin account
+    - name: List all users
+      ansible.builtin.command: docker exec --user git forgejo forgejo admin user list
+      register: forgejo_all_users
+      changed_when: false
+
+    - name: Read the admin account
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3000/api/v1/users/sysadmin
+      register: forgejo_admin_account
+
+    # Forgejo names a stored avatar sha256("<user id>-" + file); a generated
+    # one has a different name, so this proves the role's file was uploaded.
+    - name: Assert the admin's display name and avatar were set
+      vars:
+        avatar_hash: >-
+          {{ lookup('ansible.builtin.pipe',
+                    '{ printf %s- ' ~ forgejo_admin_account.json.id ~ '; cat '
+                    ~ (playbook_dir ~ '/../../roles/forgejo/files/admin-avatar.png' | quote) ~ '; } | sha256sum')
+             | split | first }}
+      ansible.builtin.assert:
+        that:
+          - forgejo_admin_account.json.full_name == 'Administrator'
+          - forgejo_admin_account.json.avatar_url.endswith(avatar_hash)
+
+    - name: Assert version, closed registration, admin and regular account
       ansible.builtin.assert:
         that:
           - forgejo_version.json.version is defined
           - "'DISABLE_REGISTRATION = true' in forgejo_appini.stdout"
           - "'sysadmin' in forgejo_admins.stdout"
+          - "'tester' in forgejo_all_users.stdout"
+          - "'tester' not in forgejo_admins.stdout"

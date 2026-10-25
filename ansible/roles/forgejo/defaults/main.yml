@@ -25,5 +25,20 @@ forgejo_extra_env: {}
 # No public sign-up; the first admin is created below when a password is set
 # (put it in a vault), otherwise create one with `forgejo admin user create`.
 forgejo_admin_user: sysadmin  # "admin" is a reserved name in Forgejo
+forgejo_admin_name: Administrator  # display name, kept in line on every run
 forgejo_admin_email: "admin@{{ forgejo_domain }}"
 forgejo_admin_password: ""
+# Avatar, a PNG in this role's files/ or an absolute path; uploaded whenever
+# the account shows a different image. Empty: leave the avatar alone.
+forgejo_admin_avatar: admin-avatar.png
+
+# Regular users, created once with the given password; each needs its own
+# address. Vault all three so the repository does not list who uses the
+# server.
+forgejo_users: []
+#  - name: !vault |
+#      ...
+#    email: !vault |
+#      ...
+#    password: !vault |
+#      ...

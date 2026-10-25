@@ -1,13 +1,10 @@
-# python:3.13-alpine3.22 -- digest pushed 2026-04-19 11:07 UTC
-ARG PYTHON_IMAGE=python@sha256:e81548ac35b07a3bd4805f275107592ef458b1e893c0e04d45aedaa19416cca5
-
 # Build from the repo root.
 
 # ---------------------------------------------------------------------------
 # builder: resolve the tools and Galaxy dependencies into a self-contained
 # virtualenv
 # ---------------------------------------------------------------------------
-FROM ${PYTHON_IMAGE} AS builder
+FROM python:3.13-alpine3.24@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741 AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -31,7 +28,7 @@ RUN apk add --no-cache git \
 # ---------------------------------------------------------------------------
 # runtime: only copies tools needed at runtime. No buildtime dependencies
 # ---------------------------------------------------------------------------
-FROM ${PYTHON_IMAGE} AS runtime
+FROM python:3.13-alpine3.24@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741 AS runtime
 
 RUN apk add --no-cache \
     # ansible-lint discovers files with `git ls-files`

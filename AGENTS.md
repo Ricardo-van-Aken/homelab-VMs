@@ -14,7 +14,8 @@ and when touching a pin, update the pin and its comment in the same change.
 
 | Kind | Pin | Comment beside it |
 |---|---|---|
-| Container image | `name@sha256:…` (no tag in the reference) | `name:tag -- digest pushed YYYY-MM-DD HH:MM UTC` |
+| Base image in a Dockerfile | `FROM name:tag@sha256:…` | none; Dependabot moves tag and digest together |
+| Container image in Ansible vars | `name@sha256:…` (no tag in the reference) | `name:tag -- digest pushed YYYY-MM-DD HH:MM UTC` |
 | GitHub action | full commit SHA | `# vX.Y.Z` |
 | Galaxy role | git `src` + `scm: git` + commit SHA as `version` | `# X.Y.Z` |
 | Galaxy collection | exact `version:` | none needed; published versions are immutable |
@@ -23,7 +24,10 @@ and when touching a pin, update the pin and its comment in the same change.
 | GitHub runner | `ubuntu-XX.04`, never `ubuntu-latest` | none |
 
 A tag next to a digest is documentation only: Docker ignores it and applies
-no check. That is why tags go in the comment, not in the reference.
+no check. In Ansible vars the tag therefore goes in the comment. Dockerfiles
+are the exception because Dependabot reads the tag from the `FROM` line to
+find newer versions; with a digest alone it would follow `latest`, and it
+does not read `FROM ${ARG}` at all.
 
 ### Resolving a pin
 
@@ -34,8 +38,7 @@ docker buildx imagetools inspect <name>:<tag> | grep Digest
 docker buildx imagetools inspect --format '{{range $k,$v := .Image}}{{$k}} {{$v.Created}}{{"\n"}}{{end}}' <name>@sha256:…
 ```
 
-Use the `linux/amd64` timestamp. Base image digests in Dockerfiles follow the
-same comment form.
+Use the `linux/amd64` timestamp.
 
 GitHub action or Galaxy role commit for a tag:
 
@@ -60,9 +63,12 @@ updates and unattended-upgrades is enabled on purpose.
 
 ### Bumping
 
-One commit per bump, or one per related group. Resolve the new digest or
-commit as above, update the comment with the new tag and date, and let CI
-rebuild the images; their tags are content hashes so nothing else changes.
+Dependabot (`.github/dependabot.yml`) proposes updates for GitHub actions,
+Python packages and Dockerfile base images once a release is two days old.
+Everything else is bumped by hand: one commit per bump, or one per related
+group. Resolve the new digest or commit as above, update the comment with
+the new tag and date, and let CI rebuild the images; their tags are content
+hashes so nothing else changes.
 
 ## Secrets
 
@@ -77,3 +83,27 @@ the same reason; runs take `--ask-vault-pass` or `ANSIBLE_VAULT_PASSWORD_FILE`.
 Tasks that handle a secret carry `no_log: true`. Placeholders for secrets
 are vaulted too, encrypted with a throwaway password, so a run that still
 carries one fails to decrypt instead of applying a known value.
+
+## Comments and documentation
+
+A comment documents the lines below it, in that file, and nothing else. How
+a feature works across the system belongs in the README or next to the
+variable in the role's `defaults/main.yml`, not in a template or an
+inventory file. One or two lines is the norm.
+
+Anything the maintainer has to do goes in its own `# TODO: ...` line, kept
+apart from the comment that documents the setting:
+
+```yaml
+# Sent by the Caddy proxy with every request. Any long random string.
+# TODO: replace with your own !vault value; this one will not decrypt.
+mealie_proxy_secret: !vault |
+```
+
+The README is written for other people who clone the repository. The
+vaulted values in `inventory/` are the maintainer's own secrets, so the
+per-VM sections say "replace the encrypted X with your own (see Secrets)"
+and never call them placeholders. Write what a reader does and what is
+true afterwards, in everyday words, and leave out anything that only
+restates what a role obviously does. A note in a table that says nothing a
+newcomer can act on is removed rather than reworded.

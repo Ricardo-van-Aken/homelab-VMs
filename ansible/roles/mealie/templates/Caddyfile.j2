@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+{
+	admin off
+}
+
+# Forward everything to Mealie as the shared user. header_up overwrites the
+# headers a client sent; the secret comes from proxy.env.
+:80 {
+	reverse_proxy mealie:9000 {
+		header_up X-Forwarded-User {{ mealie_shared_user }}
+		header_up X-Mealie-Reverse-Proxy-Secret {env.REVERSE_PROXY_AUTH_SECRET}
+	}
+}
