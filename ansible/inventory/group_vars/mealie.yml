@@ -1,6 +1,7 @@
 ---
 # Mealie settings.
-mealie_url: "http://{{ ansible_host }}:{{ mealie_http_port }}"
+# The service name the dns VM resolves (see group_vars/pihole.yml).
+mealie_domain: "mealie.{{ homelab_domain }}"
 # Recipes, images and database, on the host's mealie dataset (pve_vm.shares).
 mealie_data_dir: /srv/mealie
 mealie_http_port: 9925

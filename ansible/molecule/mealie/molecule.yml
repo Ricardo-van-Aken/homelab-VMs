@@ -7,7 +7,7 @@ provisioner:
   inventory:
     group_vars:
       all:
-        mealie_url: http://localhost:9925
+        mealie_domain: localhost
         mealie_admin_email: admin@localhost
         mealie_admin_password: molecule-test-only
         mealie_proxy_secret: molecule-test-only-proxy

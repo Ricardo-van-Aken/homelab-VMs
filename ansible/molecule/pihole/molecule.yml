@@ -1,0 +1,12 @@
+---
+# Inherits .config/molecule/config.yml. Docker runs inside the instance, so
+# the compose stack really starts.
+scenario:
+  name: pihole
+provisioner:
+  inventory:
+    group_vars:
+      all:
+        pihole_web_password: molecule-test-only
+        pihole_records:
+          - 192.0.2.10 forgejo.example.test forgejo-git.example.test
