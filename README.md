@@ -27,6 +27,8 @@ more services:
 * **recipes**: the household cookbook
   * Mealie: recipe manager and meal planner; the whole LAN reads and edits
     without signing in
+* **dns**: name resolution for the LAN
+  * Pi-hole: resolver with a name for every VM and service, and ad blocking
 
 <details open>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="prerequisites" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Prerequisites</h2></summary>
@@ -260,9 +262,29 @@ uid, so they show up in the library on the next scan.
 ansible-playbook playbooks/site.yml --limit recipes --ask-vault-pass
 ```
 
-Then open `http://10.0.1.130:9925`. Everyone on the LAN is signed in as the
+Then open `http://mealie.zeepaardje98.eu`. Everyone on the LAN is signed in as the
 shared `family` account and can add and edit recipes. To use the admin
 account, log out from the menu and sign in on the page that follows.
+
+</details>
+
+<details>
+<summary><h3 id="dns" style="display:inline; margin:0; vertical-align:middle">dns</h3></summary>
+
+* Replace the encrypted `pihole_web_password` in `group_vars/pihole.yml` with
+  your own (see Secrets).
+* Set `homelab_domain` in `group_vars/all.yml` to your domain. Every VM and
+  service gets a name under it, `forgejo.<domain>` and `forgejo-git.<domain>`
+  for example, pointing at the VM's LAN address. The names are built from the
+  inventory, so nothing is listed by hand.
+
+```sh
+ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
+```
+
+Then make your router hand out `10.0.1.100` as the DNS server in its DHCP
+settings, and reconnect your devices once. The admin UI is at
+`http://10.0.1.100/admin`.
 
 </details>
 
@@ -312,10 +334,12 @@ In the order the playbook runs them.
 | desktop         | Xorg + LightDM autologin + openbox session for `gamer`       |
 | steam           | Steam with i386 libraries, gamemode, mangohud                |
 | sunshine        | Sunshine .deb, config, apps, user service                    |
+| caddy           | reverse proxy on port 80, one site file per service; pulled in by the web service roles |
 | jellyfin        | Jellyfin compose stack, GPU node; wizard, libraries, users via API |
 | forgejo         | Forgejo compose stack (sqlite, closed registration, admin and users) |
 | samba           | SMB shares of the mounted media datasets                     |
 | mealie          | Mealie behind a Caddy proxy that signs the LAN in as one shared account; admin takeover, accounts and public access via API |
+| pihole          | Pi-hole compose stack with local records from the inventory; frees port 53 from systemd-resolved |
 
 </details>
 
@@ -360,6 +384,7 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | forgejo  | admin and regular user exist, public registration is blocked |
 | samba    | logs in as `media` and copies a file to the share; Jellyfin owns the file afterwards |
 | mealie   | a visit without credentials lands on the shared account through a reverse proxy(Caddy) |
+| pihole   | a local record and a public name resolve; the admin password logs in |
 
 </details>
 
@@ -384,7 +409,8 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 
 * **arcade** (10.0.1.160)
   * 22/tcp: SSH
-  * 8096/tcp: Jellyfin web UI and API
+  * 80/tcp: Jellyfin web UI, through Caddy
+  * 8096/tcp: Jellyfin web UI and API, for the apps
   * 7359/udp: Jellyfin client auto-discovery
   * 1900/udp: Jellyfin DLNA
   * 47990/tcp: Sunshine web UI (HTTPS, first pairing)
@@ -393,14 +419,18 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
   * 47998-48000/udp: Sunshine video, control and audio streams
 * **forgejo-git** (10.0.1.110)
   * 22/tcp: SSH to the VM
-  * 3000/tcp: Forgejo web UI and HTTP clone
+  * 80/tcp: Forgejo web UI and HTTP clone, through Caddy
   * 2222/tcp: Forgejo SSH clone
 * **nas** (10.0.1.120)
   * 22/tcp: SSH
   * 445/tcp: SMB shares
 * **recipes** (10.0.1.130)
   * 22/tcp: SSH
-  * 9925/tcp: Mealie web UI and API, through the Caddy proxy
+  * 80/tcp: Mealie web UI and API, through Caddy
+* **dns** (10.0.1.100)
+  * 22/tcp: SSH
+  * 53/tcp, 53/udp: DNS
+  * 80/tcp: Pi-hole admin UI and API
 
 </details>
 
