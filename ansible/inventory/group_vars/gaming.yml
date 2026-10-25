@@ -1,6 +1,5 @@
 ---
-# Game streaming settings (Steam + Sunshine on an auto-login session); they
-# follow the service to whichever VM hosts it.
+# Game streaming settings (Steam + Sunshine on an auto-login session).
 desktop_user: gamer  # owns the session, Steam and Sunshine
 desktop_xorg_driver: modesetting  # amdgpu, intel or nvidia for a vendor DDX
 sunshine_origin_web_ui_allowed: lan  # who may open the Sunshine web UI

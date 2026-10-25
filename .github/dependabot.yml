@@ -1,0 +1,54 @@
+---
+# Version updates for the pinned dependencies. A new release is only
+# proposed once it is two days old (cooldown), so a bad release pulled
+# within a day never reaches this repository.
+version: 2
+updates:
+  # Workflow actions: the commit SHA and its `# vX.Y.Z` comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 2
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Python packages of the two images, one pull request per image so each
+  # is rebuilt once.
+  - package-ecosystem: pip
+    directories:
+      - /ansible/docker/runtime
+      - /ansible/docker/analysis
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 2
+    groups:
+      python:
+        patterns:
+          - "*"
+
+  # Base images: new digest for the same tag, or a newer tag. The Python
+  # release and the Ubuntu release stay where they are; moving those is a
+  # decision, not an update.
+  - package-ecosystem: docker
+    directories:
+      - /ansible/docker/runtime
+      - /ansible/docker/analysis
+      - /ansible/docker/molecule-target
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 2
+    ignore:
+      - dependency-name: python
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+      - dependency-name: ubuntu
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor

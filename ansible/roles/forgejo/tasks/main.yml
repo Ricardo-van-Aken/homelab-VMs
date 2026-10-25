@@ -47,6 +47,22 @@
 - name: Create initial admin user
   when: forgejo_admin_password | length > 0
   block:
+    # Values are passed to Forgejo as they are. A vaulted string typed with
+    # a trailing Enter carries a newline, which Forgejo rejects.
+    - name: Check the admin values
+      ansible.builtin.assert:
+        that:
+          - forgejo_admin_password == forgejo_admin_password | trim
+          - forgejo_admin_password | length >= 8
+          - forgejo_admin_email == forgejo_admin_email | trim
+          - "'@' in forgejo_admin_email"
+        quiet: true
+        fail_msg: >-
+          forgejo_admin_password or forgejo_admin_email is not usable: it has
+          leading or trailing whitespace (a newline from pressing Enter before
+          Ctrl-D in ansible-vault?), the password is shorter than 8
+          characters, or the email address has no @.
+
     - name: List admin users
       ansible.builtin.command: docker exec --user git forgejo forgejo admin user list --admin
       register: forgejo_admins
@@ -71,7 +87,142 @@
           - --password
           - "{{ forgejo_admin_password }}"
           - --email
-          - "{{ forgejo_admin_email }}"
+          - "{{ forgejo_admin_email | trim }}"
       when: forgejo_admin_user not in forgejo_admins.stdout
       changed_when: true
       no_log: true
+
+    # The CLI cannot set a display name; the API can, with the admin's own
+    # credentials.
+    - name: Read the admin account
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ forgejo_http_port }}/api/v1/users/{{ forgejo_admin_user }}"
+      register: forgejo_admin_account
+
+    - name: Set the admin's display name
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ forgejo_http_port }}/api/v1/admin/users/{{ forgejo_admin_user }}"
+        method: PATCH
+        url_username: "{{ forgejo_admin_user }}"
+        url_password: "{{ forgejo_admin_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          full_name: "{{ forgejo_admin_name }}"
+      when: forgejo_admin_account.json.full_name != forgejo_admin_name
+      changed_when: true
+      no_log: true
+
+    # Forgejo stores an uploaded avatar under sha256("<user id>-" + file) and
+    # serves it from /avatars/<that hash>, so the current URL tells whether
+    # this file is already in place.
+    - name: Upload the admin's avatar
+      vars:
+        avatar_path: >-
+          {{ forgejo_admin_avatar if forgejo_admin_avatar.startswith('/')
+             else role_path ~ '/files/' ~ forgejo_admin_avatar }}
+        avatar_hash: >-
+          {{ lookup('ansible.builtin.pipe',
+                    '{ printf %s- ' ~ forgejo_admin_account.json.id ~ '; cat '
+                    ~ (avatar_path | quote) ~ '; } | sha256sum')
+             | split | first }}
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ forgejo_http_port }}/api/v1/user/avatar"
+        method: POST
+        url_username: "{{ forgejo_admin_user }}"
+        url_password: "{{ forgejo_admin_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          # base64 of the file, read on the controller; the API wants it
+          # without line breaks
+          image: >-
+            {{ lookup('ansible.builtin.pipe', 'base64 < ' ~ (avatar_path | quote))
+               | replace('\n', '') }}
+        status_code: 204
+      when:
+        - forgejo_admin_avatar | length > 0
+        - not forgejo_admin_account.json.avatar_url.endswith(avatar_hash)
+      changed_when: true
+      no_log: true
+
+- name: Create regular users
+  when: forgejo_users | length > 0
+  block:
+    - name: List users
+      ansible.builtin.command: docker exec --user git forgejo forgejo admin user list
+      register: forgejo_user_list
+      changed_when: false
+
+    # Same checks as for the admin, plus Forgejo's username rules: letters,
+    # digits, dash, underscore and dot. One assert over the whole list, not
+    # a loop: a failed loop item would print the entry, password included.
+    - name: Check the user values
+      vars:
+        unusable: >-
+          {%- set bad = [] -%}
+          {%- for u in forgejo_users -%}
+            {%- if not (u.name is match('\A[A-Za-z0-9][A-Za-z0-9._-]*\Z')
+                        and u.email is match('\A\S+@\S+\Z')
+                        and u.password is match('\A\S(.*\S)?\Z')
+                        and u.password | length >= 8) -%}
+              {%- set _ = bad.append(loop.index) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ bad }}
+      ansible.builtin.assert:
+        that: unusable | length == 0
+        quiet: true
+        fail_msg: >-
+          forgejo_users entries {{ unusable | join(', ') }} are not usable: the
+          name has characters other than letters, digits, dash, underscore and
+          dot, a value has leading or trailing whitespace (a newline from
+          pressing Enter before Ctrl-D in ansible-vault?), the password is
+          shorter than 8 characters, or the email address has no @.
+
+    # The list is a table: ID, Username, Email, ... Take the second column
+    # of the rows that start with an ID.
+    - name: Create missing users
+      vars:
+        existing: >-
+          {{ forgejo_user_list.stdout_lines | select('match', '^\s*\d+\s')
+             | map('split') | map(attribute=1) | list }}
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - --user
+          - git
+          - forgejo
+          - forgejo
+          - admin
+          - user
+          - create
+          - --must-change-password=false
+          - --username
+          - "{{ item.name }}"
+          - --password
+          - "{{ item.password }}"
+          - --email
+          - "{{ item.email }}"
+      loop: "{{ forgejo_users }}"
+      loop_control:
+        label: "user {{ ansible_loop.index }}"
+        extended: true
+      when: item.name not in existing
+      register: forgejo_user_create
+      changed_when: true
+      failed_when: false
+      no_log: true
+
+    # The create task hides its output to keep the passwords out of the log.
+    # Forgejo's own message does not contain them, so it can be shown; the
+    # registered results (which hold the command line) are not.
+    - name: Report users Forgejo refused
+      vars:
+        refused: >-
+          {{ forgejo_user_create.results | selectattr('rc', 'defined')
+             | rejectattr('rc', 'equalto', 0) | map(attribute='stderr') | list }}
+      ansible.builtin.fail:
+        msg: "Forgejo refused {{ refused | length }} user(s): {{ refused | join(' | ') }}"
+      when: refused | length > 0

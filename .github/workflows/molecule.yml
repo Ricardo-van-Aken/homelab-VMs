@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [base, gpu, steam, jellyfin, forgejo, samba]
+        scenario: [base, gpu, steam, jellyfin, forgejo, samba, mealie]
     container:
       image: ${{ needs.image.outputs.image }}
       credentials:

@@ -1,0 +1,213 @@
+---
+# Admin account and public access through the API. Mealie seeds one admin
+# with a known password on its first start; this takes that account over and
+# then reconciles it and the group/household settings on every run.
+- name: Wait for the Mealie API
+  ansible.builtin.uri:
+    url: "{{ mealie_api_url }}/app/about"
+  register: mealie_about
+  until: mealie_about.status == 200
+  retries: 30
+  delay: 5
+
+# --- admin account -----------------------------------------------------------
+# The wanted password first, so a converged server sees no failed attempt
+# (five lock the account for a day). Mealie accepts the username in place
+# of the address, which may still be the seeded one.
+- name: Log in as the admin
+  ansible.builtin.uri:
+    url: "{{ mealie_api_url }}/auth/token"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      username: "{{ mealie_admin_user }}"
+      password: "{{ mealie_admin_password }}"
+    status_code: [200, 401]
+  register: mealie_login
+  no_log: true
+
+- name: Take over the seeded admin account
+  when: mealie_login.status != 200
+  block:
+    - name: Log in with Mealie's first-run password
+      ansible.builtin.uri:
+        url: "{{ mealie_api_url }}/auth/token"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          username: "{{ mealie_admin_user }}"
+          password: MyPassword  # Mealie's _DEFAULT_PASSWORD, not configurable
+        status_code: [200, 401]
+      register: mealie_seed_login
+      no_log: true
+
+    - name: Fail when neither password is accepted
+      ansible.builtin.assert:
+        that: mealie_seed_login.status == 200
+        fail_msg: >-
+          Neither mealie_admin_password nor Mealie's first-run password logs
+          in as {{ mealie_admin_user }} on {{ inventory_hostname }}. The
+          password was changed outside this role; set mealie_admin_password to
+          the current one, or reset it on the VM with
+          `docker exec -it mealie python -m mealie.scripts.change_password`
+          (it asks for the account's address).
+
+    - name: Set the admin password
+      ansible.builtin.uri:
+        url: "{{ mealie_api_url }}/users/password"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ mealie_seed_login.json.access_token }}"
+        body_format: json
+        body:
+          currentPassword: MyPassword
+          newPassword: "{{ mealie_admin_password }}"
+      changed_when: true
+      no_log: true
+
+    - name: Log in with the new password
+      ansible.builtin.uri:
+        url: "{{ mealie_api_url }}/auth/token"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          username: "{{ mealie_admin_user }}"
+          password: "{{ mealie_admin_password }}"
+      register: mealie_relogin
+      no_log: true
+
+# A skipped block still registers its results, so pick the login that ran.
+- name: Set the API token
+  ansible.builtin.set_fact:
+    mealie_auth: >-
+      Bearer {{ (mealie_login if mealie_relogin is skipped else mealie_relogin).json.access_token }}
+  no_log: true
+
+- name: Read the admin account
+  ansible.builtin.uri:
+    url: "{{ mealie_api_url }}/users/self"
+    headers:
+      Authorization: "{{ mealie_auth }}"
+  register: mealie_self
+
+- name: Set the admin's name and address
+  vars:
+    wanted:
+      fullName: "{{ mealie_admin_name }}"
+      email: "{{ mealie_admin_email | lower }}"
+  ansible.builtin.uri:
+    url: "{{ mealie_api_url }}/users/{{ mealie_self.json.id }}"
+    method: PUT
+    headers:
+      Authorization: "{{ mealie_auth }}"
+    body_format: json
+    body: "{{ mealie_self.json | combine(wanted) }}"
+  when: mealie_self.json | combine(wanted) != mealie_self.json
+  changed_when: true
+
+# --- public access -----------------------------------------------------------
+# Recipes are readable without an account when neither the group nor the
+# household is private and the recipes themselves are public (the household
+# default for new ones). Mealie reports the public group slug in /app/about.
+- name: Read the group preferences
+  ansible.builtin.uri:
+    url: "{{ mealie_api_url }}/groups/preferences"
+    headers:
+      Authorization: "{{ mealie_auth }}"
+  register: mealie_group_prefs
+
+- name: Set the group preferences
+  vars:
+    wanted:
+      privateGroup: "{{ not mealie_public }}"
+    current: "{{ mealie_group_prefs.json }}"
+  ansible.builtin.uri:
+    url: "{{ mealie_api_url }}/groups/preferences"
+    method: PUT
+    headers:
+      Authorization: "{{ mealie_auth }}"
+    body_format: json
+    body: "{{ current | combine(wanted) }}"
+  when: current | combine(wanted) != current
+  changed_when: true
+
+- name: Read the household preferences
+  ansible.builtin.uri:
+    url: "{{ mealie_api_url }}/households/preferences"
+    headers:
+      Authorization: "{{ mealie_auth }}"
+  register: mealie_household_prefs
+
+- name: Set the household preferences
+  vars:
+    wanted:
+      privateHousehold: "{{ not mealie_public }}"
+      recipePublic: "{{ mealie_public }}"
+    current: "{{ mealie_household_prefs.json }}"
+  ansible.builtin.uri:
+    url: "{{ mealie_api_url }}/households/preferences"
+    method: PUT
+    headers:
+      Authorization: "{{ mealie_auth }}"
+    body_format: json
+    body: "{{ current | combine(wanted) }}"
+  when: current | combine(wanted) != current
+  changed_when: true
+
+# --- shared account ----------------------------------------------------------
+# The account the proxy signs everyone in as, in the admin's group and
+# household. Its auth method is ReverseProxy, which the login form refuses,
+# so the throwaway password it is created with can never be used. It may
+# organise (categories, tags, cookbooks) but not manage group or household.
+- name: Configure the shared account
+  when: mealie_shared_user | length > 0
+  block:
+    - name: List the accounts
+      ansible.builtin.uri:
+        url: "{{ mealie_api_url }}/admin/users?perPage=-1"
+        headers:
+          Authorization: "{{ mealie_auth }}"
+      register: mealie_users
+
+    - name: Create the shared account
+      ansible.builtin.uri:
+        url: "{{ mealie_api_url }}/admin/users"
+        method: POST
+        headers:
+          Authorization: "{{ mealie_auth }}"
+        body_format: json
+        body:
+          username: "{{ mealie_shared_user }}"
+          fullName: "{{ mealie_shared_name }}"
+          email: "{{ mealie_shared_email | lower }}"
+          password: "{{ lookup('ansible.builtin.password', '/dev/null', length=32) }}"
+          authMethod: ReverseProxy
+          group: "{{ mealie_self.json.group }}"
+          household: "{{ mealie_self.json.household }}"
+          canOrganize: true
+        status_code: 201
+      register: mealie_shared_created
+      when: mealie_users.json['items'] | selectattr('username', 'equalto', mealie_shared_user) | list | length == 0
+      changed_when: true
+      no_log: true
+
+    - name: Set the shared account's name, address and permissions
+      vars:
+        current: >-
+          {{ mealie_shared_created.json if mealie_shared_created is not skipped
+             else mealie_users.json['items'] | selectattr('username', 'equalto', mealie_shared_user) | first }}
+        wanted:
+          fullName: "{{ mealie_shared_name }}"
+          email: "{{ mealie_shared_email | lower }}"
+          authMethod: ReverseProxy
+          admin: false
+          canOrganize: true
+      ansible.builtin.uri:
+        url: "{{ mealie_api_url }}/admin/users/{{ current.id }}"
+        method: PUT
+        headers:
+          Authorization: "{{ mealie_auth }}"
+        body_format: json
+        body: "{{ current | combine(wanted) }}"
+      when: current | combine(wanted) != current
+      changed_when: true

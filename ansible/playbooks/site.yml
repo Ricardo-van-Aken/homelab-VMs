@@ -34,3 +34,8 @@
   hosts: samba
   roles:
     - samba
+
+- name: Recipe managers
+  hosts: mealie
+  roles:
+    - mealie  # depends on geerlingguy.docker role
