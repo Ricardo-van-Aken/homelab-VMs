@@ -14,7 +14,8 @@ and when touching a pin, update the pin and its comment in the same change.
 
 | Kind | Pin | Comment beside it |
 |---|---|---|
-| Container image | `name@sha256:…` (no tag in the reference) | `name:tag -- digest pushed YYYY-MM-DD HH:MM UTC` |
+| Base image in a Dockerfile | `FROM name:tag@sha256:…` | none; Dependabot moves tag and digest together |
+| Container image in Ansible vars | `name@sha256:…` (no tag in the reference) | `name:tag -- digest pushed YYYY-MM-DD HH:MM UTC` |
 | GitHub action | full commit SHA | `# vX.Y.Z` |
 | Galaxy role | git `src` + `scm: git` + commit SHA as `version` | `# X.Y.Z` |
 | Galaxy collection | exact `version:` | none needed; published versions are immutable |
@@ -23,7 +24,10 @@ and when touching a pin, update the pin and its comment in the same change.
 | GitHub runner | `ubuntu-XX.04`, never `ubuntu-latest` | none |
 
 A tag next to a digest is documentation only: Docker ignores it and applies
-no check. That is why tags go in the comment, not in the reference.
+no check. In Ansible vars the tag therefore goes in the comment. Dockerfiles
+are the exception because Dependabot reads the tag from the `FROM` line to
+find newer versions; with a digest alone it would follow `latest`, and it
+does not read `FROM ${ARG}` at all.
 
 ### Resolving a pin
 
@@ -34,8 +38,7 @@ docker buildx imagetools inspect <name>:<tag> | grep Digest
 docker buildx imagetools inspect --format '{{range $k,$v := .Image}}{{$k}} {{$v.Created}}{{"\n"}}{{end}}' <name>@sha256:…
 ```
 
-Use the `linux/amd64` timestamp. Base image digests in Dockerfiles follow the
-same comment form.
+Use the `linux/amd64` timestamp.
 
 GitHub action or Galaxy role commit for a tag:
 
@@ -60,9 +63,12 @@ updates and unattended-upgrades is enabled on purpose.
 
 ### Bumping
 
-One commit per bump, or one per related group. Resolve the new digest or
-commit as above, update the comment with the new tag and date, and let CI
-rebuild the images; their tags are content hashes so nothing else changes.
+Dependabot (`.github/dependabot.yml`) proposes updates for GitHub actions,
+Python packages and Dockerfile base images once a release is two days old.
+Everything else is bumped by hand: one commit per bump, or one per related
+group. Resolve the new digest or commit as above, update the comment with
+the new tag and date, and let CI rebuild the images; their tags are content
+hashes so nothing else changes.
 
 ## Secrets
 
