@@ -2,6 +2,9 @@
 # Settings shared by every Proxmox host. Proxmox has no sudo; connect as root.
 ansible_user: root
 ansible_become: false
+# Accept the host key on first contact (the container starts with an empty
+# known_hosts), but still refuse a changed one.
+ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new
 
 # Cloud-init template that VMs are cloned from (role pve_template).
 pve_template_vmid: 1000

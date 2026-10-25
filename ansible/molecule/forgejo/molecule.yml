@@ -9,3 +9,7 @@ provisioner:
       all:
         forgejo_domain: localhost
         forgejo_admin_password: molecule-test-only
+        forgejo_users:
+          - name: tester
+            email: tester@localhost
+            password: molecule-test-only
