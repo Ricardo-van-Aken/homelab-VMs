@@ -13,9 +13,11 @@ mealie_memory_limit: 1000M
 mealie_user: mealie
 mealie_uid: 2003
 
-# Public address as seen by clients; Mealie uses it in links it sends out.
+# Name Caddy (role caddy) answers on port 80, forwarding to Mealie, which
+# itself listens on 127.0.0.1 only. Mealie puts the URL in links it sends.
+mealie_domain: "{{ inventory_hostname }}"
+mealie_url: "http://{{ mealie_domain }}"
 mealie_http_port: 9925
-mealie_url: "http://{{ inventory_hostname }}:{{ mealie_http_port }}"
 
 # Extra backend settings (see Mealie's backend configuration page), merged
 # into the container environment: SMTP_*, OIDC_*, theme colours, ...
@@ -26,20 +28,17 @@ mealie_extra_env: {}
 mealie_public: true
 
 # Login-free editing. Mealie cannot run without accounts, but it trusts a
-# username sent by a reverse proxy. With a user named here a Caddy container
-# takes the published port, forwards everything to Mealie and stamps that
-# username on each request; the browser then signs itself in, so nobody on
-# the LAN sees a login form. The whole household shares this one account,
-# its meal plan and favourites included. Admins log out and get the form at
-# /login?direct=1. Empty: no proxy, Mealie publishes its port itself.
+# username sent by a reverse proxy. With a user named here Caddy stamps that
+# username on each request it forwards; the browser then signs itself in,
+# so nobody on the LAN sees a login form. The whole household shares this
+# one account, its meal plan and favourites included. Admins log out and
+# get the form at /login?direct=1. Empty: Mealie's own login.
 mealie_shared_user: family
 mealie_shared_name: Family
 mealie_shared_email: "family@{{ inventory_hostname }}"
-# Sent by the proxy with every request so Mealie can tell its traffic from a
+# Sent by Caddy with every request so Mealie can tell its traffic from a
 # direct hit on the container. Required with mealie_shared_user.
 mealie_proxy_secret: ""  # put a !vault value in group_vars
-# caddy:2.11.7-alpine -- digest pushed 2026-10-21 21:32 UTC
-mealie_proxy_image: caddy@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
 
 # First-run setup through the API. Mealie creates one admin (username
 # `admin`) with a password everyone knows; the role replaces that password

@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+services:
+  caddy:
+    image: {{ caddy_image }}
+    container_name: caddy
+    restart: unless-stopped
+    # Host network: binds port {{ caddy_http_port }} on the VM and reaches the
+    # services where they publish, on 127.0.0.1.
+    network_mode: host
+    working_dir: /etc/caddy
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro

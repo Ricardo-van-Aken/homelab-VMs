@@ -1,9 +1,6 @@
 ---
-# Clients reach Forgejo by the VM's address until a domain exists. Once we
-# have a domain we can set forgejo_domain to that domain, and make a local DNS
-# server resolve it.
-
-forgejo_domain: "{{ ansible_host }}"
+# The service name the dns VM resolves (see group_vars/pihole.yml).
+forgejo_domain: "forgejo.{{ homelab_domain }}"
 # Repositories and database, on the host's forgejo dataset (pve_vm.shares).
 forgejo_data_dir: /srv/forgejo
 forgejo_http_port: 3000
