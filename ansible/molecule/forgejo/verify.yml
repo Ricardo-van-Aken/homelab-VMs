@@ -17,11 +17,18 @@
       vars:
         forgejo_state: "{{ (forgejo_inspect.stdout | from_json)[0].State }}"
 
+    # Through Caddy on port 80, by the name in forgejo_domain.
     - name: Check the API answers
       ansible.builtin.uri:
-        url: http://127.0.0.1:3000/api/v1/version
+        url: http://localhost/api/v1/version
         return_content: true
       register: forgejo_version
+
+    - name: Assert Forgejo's own port is bound to 127.0.0.1 only
+      ansible.builtin.assert:
+        that: forgejo_bindings | map(attribute='HostIp') | unique == ['127.0.0.1']
+      vars:
+        forgejo_bindings: "{{ (forgejo_inspect.stdout | from_json)[0].NetworkSettings.Ports['3000/tcp'] }}"
 
     - name: Read the generated app.ini
       ansible.builtin.command: docker exec forgejo cat /data/gitea/conf/app.ini

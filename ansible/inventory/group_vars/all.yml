@@ -1,3 +1,8 @@
 ---
 # Settings shared by every machine.
 base_timezone: Europe/Amsterdam
+
+# Services are reached as <service>.<domain>, VMs as <name>.<domain>. The dns
+# VM answers those names on the LAN; the public zone at the registrar only
+# holds what is deliberately exposed.
+homelab_domain: zeepaardje98.eu

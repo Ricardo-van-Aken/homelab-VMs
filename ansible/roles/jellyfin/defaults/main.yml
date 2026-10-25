@@ -4,6 +4,9 @@ jellyfin_image: jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873
 jellyfin_dir: /opt/stacks/jellyfin
 jellyfin_media_path: /srv/media
 jellyfin_published_url: ""
+# Name Caddy (role caddy) answers on port 80, forwarding to Jellyfin. Port
+# 8096 stays published as well: the apps find the server through it.
+jellyfin_domain: "{{ inventory_hostname }}"
 # Service account that owns config and cache; media must be readable by it.
 jellyfin_user: jellyfin
 jellyfin_uid: 2000

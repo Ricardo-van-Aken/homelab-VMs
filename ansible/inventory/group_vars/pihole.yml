@@ -1,0 +1,32 @@
+---
+# Pi-hole settings. The LAN uses it once the router's DHCP hands out the dns
+# VM's address as the nameserver.
+
+# Names follow the inventory. A VM is reachable as its inventory name under
+# the domain (forgejo-git.zeepaardje98.eu), and each service as the
+# name of its group (forgejo.zeepaardje98.eu), both pointing at the VM's
+# address.
+#
+# The loop below reads the hosts in the vms group and their groups, so a
+# new VM or service in hosts.yml gets its names without an edit here.
+pihole_records: >-
+  {%- set records = [] -%}
+  {%- for host in groups['vms'] -%}
+    {%- set names = [host] + (hostvars[host].group_names | reject('equalto', 'vms') | list) -%}
+    {%- set _ = records.append(hostvars[host].ansible_host ~ ' '
+                               ~ (names | map('regex_replace', '$', '.' ~ homelab_domain) | join(' '))) -%}
+  {%- endfor -%}
+  {{ records }}
+
+# Password for the admin UI at http://10.0.1.100/admin.
+
+pihole_web_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          30383565663637633561646137346232343134383132663265346137313632313530666135386239
+          3439616134326239633138363939636138323836666530330a313664356332363034326239373336
+          31633932346537303336306631343636353836643535346364666533393134323437353431656337
+          3539366237343766390a313930333464343136373531333339353535346536393735393965366331
+          35386565333939653339666166633361336333366438613563316434306366333035623465313732
+          35626136376663396161396132313562643932373266386133656436636632366430623139666162
+          39323866623036333335383039386337316462316530316566363333336531633636613163643939
+          30353166323439663764

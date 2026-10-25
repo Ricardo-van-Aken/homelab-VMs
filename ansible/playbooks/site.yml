@@ -39,3 +39,8 @@
   hosts: mealie
   roles:
     - mealie  # depends on geerlingguy.docker role
+
+- name: DNS resolvers
+  hosts: pihole
+  roles:
+    - pihole  # depends on geerlingguy.docker role

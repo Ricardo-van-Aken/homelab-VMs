@@ -11,10 +11,12 @@ forgejo_data_dir: "{{ forgejo_dir }}/data"
 forgejo_user: forgejo
 forgejo_uid: 2001
 
-# Public names as seen by clients. SSH is published on a non-22 port so it
-# does not collide with the VM's own sshd; clone URLs include it.
+# Public names as seen by clients. HTTP goes through Caddy (role caddy) on
+# port 80; Forgejo itself listens on 127.0.0.1 only. SSH is published on a
+# non-22 port so it does not collide with the VM's own sshd; clone URLs
+# include it.
 forgejo_domain: "{{ inventory_hostname }}"
-forgejo_root_url: "http://{{ forgejo_domain }}:{{ forgejo_http_port }}/"
+forgejo_root_url: "http://{{ forgejo_domain }}/"
 forgejo_http_port: 3000
 forgejo_ssh_port: 2222
 

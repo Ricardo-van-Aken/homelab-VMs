@@ -54,18 +54,20 @@
     group: root
     mode: "0644"
 
-- name: Render the proxy configuration
+# The site carries the secret when the shared user is on; root-only, and
+# Caddy runs as root.
+- name: Render the Caddy site
   ansible.builtin.template:
-    src: Caddyfile.j2
-    dest: "{{ mealie_dir }}/Caddyfile"
+    src: caddy.j2
+    dest: "{{ caddy_sites_dir }}/mealie.caddy"
     owner: root
     group: root
-    mode: "0644"
-  when: mealie_shared_user | length > 0
-  notify: Restart the Mealie proxy
+    mode: "0600"
+  notify: Restart Caddy
+  no_log: true
 
-# Read by compose for both containers: Mealie checks the secret, Caddy sends
-# it. Kept out of compose.yml and the Caddyfile so those stay readable.
+# Mealie's side of the secret, kept out of compose.yml so that stays
+# readable.
 - name: Write the proxy secret
   ansible.builtin.copy:
     content: "REVERSE_PROXY_AUTH_SECRET={{ mealie_proxy_secret }}\n"
@@ -76,13 +78,10 @@
   when: mealie_shared_user | length > 0
   no_log: true
 
-- name: Remove the proxy configuration
+- name: Remove the proxy secret
   ansible.builtin.file:
-    path: "{{ mealie_dir }}/{{ item }}"
+    path: "{{ mealie_dir }}/proxy.env"
     state: absent
-  loop:
-    - Caddyfile
-    - proxy.env
   when: mealie_shared_user | length == 0
 
 # The image carries its own health check (GET /api/app/about); wait for it so

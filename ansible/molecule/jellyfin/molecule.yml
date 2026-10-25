@@ -3,3 +3,8 @@
 # the compose stack really starts.
 scenario:
   name: jellyfin
+provisioner:
+  inventory:
+    group_vars:
+      all:
+        jellyfin_domain: localhost
