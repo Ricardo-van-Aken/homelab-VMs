@@ -223,6 +223,8 @@ ansible-playbook playbooks/site.yml --limit arcade --ask-vault-pass
 * Replace the encrypted `forgejo_admin_email` and `forgejo_admin_password` in
   `group_vars/forgejo.yml` with your own (see Secrets), or create the admin
   by hand afterwards.
+* Add your own accounts to `forgejo_users` in the same file, name, email and
+  password each encrypted. Every account needs its own address.
 
 ```sh
 ansible-playbook playbooks/site.yml --limit forgejo-git --ask-vault-pass
@@ -311,7 +313,7 @@ In the order the playbook runs them.
 | steam           | Steam with i386 libraries, gamemode, mangohud                |
 | sunshine        | Sunshine .deb, config, apps, user service                    |
 | jellyfin        | Jellyfin compose stack, GPU node; wizard, libraries, users via API |
-| forgejo         | Forgejo compose stack (sqlite, closed registration, admin)   |
+| forgejo         | Forgejo compose stack (sqlite, closed registration, admin and users) |
 | samba           | SMB shares of the mounted media datasets                     |
 | mealie          | Mealie behind a Caddy proxy that signs the LAN in as one shared account; admin takeover, accounts and public access via API |
 
@@ -355,7 +357,7 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | gpu      | package-level checks; no GPU in the instance                 |
 | steam    | needs an amd64 host (i386 packages)                          |
 | jellyfin | logs in as the admin the role made; the libraries and extra user exist |
-| forgejo  | admin user exist, public registration is blocked             |
+| forgejo  | admin and regular user exist, public registration is blocked |
 | samba    | logs in as `media` and copies a file to the share; Jellyfin owns the file afterwards |
 | mealie   | a visit without credentials lands on the shared account through a reverse proxy(Caddy) |
 

@@ -15,3 +15,10 @@ forgejo_admin_user: sysadmin
 forgejo_admin_email: ""
 
 forgejo_admin_password: ""
+
+# Regular accounts, created once with the given password. Each needs its own
+# address.
+forgejo_users:
+  - name: ""
+    email: ""
+    password: ""
