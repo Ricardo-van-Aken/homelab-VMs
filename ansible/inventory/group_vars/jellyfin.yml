@@ -57,9 +57,8 @@ jellyfin_libraries:
       - /media/music/pop
       - /media/music/rnb
 
-# Extra users, created once. Names are vaulted too, so the repo does not
-# list who uses the server. Placeholders encrypted with a throwaway vault
-# password; replace them with your own (see Secrets).
+# Extra users, created once. Names are vaulted too, so the (public) repo does
+# not list who uses the server.
 jellyfin_users:
   - name: !vault |
           $ANSIBLE_VAULT;1.1;AES256

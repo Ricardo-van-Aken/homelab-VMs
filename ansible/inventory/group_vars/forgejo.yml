@@ -1,6 +1,8 @@
 ---
-# Clients reach Forgejo by the VM's address until a domain exists; then set
-# forgejo_domain to e.g. forge.home.example.com and resolve it locally.
+# Clients reach Forgejo by the VM's address until a domain exists. Once we
+# have a domain we can set forgejo_domain to that domain, and make a local DNS
+# server resolve it.
+
 forgejo_domain: "{{ ansible_host }}"
 # Repositories and database, on the host's forgejo dataset (pve_vm.shares).
 forgejo_data_dir: /srv/forgejo

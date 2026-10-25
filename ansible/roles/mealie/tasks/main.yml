@@ -1,0 +1,100 @@
+---
+- name: Check the login-free setup is complete
+  ansible.builtin.assert:
+    that:
+      - mealie_proxy_secret | length > 0
+      - mealie_admin_password | length > 0
+    fail_msg: >-
+      mealie_shared_user is set, so mealie_proxy_secret (what the proxy sends
+      to prove itself) and mealie_admin_password (the role creates the shared
+      account through the admin API) must be set too.
+  when: mealie_shared_user | length > 0
+
+# The container chowns its data to PUID:PGID, both mealie_uid, so the group
+# needs that gid too or every run finds the ownership changed.
+- name: Create Mealie service group
+  ansible.builtin.group:
+    name: "{{ mealie_user }}"
+    gid: "{{ mealie_uid }}"
+    system: true
+
+- name: Create Mealie service account
+  ansible.builtin.user:
+    name: "{{ mealie_user }}"
+    uid: "{{ mealie_uid }}"
+    group: "{{ mealie_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create stacks directory
+  ansible.builtin.file:
+    path: "{{ mealie_dir | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create Mealie directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ mealie_user }}"
+    group: "{{ mealie_user }}"
+    mode: "0750"
+  loop:
+    - "{{ mealie_dir }}"
+    - "{{ mealie_data_dir }}"
+
+- name: Render compose file
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ mealie_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render the proxy configuration
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ mealie_dir }}/Caddyfile"
+    owner: root
+    group: root
+    mode: "0644"
+  when: mealie_shared_user | length > 0
+  notify: Restart the Mealie proxy
+
+# Read by compose for both containers: Mealie checks the secret, Caddy sends
+# it. Kept out of compose.yml and the Caddyfile so those stay readable.
+- name: Write the proxy secret
+  ansible.builtin.copy:
+    content: "REVERSE_PROXY_AUTH_SECRET={{ mealie_proxy_secret }}\n"
+    dest: "{{ mealie_dir }}/proxy.env"
+    owner: root
+    group: root
+    mode: "0600"
+  when: mealie_shared_user | length > 0
+  no_log: true
+
+- name: Remove the proxy configuration
+  ansible.builtin.file:
+    path: "{{ mealie_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - Caddyfile
+    - proxy.env
+  when: mealie_shared_user | length == 0
+
+# The image carries its own health check (GET /api/app/about); wait for it so
+# the API setup below finds a server that has run its migrations.
+- name: Deploy Mealie stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ mealie_dir }}"
+    state: present
+    remove_orphans: true
+    wait: true
+    wait_timeout: 180
+
+- name: Configure Mealie through its API
+  ansible.builtin.include_tasks: setup.yml
+  when: mealie_admin_password | length > 0
