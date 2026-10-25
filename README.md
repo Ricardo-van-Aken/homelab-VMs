@@ -71,11 +71,11 @@ You can run the Ansible playbooks from `ansible/` if you have ansible-core
 installed. Alternatively, if you have docker installed, you can run it from the
 docker image in `ansible/docker/runtime/`.
 
-(Optional) build the image and open a shell in it.
-
 ```sh
 cd ansible
 ```
+
+**(Optional)** build the image and open a shell in it. This allows you to **skip step 1**
 
 ```sh
 docker build -t ansible-runtime:local --target runtime \
@@ -94,9 +94,6 @@ Once:
 
 ```sh
 cd ansible
-```
-
-```sh
 ansible-galaxy install -r requirements.yml
 ```
 
@@ -338,13 +335,7 @@ Build it once, then run a scenario from the molecule image:
 
 ```sh
 cd ansible
-```
-
-```sh
 docker build -t molecule-target:local docker/molecule-target
-```
-
-```sh
 docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
   -v /var/run/docker.sock:/var/run/docker.sock \
   ghcr.io/ricardo-van-aken/homelab-vms/ansible-molecule:<tag> \
