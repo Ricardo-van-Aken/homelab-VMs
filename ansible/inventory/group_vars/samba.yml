@@ -1,6 +1,6 @@
 ---
-# SMB shares of the media datasets, for filling the libraries from a laptop.
-# The share user's uid is the datasets' owner (Jellyfin's), so uploads belong
+# SMB shares of the media datasets, for filling the media libraries from a laptop.
+# The share user's uid is the datasets' owßner (Jellyfin's), so uploads belong
 # to Jellyfin without a chown. Connect with smb://<nas address>/<share>.
 samba_user: media
 samba_uid: 2000

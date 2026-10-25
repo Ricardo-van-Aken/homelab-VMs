@@ -1,0 +1,9 @@
+---
+# Caddy reads its Caddyfile once at start; compose only recreates the
+# container when compose.yml or proxy.env change.
+- name: Restart the Mealie proxy
+  community.docker.docker_compose_v2:
+    project_src: "{{ mealie_dir }}"
+    services:
+      - proxy
+    state: restarted

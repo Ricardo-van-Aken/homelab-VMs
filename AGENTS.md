@@ -77,3 +77,27 @@ the same reason; runs take `--ask-vault-pass` or `ANSIBLE_VAULT_PASSWORD_FILE`.
 Tasks that handle a secret carry `no_log: true`. Placeholders for secrets
 are vaulted too, encrypted with a throwaway password, so a run that still
 carries one fails to decrypt instead of applying a known value.
+
+## Comments and documentation
+
+A comment documents the lines below it, in that file, and nothing else. How
+a feature works across the system belongs in the README or next to the
+variable in the role's `defaults/main.yml`, not in a template or an
+inventory file. One or two lines is the norm.
+
+Anything the maintainer has to do goes in its own `# TODO: ...` line, kept
+apart from the comment that documents the setting:
+
+```yaml
+# Sent by the Caddy proxy with every request. Any long random string.
+# TODO: replace with your own !vault value; this one will not decrypt.
+mealie_proxy_secret: !vault |
+```
+
+The README is written for other people who clone the repository. The
+vaulted values in `inventory/` are the maintainer's own secrets, so the
+per-VM sections say "replace the encrypted X with your own (see Secrets)"
+and never call them placeholders. Write what a reader does and what is
+true afterwards, in everyday words, and leave out anything that only
+restates what a role obviously does. A note in a table that says nothing a
+newcomer can act on is removed rather than reworded.

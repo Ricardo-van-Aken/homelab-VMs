@@ -31,7 +31,7 @@ pve_storage_pools:
       - /dev/disk/by-id/ata-ST8000VN004-2M2101_WSD8PP01
       - /dev/disk/by-id/ata-ST8000VN004-2M2101_WSD8PP4M
     # owner: the uid the service runs as in its VM (jellyfin_uid, desktop_uid,
-    # forgejo_uid); virtiofs passes ids through unchanged.
+    # forgejo_uid, mealie_uid); virtiofs passes ids through unchanged.
     datasets:
       - name: movies  # Jellyfin
         owner: 2000
@@ -49,4 +49,6 @@ pve_storage_pools:
         owner: 2002
       - name: forgejo  # repositories and database
         owner: 2001
+      - name: mealie  # recipes, images and database
+        owner: 2003
       # later: minecraft, s3, forgejo-runners
