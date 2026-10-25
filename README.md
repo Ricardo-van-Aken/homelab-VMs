@@ -82,9 +82,17 @@ docker build -t ansible-runtime:local --target runtime \
   -f docker/runtime/Dockerfile .
 ```
 
+The container uses your SSH agent; load the key first (`ssh-add -l` lists
+it). On macOS the agent is reached through a fixed path, on Linux through
+your own socket:
+
+```sh
+agent=$SSH_AUTH_SOCK; [ "$(uname)" = Darwin ] && agent=/run/host-services/ssh-auth.sock
+```
+
 ```sh
 docker run --rm -it -v "$PWD/..:/work" -w /work/ansible \
-  -v "$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
+  -v "$agent:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
   ansible-runtime:local
 ```
 
@@ -93,7 +101,6 @@ docker run --rm -it -v "$PWD/..:/work" -w /work/ansible \
 Once:
 
 ```sh
-cd ansible
 ansible-galaxy install -r requirements.yml
 ```
 
