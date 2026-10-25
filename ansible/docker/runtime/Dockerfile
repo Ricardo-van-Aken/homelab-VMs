@@ -1,6 +1,3 @@
-# python:3.13-alpine3.22 -- digest pushed 2026-04-19 11:07 UTC
-ARG PYTHON_IMAGE=python@sha256:e81548ac35b07a3bd4805f275107592ef458b1e893c0e04d45aedaa19416cca5
-
 # Build from the repo root.
 # Targets:
 #   runtime  -- ansible-core plus the Galaxy dependencies from requirements.yml,
@@ -12,7 +9,7 @@ ARG PYTHON_IMAGE=python@sha256:e81548ac35b07a3bd4805f275107592ef458b1e893c0e04d4
 # builder: resolve ansible-core and the Galaxy dependencies into a
 # self-contained virtualenv
 # ---------------------------------------------------------------------------
-FROM ${PYTHON_IMAGE} AS builder
+FROM python:3.13-alpine3.24@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741 AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -51,7 +48,7 @@ RUN pip --python /opt/venv/bin/python install --no-compile -r /tmp/requirements-
 # ---------------------------------------------------------------------------
 # base: everything the shipped images share except the virtualenv
 # ---------------------------------------------------------------------------
-FROM ${PYTHON_IMAGE} AS base
+FROM python:3.13-alpine3.24@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741 AS base
 
 RUN apk add --no-cache \
     # the transport behind the default ssh connection plugin

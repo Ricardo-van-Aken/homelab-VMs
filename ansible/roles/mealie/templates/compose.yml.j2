@@ -1,0 +1,50 @@
+# {{ ansible_managed }}
+services:
+  mealie:
+    image: {{ mealie_image }}
+    container_name: mealie
+    restart: unless-stopped
+    environment:
+      PUID: "{{ mealie_uid }}"
+      PGID: "{{ mealie_uid }}"
+      TZ: {{ base_timezone }}
+      BASE_URL: {{ mealie_url }}
+      ALLOW_SIGNUP: "false"
+{% if mealie_shared_user %}
+      # Trust the username the proxy puts in X-Forwarded-User when the
+      # secret from proxy.env comes with it.
+      REVERSE_PROXY_AUTH_ENABLED: "true"
+{% endif %}
+{% for key, value in mealie_extra_env.items() %}
+      {{ key }}: "{{ value }}"
+{% endfor %}
+{% if mealie_shared_user %}
+    env_file:
+      - proxy.env
+{% else %}
+    ports:
+      - "{{ mealie_http_port }}:9000"
+{% endif %}
+    volumes:
+      - {{ mealie_data_dir }}:/app/data
+    deploy:
+      resources:
+        limits:
+          memory: {{ mealie_memory_limit }}
+{% if mealie_shared_user %}
+
+  # Takes Mealie's port and is the only way in; Mealie itself publishes
+  # nothing. Signs every visitor in as the shared user (see Caddyfile).
+  proxy:
+    image: {{ mealie_proxy_image }}
+    container_name: mealie-proxy
+    restart: unless-stopped
+    depends_on:
+      - mealie
+    env_file:
+      - proxy.env
+    ports:
+      - "{{ mealie_http_port }}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+{% endif %}
