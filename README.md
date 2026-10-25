@@ -72,10 +72,17 @@ installed. Alternatively, if you have docker installed, you can run it from the
 docker image in `ansible/docker/runtime/`.
 
 (Optional) build the image and open a shell in it.
+
 ```sh
 cd ansible
+```
+
+```sh
 docker build -t ansible-runtime:local --target runtime \
   -f docker/runtime/Dockerfile .
+```
+
+```sh
 docker run --rm -it -v "$PWD/..:/work" -w /work/ansible \
   -v "$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
   ansible-runtime:local
@@ -87,6 +94,9 @@ Once:
 
 ```sh
 cd ansible
+```
+
+```sh
 ansible-galaxy install -r requirements.yml
 ```
 
@@ -328,7 +338,13 @@ Build it once, then run a scenario from the molecule image:
 
 ```sh
 cd ansible
+```
+
+```sh
 docker build -t molecule-target:local docker/molecule-target
+```
+
+```sh
 docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
   -v /var/run/docker.sock:/var/run/docker.sock \
   ghcr.io/ricardo-van-aken/homelab-vms/ansible-molecule:<tag> \
