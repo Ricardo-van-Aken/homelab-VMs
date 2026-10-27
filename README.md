@@ -13,20 +13,25 @@
 [![License](https://img.shields.io/github/license/Ricardo-van-Aken/homelab-VMs)](LICENSE)
 </div>
 
-Ansible for my homelab: a Proxmox host and the VMs on it. Each VM runs one or
-more services:
+Ansible for my homelab: a Proxmox host and the Virtual Machines (VMs) on it.
+Each VM runs one or more services:
 
-* **arcade**: media and game streaming, with the host's GPU passed through
+* **arcade**: media and game streaming, with the host's graphics processing
+unit (GPU) passed through
   * Jellyfin: media server with hardware transcoding
   * Steam: game library
   * Sunshine: streams the desktop and games to Moonlight clients
 * **forgejo-git**: code hosting
-  * Forgejo: Git forge with web UI and SSH access
+  * Forgejo: Git forge with web User Interface (UI) and Secure Shell (SSH) access
 * **nas**: network share of the media library, for filling it from a laptop
-  * Samba: SMB shares of the movies, series and music datasets
+  * Samba: Server Message Block (SMB) shares of the movies, series and music
+  datasets
 * **recipes**: the household cookbook
-  * Mealie: recipe manager and meal planner; the whole LAN reads and edits
+  * Mealie: recipe manager and meal planner; the whole Local Area Network
+  (LAN) reads and edits
     without signing in
+* **dns**: name resolution for the LAN
+  * Pi-hole: resolver with a name for every VM and service, and ad blocking
 
 <details open>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="prerequisites" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Prerequisites</h2></summary>
@@ -37,12 +42,13 @@ up certain VMs, follow the instructions at
 [Set up only select VMs](#set-up-only-select-vms).
 
 **Host Hardware**
-* A host running Proxmox VE (I have Proxmox VE 9.2.*)
-* A CPU and board that support an IOMMU (Intel VT-d or AMD-Vi).
-* Empty disks for the ZFS pool, two for a mirror (RAID1).
+* A host running Proxmox Virtual Environment (PVE) (I have Proxmox VE 9.2.*)
+* A Central Processing Unit (CPU) and board that support Input-Output Memory Management Unit (IOMMU) (Intel VT-d or AMD-Vi).
+* Empty disks for the Zettabyte File System (ZFS) pool, two for a mirror
+  (Redundant Array of Independent Disks level 1, RAID1).
 * A GPU the host can spare.
 
-**Host BIOS**
+**Host Basic Input/Output System (BIOS)**
 * Virtualisation enabled (Intel VT-x or AMD-V).
 * IOMMU enabled (Intel VT-d or AMD-Vi).
 
@@ -55,7 +61,8 @@ up certain VMs, follow the instructions at
 **Inventory**
 * `host_vars/srv1.yml`: `ansible_host`, `pve_storage_pools`,
   `pve_passthrough_devices`
-* `group_vars/proxmox.yml`: `pve_template_ssh_keys`, `pve_vms_gateway`
+* `group_vars/all.yml`: `ssh_keys_authorized`
+* `group_vars/proxmox.yml`: `pve_vms_gateway`
 * `host_vars/<vm>.yml` per VM: `ansible_host`, `pve_vm`
 * `group_vars/gaming.yml`: `desktop_force_connector`
 
@@ -120,6 +127,42 @@ ansible-vault encrypt_string --ask-vault-pass --stdin-name forgejo_admin_passwor
 Type the value, press Ctrl-D, and paste the output over the old block in the
 same file.
 
+> [!WARNING]
+> Every key in the `ssh_keys_authorized` list can log in to your Proxmox
+> host and VMs. Replace my public keys in `inventory/group_vars/all.yml` with
+> your own, or I have access to your systems.
+>
+> You already need SSH access to the Proxmox host, so the public key you use
+> for that works here too.
+
+<details>
+<summary><strong>Optional: generate an SSH key and keep it in the repository</strong></summary>
+
+If you don't have an SSH key for your homelab yet, make one and put its public
+key (`~/.ssh/homelab_ed25519.pub`) in `ssh_keys_authorized`:
+
+```sh
+ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/homelab_ed25519
+ssh-add ~/.ssh/homelab_ed25519
+```
+
+`ansible/homelab_ed25519.vault` is my own SSH private key, encrypted with my
+vault password so I can share it between my computers. You cannot decrypt it,
+and Ansible never reads it, so delete it. To share yours between your own
+computers the same way, encrypt it with your vault password:
+
+```sh
+ansible-vault encrypt --output homelab_ed25519.vault ~/.ssh/homelab_ed25519
+```
+
+On another computer, restore it with:
+
+```sh
+(umask 077; ansible-vault decrypt --output ~/.ssh/homelab_ed25519 homelab_ed25519.vault)
+```
+
+</details>
+
 #### Step 3: set up the Proxmox host
 
 ```sh
@@ -183,10 +226,13 @@ Make sure the host runs Proxmox VE. Before the first run:
     * `ansible_host`: the Proxmox host's address
     * `pve_storage_pools`: disk ids, from `ls -l /dev/disk/by-id`
     * `pve_passthrough_devices`: only for a VM with a GPU (arcade); the
-      GPU's PCI functions, from `lspci -D`. Leave empty to skip passthrough
+      GPU's Peripheral Component Interconnect (PCI) functions, from `lspci -D`. Leave empty to skip passthrough
+  
+  `group_vars/all.yml`
+    * `ssh_keys_authorized`: public keys that may log in to the Proxmox host
+      and the VMs
   
   `group_vars/proxmox.yml`
-    * `pve_template_ssh_keys`: public keys that may log in to the VMs
     * `pve_vms_gateway`: the VMs' default gateway
 
 ```sh
@@ -202,7 +248,7 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
 <details>
 <summary><h3 id="arcade" style="display:inline; margin:0; vertical-align:middle">arcade</h3></summary>
 
-* Attach a dummy HDMI plug or set `desktop_force_connector`.
+* Attach a dummy High-Definition Multimedia Interface (HDMI) plug or set `desktop_force_connector`.
 * Replace the placeholder `jellyfin_admin_password` and the passwords in
   `jellyfin_users` in `group_vars/jellyfin.yml` with `!vault` values (see
   Secrets). The role runs Jellyfin's setup wizard with them: admin user,
@@ -245,7 +291,7 @@ ansible-playbook playbooks/site.yml --limit nas --ask-vault-pass
 
 Then connect from a laptop with `smb://10.0.1.120/movies` (or `series`,
 `music`) as user `media`. Files land in the datasets owned by Jellyfin's
-uid, so they show up in the library on the next scan.
+user ID (uid), so they show up in the library on the next scan.
 
 </details>
 
@@ -260,9 +306,29 @@ uid, so they show up in the library on the next scan.
 ansible-playbook playbooks/site.yml --limit recipes --ask-vault-pass
 ```
 
-Then open `http://10.0.1.130:9925`. Everyone on the LAN is signed in as the
+Then open `http://mealie.zeepaardje98.eu`. Everyone on the LAN is signed in as the
 shared `family` account and can add and edit recipes. To use the admin
 account, log out from the menu and sign in on the page that follows.
+
+</details>
+
+<details>
+<summary><h3 id="dns" style="display:inline; margin:0; vertical-align:middle">dns</h3></summary>
+
+* Replace the encrypted `pihole_web_password` in `group_vars/pihole.yml` with
+  your own (see Secrets).
+* Set `homelab_domain` in `group_vars/all.yml` to your domain. Every VM and
+  service gets a name under it, `forgejo.<domain>` and `forgejo-git.<domain>`
+  for example, pointing at the VM's LAN address. The names are built from the
+  inventory, so nothing is listed by hand.
+
+```sh
+ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
+```
+
+Then make your router hand out `10.0.1.100` as the Domain Name System (DNS)
+server in its Dynamic Host Configuration Protocol (DHCP) settings, and reconnect your devices once. The admin UI is at
+`http://10.0.1.100/admin`.
 
 </details>
 
@@ -279,7 +345,7 @@ account, log out from the menu and sign in on the page that follows.
 │   ├── inventory/
 │   │   ├── hosts.yml        proxmox hosts, and VMs in one group per service
 │   │   ├── group_vars/      VM settings (ports, users, data paths, GPU pins)
-│   │   └── host_vars/       per machine 'physical' settings: IP address and 
+│   │   └── host_vars/       per machine 'physical' settings: Internet Protocol (IP) address and 
 |   |                        hardware (PCI devices, disks, CPU cores, memory)
 |   |
 │   ├── playbooks/site.yml   maps groups to roles
@@ -312,10 +378,12 @@ In the order the playbook runs them.
 | desktop         | Xorg + LightDM autologin + openbox session for `gamer`       |
 | steam           | Steam with i386 libraries, gamemode, mangohud                |
 | sunshine        | Sunshine .deb, config, apps, user service                    |
-| jellyfin        | Jellyfin compose stack, GPU node; wizard, libraries, users via API |
+| caddy           | reverse proxy on port 80, one site file per service; pulled in by the web service roles |
+| jellyfin        | Jellyfin compose stack, GPU node; wizard, libraries, users via Application Programming Interface (API) |
 | forgejo         | Forgejo compose stack (sqlite, closed registration, admin and users) |
 | samba           | SMB shares of the mounted media datasets                     |
 | mealie          | Mealie behind a Caddy proxy that signs the LAN in as one shared account; admin takeover, accounts and public access via API |
+| pihole          | Pi-hole compose stack with local records from the inventory; frees port 53 from systemd-resolved |
 
 </details>
 
@@ -360,6 +428,7 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | forgejo  | admin and regular user exist, public registration is blocked |
 | samba    | logs in as `media` and copies a file to the share; Jellyfin owns the file afterwards |
 | mealie   | a visit without credentials lands on the shared account through a reverse proxy(Caddy) |
+| pihole   | a local record and a public name resolve; the admin password logs in |
 
 </details>
 
@@ -374,37 +443,45 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
   * Motherboard: Asus Prime Z890M-Plus WIFI
   * Memory: Corsair Vengeance DDR5 2x16 GB 6000 MHz CL38 (CMK32GX5M2B6000Z38)
   * GPU: AMD Radeon R9 380X (Tonga)
-  * SSD: Lexar NQ780 1 TB M.2 2280 PCIe 4.0 x4 NVMe
-  * HDD: 2x Seagate IronWolf 8 TB (ST8000VN004-2M2101)
+  * Solid-State Drive (SSD): Lexar NQ780 1 TB M.2 2280 PCIe 4.0 x4 NVMe
+  * Hard Disk Drive (HDD): 2x Seagate IronWolf 8 TB (ST8000VN004-2M2101)
 
 </details>
 
 <details>
 <summary><strong>Ports</strong></summary>
 
+Listed as port/protocol: Transmission Control Protocol (TCP) or User Datagram
+Protocol (UDP).
+
 * **arcade** (10.0.1.160)
   * 22/tcp: SSH
-  * 8096/tcp: Jellyfin web UI and API
+  * 80/tcp: Jellyfin web UI, through Caddy
+  * 8096/tcp: Jellyfin web UI and API, for the apps
   * 7359/udp: Jellyfin client auto-discovery
-  * 1900/udp: Jellyfin DLNA
-  * 47990/tcp: Sunshine web UI (HTTPS, first pairing)
+  * 1900/udp: Jellyfin Digital Living Network Alliance (DLNA)
+  * 47990/tcp: Sunshine web UI (Hypertext Transfer Protocol Secure (HTTPS), first pairing)
   * 47984/tcp, 47989/tcp: Sunshine pairing and control (Moonlight)
-  * 48010/tcp: Sunshine RTSP
+  * 48010/tcp: Sunshine Real-Time Streaming Protocol (RTSP)
   * 47998-48000/udp: Sunshine video, control and audio streams
 * **forgejo-git** (10.0.1.110)
   * 22/tcp: SSH to the VM
-  * 3000/tcp: Forgejo web UI and HTTP clone
+  * 80/tcp: Forgejo web UI and Hypertext Transfer Protocol (HTTP) clone, through Caddy
   * 2222/tcp: Forgejo SSH clone
 * **nas** (10.0.1.120)
   * 22/tcp: SSH
   * 445/tcp: SMB shares
 * **recipes** (10.0.1.130)
   * 22/tcp: SSH
-  * 9925/tcp: Mealie web UI and API, through the Caddy proxy
+  * 80/tcp: Mealie web UI and API, through Caddy
+* **dns** (10.0.1.100)
+  * 22/tcp: SSH
+  * 53/tcp, 53/udp: DNS
+  * 80/tcp: Pi-hole admin UI and API
 
 </details>
 
 **Disclaimer.** Much of the code and documentation in this repository was
-generated with AI assistance and then reviewed, tested and adjusted by hand.
+generated with Artificial Intelligence (AI) assistance and then reviewed, tested and adjusted by hand.
 
 </details>

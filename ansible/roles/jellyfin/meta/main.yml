@@ -2,3 +2,4 @@
 dependencies:
   - role: geerlingguy.docker
   - role: gpu
+  - role: caddy

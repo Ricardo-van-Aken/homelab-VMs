@@ -1,0 +1,61 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Inspect Pi-hole container
+      ansible.builtin.command: docker inspect pihole
+      changed_when: false
+      register: pihole_inspect
+
+    - name: Assert Pi-hole is running and healthy
+      ansible.builtin.assert:
+        that:
+          - pihole_state.Running
+          - pihole_state.Health.Status == 'healthy'
+      vars:
+        pihole_state: "{{ (pihole_inspect.stdout | from_json)[0].State }}"
+
+    - name: Install the DNS client
+      ansible.builtin.apt:
+        name: bind9-dnsutils
+        update_cache: true
+
+    - name: Resolve the local records
+      ansible.builtin.command: dig @127.0.0.1 +short {{ item }}
+      changed_when: false
+      register: pihole_local
+      loop:
+        - forgejo.example.test
+        - forgejo-git.example.test
+
+    - name: Assert both names point at the record's address
+      ansible.builtin.assert:
+        that: item.stdout == '192.0.2.10'
+      loop: "{{ pihole_local.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Log in to the admin API with the configured password
+      ansible.builtin.uri:
+        url: http://127.0.0.1/api/auth
+        method: POST
+        body_format: json
+        body:
+          password: molecule-test-only
+      register: pihole_login
+
+    - name: Assert the login gave a session
+      ansible.builtin.assert:
+        that: pihole_login.json.session.valid
+
+    # Last: needs outbound DNS to the public upstreams.
+    - name: Resolve a public name through the upstreams
+      ansible.builtin.command: dig @127.0.0.1 +short example.com A
+      changed_when: false
+      register: pihole_upstream
+
+    - name: Assert the upstream answered
+      ansible.builtin.assert:
+        that: pihole_upstream.stdout | length > 0

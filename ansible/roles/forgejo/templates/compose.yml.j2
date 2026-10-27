@@ -19,7 +19,7 @@ services:
       {{ key }}: "{{ value }}"
 {% endfor %}
     ports:
-      - "{{ forgejo_http_port }}:3000"
+      - "127.0.0.1:{{ forgejo_http_port }}:3000"  # Caddy forwards to it
       - "{{ forgejo_ssh_port }}:22"
     volumes:
       - {{ forgejo_data_dir }}:/data

@@ -2,6 +2,7 @@
 - name: Proxmox hosts
   hosts: proxmox
   roles:
+    - ssh_keys
     - role: pve_passthrough  # only for hosts that pass a GPU to a VM
       when: pve_passthrough_devices | default([]) | length > 0
     - pve_storage
@@ -11,6 +12,7 @@
 - name: Base configuration for every VM
   hosts: vms
   roles:
+    - ssh_keys
     - base
     - shares
 
@@ -39,3 +41,8 @@
   hosts: mealie
   roles:
     - mealie  # depends on geerlingguy.docker role
+
+- name: DNS resolvers
+  hosts: pihole
+  roles:
+    - pihole  # depends on geerlingguy.docker role
