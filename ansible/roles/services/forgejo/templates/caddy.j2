@@ -1,4 +1,5 @@
 # {{ ansible_managed }}
 {{ caddy_scheme }}{{ forgejo_domain }} {
+	import dns_challenge
 	reverse_proxy 127.0.0.1:{{ forgejo_http_port }}
 }

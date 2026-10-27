@@ -5,10 +5,19 @@
 {% if caddy_https | bool %}
 	https_port {{ caddy_https_port }}
 	email {{ caddy_acme_email }}
-	# Every site proves its name with a temporary DNS record at the provider.
-	acme_dns {{ caddy_dns_provider }} {env.CADDY_DNS_TOKEN}
 {% else %}
 	auto_https off
+{% endif %}
+}
+
+# Imported by every site. With HTTPS: prove the name with a temporary DNS
+# record at the provider, and give it time to reach all nameservers.
+(dns_challenge) {
+{% if caddy_https | bool %}
+	tls {
+		dns {{ caddy_dns_provider }} {env.CADDY_DNS_TOKEN}
+		propagation_delay {{ caddy_dns_propagation_delay }}s
+	}
 {% endif %}
 }
 

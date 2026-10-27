@@ -26,3 +26,6 @@ caddy_acme_email: ""
 caddy_dns_provider: ""  # e.g. hetzner
 caddy_dns_plugin: ""  # e.g. github.com/caddy-dns/hetzner/v2@v2.0.0
 caddy_dns_token: ""
+# Seconds between writing the challenge record and asking Let's Encrypt to
+# look, for the record to reach all of the provider's nameservers.
+caddy_dns_propagation_delay: 60

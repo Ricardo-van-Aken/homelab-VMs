@@ -1,6 +1,7 @@
 ---
 # Settings shared by every VM.
 ansible_user: ubuntu  # the cloud image default
-# Rebuilt VMs have new host keys. Accept a key on first contact, but still
-# refuse a changed one; remove the stale entry with `ssh-keygen -R <address>`.
+# Rebuilt VMs, and VMs whose cloud-init settings changed, have new host
+# keys. Accept a key on first contact, but still refuse a changed one;
+# remove the stale entry with `ssh-keygen -R <address>`.
 ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new

@@ -1,10 +1,27 @@
 ---
+# A fresh clone is still running cloud-init, which updates packages on
+# first boot and holds the apt lock meanwhile.
+- name: Check for cloud-init
+  ansible.builtin.stat:
+    path: /usr/bin/cloud-init
+  register: base_cloud_init
+
+# Exit code 2: done, with warnings it recovered from.
+- name: Wait for cloud-init to finish
+  ansible.builtin.command: cloud-init status --wait
+  register: base_cloud_init_status
+  changed_when: false
+  failed_when: base_cloud_init_status.rc not in [0, 2]
+  when: base_cloud_init.stat.exists
+
+# lock_timeout: the apt-daily timers may hold the lock for a while too.
 - name: Install base packages
   ansible.builtin.apt:
     name: "{{ base_packages }}"
     state: present
     update_cache: true
     cache_valid_time: 3600
+    lock_timeout: 600
 
 - name: Set timezone
   community.general.timezone:

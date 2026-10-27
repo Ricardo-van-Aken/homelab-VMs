@@ -8,3 +8,7 @@ ansible_host: 10.0.1.101
 pve_vm:
   cores: 1
   memory: 1024
+  # Public resolvers: this VM is the resolver the others use.
+  nameservers:
+    - 1.1.1.1
+    - 1.0.0.1

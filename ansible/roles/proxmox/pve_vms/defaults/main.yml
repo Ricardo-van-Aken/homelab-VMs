@@ -8,6 +8,8 @@ pve_vms_ssh_timeout: 300
 # VMs get a static address from cloud-init: ansible_host in this network.
 pve_vms_network_prefix: 24
 pve_vms_gateway: ""  # required, e.g. 10.0.1.1
+# Resolvers for the VMs. Empty: whatever the Proxmox host uses at the time.
+pve_vms_nameservers: []
 
 # Each VM is a host in the `vms` group with an ansible_host and a `pve_vm`
 # dict. Its VMID is the last octet of ansible_host (10.0.1.160 -> 160).
@@ -19,6 +21,8 @@ pve_vms_gateway: ""  # required, e.g. 10.0.1.1
 #                          # back to the host. Omit to leave ballooning alone.
 #     bios: seabios        # or ovmf, which gets an EFI disk
 #     vga: serial0         # none when a passed-through GPU is the display
+#     nameservers:         # instead of pve_vms_nameservers
+#       - 1.1.1.1
 #     hostpci:             # PCI devices from pve_passthrough_devices, as
 #       - 0000:84:00,pcie=1,x-vga=1   # `qm set --hostpciN` takes them
 #     shares:              # host datasets (pve_storage) mounted with virtiofs;
