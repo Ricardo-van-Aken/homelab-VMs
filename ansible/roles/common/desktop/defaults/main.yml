@@ -23,7 +23,8 @@ desktop_packages:
   - fonts-dejavu-core
 desktop_session: openbox
 
-# Force a DRM connector on when no monitor or dummy plug is attached.
+# Force a DRM connector on when no monitor or dummy plug is attached, named
+# as the kernel does (HDMI-A-1); the session also sets this mode on it.
 # Works with any KMS driver (amdgpu, i915, nouveau); not with the NVIDIA
 # proprietary driver.
 desktop_force_connector: ""

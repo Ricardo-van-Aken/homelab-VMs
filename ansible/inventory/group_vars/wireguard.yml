@@ -1,3 +1,5 @@
 ---
 # WireGuard (wg-easy) settings.
 wireguard_domain: "wireguard.{{ homelab_domain }}"
+# The Pi-holes, so homelab names resolve through the tunnel.
+wireguard_client_dns: ["10.0.1.100", "10.0.1.101"]

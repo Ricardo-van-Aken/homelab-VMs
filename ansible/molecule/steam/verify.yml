@@ -18,3 +18,29 @@
           - "'i386' in steam_archs.stdout_lines"
           - "'steam-installer' in ansible_facts.packages"
           - "'mesa-vulkan-drivers' in ansible_facts.packages"
+
+    - name: Stat the client bootstrap
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /home/gamer/.steam/debian-installation/steam.sh
+        - /home/gamer/.steam/debian-installation/deb-installer/version
+        - /home/gamer/.steam/steam
+      register: steam_files
+
+    # With these in place the launcher skips its install dialog.
+    - name: Assert the client is installed
+      ansible.builtin.assert:
+        that:
+          - steam_files.results[0].stat.exists
+          - steam_files.results[1].stat.exists
+          - steam_files.results[2].stat.islnk
+
+    - name: Read the library list
+      ansible.builtin.slurp:
+        src: /home/gamer/.steam/debian-installation/config/libraryfolders.vdf
+      register: steam_libraries
+
+    - name: Assert the share is a registered library
+      ansible.builtin.assert:
+        that: steam_libraries.content | b64decode is search('"path"\s+"/srv/games"')

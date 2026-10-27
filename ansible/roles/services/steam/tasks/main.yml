@@ -33,3 +33,168 @@
     state: present
     update_cache: true
     cache_valid_time: 3600
+
+- name: Check the Steam user exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ steam_user }}"
+
+# The launcher carries the version and checksum of the client tarball it
+# would download on first start; take them from there so they stay in step
+# with the installed package.
+- name: Read the launcher
+  ansible.builtin.slurp:
+    src: /usr/games/steam
+  register: steam_launcher
+
+- name: Take the client download from the launcher
+  ansible.builtin.set_fact:
+    steam_client_version: >-
+      {{ steam_launcher_text | regex_search('^version="([^"]+)"', '\1', multiline=true) | first }}
+    steam_client_sha256: >-
+      {{ steam_launcher_text | regex_search('^sha256="([0-9a-f]+)"', '\1', multiline=true) | first }}
+  vars:
+    steam_launcher_text: "{{ steam_launcher.content | b64decode }}"
+
+- name: Create Steam directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    mode: "0755"
+  loop:
+    - "/home/{{ steam_user }}/.steam"
+    - "{{ steam_dir }}"
+    - "{{ steam_dir }}/deb-installer"
+
+# The launcher finds its installation through these links.
+- name: Link the installation
+  ansible.builtin.file:
+    src: "{{ steam_dir }}"
+    path: "/home/{{ steam_user }}/.steam/{{ item }}"
+    state: link
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+  loop:
+    - steam
+    - root
+
+- name: Download the Steam client
+  ansible.builtin.get_url:
+    url: "https://repo.steampowered.com/steam/archive/beta/steam_{{ steam_client_version }}.tar.gz"
+    checksum: "sha256:{{ steam_client_sha256 }}"
+    dest: "{{ steam_dir }}/deb-installer/steam_{{ steam_client_version }}.tar.gz"
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    mode: "0644"
+
+- name: Unpack the bootstrap from the client download
+  ansible.builtin.unarchive:
+    src: "{{ steam_dir }}/deb-installer/steam_{{ steam_client_version }}.tar.gz"
+    dest: "{{ steam_dir }}/deb-installer"
+    remote_src: true
+    include:
+      - steam-launcher/bootstraplinux_ubuntu12_32.tar.xz
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    creates: "{{ steam_dir }}/deb-installer/steam-launcher/bootstraplinux_ubuntu12_32.tar.xz"
+
+- name: Put the bootstrap where the launcher keeps it
+  ansible.builtin.copy:
+    src: "{{ steam_dir }}/deb-installer/steam-launcher/bootstraplinux_ubuntu12_32.tar.xz"
+    dest: "{{ steam_dir }}/bootstrap.tar.xz"
+    remote_src: true
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    mode: "0644"
+
+- name: Unpack the bootstrap
+  ansible.builtin.unarchive:
+    src: "{{ steam_dir }}/bootstrap.tar.xz"
+    dest: "{{ steam_dir }}"
+    remote_src: true
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    creates: "{{ steam_dir }}/steam.sh"
+
+- name: Mark the client version as installed
+  ansible.builtin.copy:
+    content: "{{ steam_client_version }}\n"
+    dest: "{{ steam_dir }}/deb-installer/version"
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    mode: "0644"
+
+
+# Steam keeps its library list in config/libraryfolders.vdf and rewrites
+# it as it runs. A missing file is written whole; an existing one gets the
+# share added once, while Steam is not running.
+- name: Register the library on the share
+  when: steam_library_dir | length > 0
+  block:
+    - name: Create the library root
+      ansible.builtin.file:
+        path: "{{ steam_library_dir }}"
+        state: directory
+        owner: "{{ steam_user }}"
+        group: "{{ steam_user }}"
+        mode: "0755"
+
+    - name: Create the Steam config directory
+      ansible.builtin.file:
+        path: "{{ steam_dir }}/config"
+        state: directory
+        owner: "{{ steam_user }}"
+        group: "{{ steam_user }}"
+        mode: "0755"
+
+    - name: Check for the library list
+      ansible.builtin.stat:
+        path: "{{ steam_dir }}/config/libraryfolders.vdf"
+      register: steam_library_list
+
+    - name: Write the library list
+      ansible.builtin.template:
+        src: libraryfolders.vdf.j2
+        dest: "{{ steam_dir }}/config/libraryfolders.vdf"
+        owner: "{{ steam_user }}"
+        group: "{{ steam_user }}"
+        mode: "0644"
+      when: not steam_library_list.stat.exists
+
+    - name: Add the share to an existing library list
+      when: steam_library_list.stat.exists
+      block:
+        - name: Read the library list
+          ansible.builtin.slurp:
+            src: "{{ steam_dir }}/config/libraryfolders.vdf"
+          register: steam_library_list_file
+
+        - name: Add the share
+          when: steam_library_entry not in steam_library_list_text
+          vars:
+            steam_library_list_text: "{{ steam_library_list_file.content | b64decode }}"
+            steam_library_entry: "\"path\"\t\t\"{{ steam_library_dir }}\""
+            steam_library_index: >-
+              {{ (steam_library_list_text | regex_findall('^\t"(\d+)"', multiline=true) | map('int') | max) + 1 }}
+          block:
+            - name: Look for a running Steam
+              ansible.builtin.command: pgrep -u {{ steam_user | quote }} -x steam
+              register: steam_running
+              failed_when: false
+              changed_when: false
+
+            - name: Refuse to edit the library list under a running Steam
+              ansible.builtin.assert:
+                that: steam_running.rc != 0
+                fail_msg: Steam is running as {{ steam_user }}; quit it, then run again
+
+            - name: Insert the share before the closing brace
+              ansible.builtin.replace:
+                path: "{{ steam_dir }}/config/libraryfolders.vdf"
+                regexp: '\n}\s*$'
+                replace: >-
+                  {{ '\n\t"' ~ steam_library_index ~ '"\n\t{\n\t\t"path"\t\t"' ~ steam_library_dir
+                     ~ '"\n\t\t"label"\t\t"' ~ steam_library_label
+                     ~ '"\n\t\t"contentid"\t\t"0"\n\t\t"totalsize"\t\t"0"\n\t\t"apps"\n\t\t{\n\t\t}\n\t}\n}\n' }}

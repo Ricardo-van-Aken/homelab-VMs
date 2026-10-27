@@ -2,3 +2,4 @@
 dependencies:
   - role: gpu
   - role: desktop
+  - role: caddy

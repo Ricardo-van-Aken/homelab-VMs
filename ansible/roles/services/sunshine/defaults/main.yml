@@ -22,6 +22,10 @@ sunshine_unit: app-dev.lizardbyte.app.Sunshine.service
 
 # Web UI and stream ports are only reachable from the LAN.
 sunshine_origin_web_ui_allowed: lan
+# The web UI also goes through Caddy (role caddy) under this name; Sunshine
+# itself serves it on sunshine_web_port with a self-signed certificate.
+sunshine_domain: "{{ inventory_hostname }}"
+sunshine_web_port: 47990
 # GPU used for capture and encoding; empty lets Sunshine pick. With several
 # GPUs, set a stable path such as /dev/dri/by-path/pci-0000:01:00.0-render.
 sunshine_adapter: ""

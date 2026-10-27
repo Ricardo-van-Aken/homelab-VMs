@@ -303,6 +303,8 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
 <summary><h3 id="arcade" style="display:inline; margin:0; vertical-align:middle">arcade</h3></summary>
 
 * Attach a dummy High-Definition Multimedia Interface (HDMI) plug or set `desktop_force_connector`.
+* Steam gets the games share as a second library. After the first start,
+  make it the default under Settings, Storage, so installs go to the pool.
 * Replace the placeholder `jellyfin_admin_password` and the passwords in
   `jellyfin_users` in `group_vars/jellyfin.yml` with `!vault` values (see
   Secrets). The role runs Jellyfin's setup wizard with them: admin user,
@@ -412,6 +414,12 @@ Then, in your router:
 * DNS: add `10.0.1.100` as a second DNS server in the DHCP settings.
 * VPN: forward UDP port `51820` to `10.0.1.100`.
 
+New VPN clients get the two Pi-holes as DNS servers
+(`wireguard_client_dns` in `group_vars/wireguard.yml`), so homelab names
+resolve through the tunnel. wg-easy takes this from Ansible on its first
+start only; on an instance that is already set up, change it in its web UI
+under the client defaults instead.
+
 </details>
 
 </details>
@@ -447,6 +455,7 @@ All subdomains of `zeepaardje98.eu`.
 | forgejo    | 10.0.1.110 | Forgejo                 |
 | mealie     | 10.0.1.130 | Mealie                  |
 | jellyfin   | 10.0.1.160 | Jellyfin                |
+| gaming     | 10.0.1.160 | Sunshine, for pairing   |
 
 **Other connections**:
 
@@ -457,7 +466,7 @@ All subdomains of `zeepaardje98.eu`.
 | forgejo    | 10.0.1.110 | git over SSH, port 2222                     |
 | samba      | 10.0.1.120 | SMB shares, `smb://samba.zeepaardje98.eu`   |
 | jellyfin   | 10.0.1.160 | the Jellyfin apps, port 8096                |
-| gaming     | 10.0.1.160 | Moonlight pairing; Sunshine UI on port 47990 |
+| gaming     | 10.0.1.160 | Moonlight pairing                           |
 
 The VPN itself connects to your public address, not to a name here.
 
@@ -511,8 +520,8 @@ In the order the playbook runs them. They live in three directories under
 | shares          | mounts the VM's virtiofs shares from `pve_vm.shares`         |
 | gpu             | firmware, userspace and i386 packages for `gpu_vendors`      |
 | desktop         | Xorg + LightDM autologin + openbox session for `gamer`       |
-| steam           | Steam with i386 libraries, gamemode, mangohud                |
-| sunshine        | Sunshine .deb, config, apps, user service                    |
+| steam           | Steam with i386 libraries, gamemode, mangohud; client installed up front, games share registered as a library |
+| sunshine        | Sunshine .deb, config, apps, user service; web UI behind Caddy |
 | caddy           | reverse proxy with HTTPS (Let's Encrypt, DNS challenge), one site file per service; pulled in by the web service roles |
 | jellyfin        | Jellyfin compose stack, GPU node; wizard, libraries, users via Application Programming Interface (API) |
 | forgejo         | Forgejo compose stack (sqlite, closed registration, admin and users) |
@@ -620,7 +629,7 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
   * 8096/tcp: Jellyfin web UI and API, for the apps
   * 7359/udp: Jellyfin client auto-discovery
   * 1900/udp: Jellyfin Digital Living Network Alliance (DLNA)
-  * 47990/tcp: Sunshine web UI (Hypertext Transfer Protocol Secure (HTTPS), first pairing)
+  * 47990/tcp: Sunshine web UI with its own certificate; also on 443 through Caddy
   * 47984/tcp, 47989/tcp: Sunshine pairing and control (Moonlight)
   * 48010/tcp: Sunshine Real-Time Streaming Protocol (RTSP)
   * 47998-48000/udp: Sunshine video, control and audio streams

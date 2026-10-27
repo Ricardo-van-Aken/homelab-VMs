@@ -2,5 +2,19 @@
 - name: Converge
   hosts: all
   become: true
+  # What the desktop role and the host's share provide on the VM.
+  pre_tasks:
+    - name: Create the Steam user
+      ansible.builtin.user:
+        name: gamer
+        create_home: true
+
+    - name: Create the games share
+      ansible.builtin.file:
+        path: /srv/games
+        state: directory
+        owner: gamer
+        group: gamer
+        mode: "0755"
   roles:
     - steam

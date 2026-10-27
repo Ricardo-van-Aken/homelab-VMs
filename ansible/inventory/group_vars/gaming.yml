@@ -1,8 +1,12 @@
 ---
 # Game streaming settings (Steam + Sunshine on an auto-login session).
 desktop_user: gamer  # owns the session, Steam and Sunshine
+# Steam's library, on the games dataset the VM mounts (host_vars/arcade.yml).
+steam_library_dir: /srv/games
 desktop_xorg_driver: modesetting  # amdgpu, intel or nvidia for a vendor DDX
 sunshine_origin_web_ui_allowed: lan  # who may open the Sunshine web UI
+# The web UI, through Caddy; the group name, which the Pi-holes resolve.
+sunshine_domain: "gaming.{{ homelab_domain }}"
 
 # The GPU Xorg and Sunshine use, by its address inside the VM. hostpci0 with
 # pcie=1 lands on the first PCIe root port, which the guest sees as 01:00.0;
@@ -14,5 +18,5 @@ sunshine_adapter: /dev/dri/by-path/pci-0000:01:00.0-render
 # Headless GPU: force a connector on so Xorg finds a screen without a monitor.
 # Find the name with `ls /sys/class/drm` on the VM (card1-HDMI-A-1 -> HDMI-A-1).
 # Leave empty when a dummy HDMI plug is attached.
-desktop_force_connector: ""
+desktop_force_connector: HDMI-A-1
 desktop_force_mode: 1920x1080@60
