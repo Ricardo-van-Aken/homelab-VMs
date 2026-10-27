@@ -70,6 +70,12 @@ group. Resolve the new digest or commit as above, update the comment with
 the new tag and date, and let CI rebuild the images; their tags are content
 hashes so nothing else changes.
 
+## Replies
+
+When you give the user commands to run, put each command in its own code
+block, so it can be copied on its own. A single command that continues over
+several lines stays in one block.
+
 ## Secrets
 
 Never write a plaintext secret into the repository. A secret is an inline

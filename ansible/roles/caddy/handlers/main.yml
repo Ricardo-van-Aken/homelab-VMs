@@ -1,0 +1,8 @@
+---
+# Caddy reads its configuration once at start.
+- name: Restart Caddy
+  community.docker.docker_compose_v2:
+    project_src: "{{ caddy_dir }}"
+    services:
+      - caddy
+    state: restarted

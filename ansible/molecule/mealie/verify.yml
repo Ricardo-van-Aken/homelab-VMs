@@ -17,17 +17,19 @@
       vars:
         mealie_state: "{{ (mealie_inspect.stdout | from_json)[0].State }}"
 
-    - name: Inspect the proxy container
-      ansible.builtin.command: docker inspect mealie-proxy
+    - name: Inspect the Caddy container
+      ansible.builtin.command: docker inspect caddy
       changed_when: false
       register: mealie_proxy_inspect
 
-    # Mealie's own port stays unpublished: the proxy is the only way in.
-    - name: Assert the proxy runs in front of Mealie
+    # Mealie's own port is bound to 127.0.0.1: Caddy is the only way in.
+    - name: Assert Caddy runs in front of Mealie
       ansible.builtin.assert:
         that:
           - (mealie_proxy_inspect.stdout | from_json)[0].State.Running
-          - (mealie_inspect.stdout | from_json)[0].NetworkSettings.Ports.get('9000/tcp') is none
+          - mealie_bindings | map(attribute='HostIp') | unique == ['127.0.0.1']
+      vars:
+        mealie_bindings: "{{ (mealie_inspect.stdout | from_json)[0].NetworkSettings.Ports['9000/tcp'] }}"
 
     - name: Read the public app information
       ansible.builtin.uri:
@@ -90,7 +92,7 @@
     # replaced by the proxy, or anyone could sign in as anyone.
     - name: Sign in through the proxy without credentials, claiming to be admin
       ansible.builtin.uri:
-        url: http://127.0.0.1:9925/api/auth/reverse-proxy
+        url: http://localhost/api/auth/reverse-proxy
         headers:
           X-Forwarded-User: admin
       register: mealie_proxy_login
