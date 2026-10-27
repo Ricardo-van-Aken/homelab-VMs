@@ -1,0 +1,3 @@
+---
+# Public keys added to `ansible_user`'s authorized_keys. Existing keys stay.
+ssh_authorized_keys: []
