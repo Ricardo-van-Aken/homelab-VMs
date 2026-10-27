@@ -1,24 +1,26 @@
 ---
-# Pi-hole settings. The LAN uses it once the router's DHCP hands out the dns
-# VM's address as the nameserver.
+# Pi-hole settings.
 
-# Names follow the inventory. A VM is reachable as its inventory name under
-# the domain (forgejo-git.zeepaardje98.eu), and each service as the
-# name of its group (forgejo.zeepaardje98.eu), both pointing at the VM's
-# address.
-#
-# The loop below reads the hosts in the vms group and their groups, so a
-# new VM or service in hosts.yml gets its names without an edit here.
+# Names follow the inventory: each machine as its inventory name under the
+# domain (forgejo-git.zeepaardje98.eu), each service as its group name
+# (forgejo.zeepaardje98.eu), or as <machine>.<service> when it runs on
+# several machines, so every name points at one address.
 pihole_records: >-
   {%- set records = [] -%}
-  {%- for host in groups['vms'] -%}
-    {%- set names = [host] + (hostvars[host].group_names | reject('equalto', 'vms') | list) -%}
+  {%- for host in groups['vms'] + (groups['pis'] | default([])) -%}
+    {%- set names = [host] -%}
+    {%- for service in hostvars[host].group_names | difference(['vms', 'pis']) -%}
+      {%- set _ = names.append(service if groups[service] | length == 1 else host ~ '.' ~ service) -%}
+    {%- endfor -%}
     {%- set _ = records.append(hostvars[host].ansible_host ~ ' '
                                ~ (names | map('regex_replace', '$', '.' ~ homelab_domain) | join(' '))) -%}
   {%- endfor -%}
   {{ records }}
 
-# Password for the admin UI at http://10.0.1.100/admin.
+# Admin UI, through Caddy; one name per instance.
+pihole_domain: "{{ inventory_hostname }}.pihole.{{ homelab_domain }}"
+
+# Password for the admin UI.
 
 pihole_web_password: !vault |
           $ANSIBLE_VAULT;1.1;AES256

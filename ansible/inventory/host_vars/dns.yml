@@ -1,10 +1,14 @@
 ---
 # Facts about this machine. Service settings live in group_vars/<service>.yml.
-ansible_host: 10.0.1.100
+ansible_host: 10.0.1.101
 
 # The VM as the Proxmox host builds it.
-# Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 100). There
+# Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 101). There
 # is no hard requirement to do this, it is just personal preference.
 pve_vm:
   cores: 1
   memory: 1024
+  # Public resolvers: this VM is the resolver the others use.
+  nameservers:
+    - 1.1.1.1
+    - 1.0.0.1

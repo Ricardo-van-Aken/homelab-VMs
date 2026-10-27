@@ -1,0 +1,53 @@
+---
+mealie_image: >-
+  ghcr.io/mealie-recipes/mealie:v3.29.0@sha256:78eb28b8776d0bad40c5e605c72b3f4f5976793e491558c7dcbdfc04c835d4bc
+mealie_dir: /opt/stacks/mealie
+# Recipes, images and the sqlite database. Point it at a mounted share to
+# keep the data apart from the VM.
+mealie_data_dir: "{{ mealie_dir }}/data"
+# Mealie's docs ask for a memory limit: Python may grab more than it needs.
+mealie_memory_limit: 1000M
+
+# Service account owning the data directory; the container drops to the
+# same ids (PUID/PGID).
+mealie_user: mealie
+mealie_uid: 2003
+
+# Name Caddy (role caddy) answers, forwarding to Mealie, which itself listens
+# on 127.0.0.1 only. Mealie puts the URL in links it sends; Caddy sets the
+# scheme.
+mealie_domain: "{{ inventory_hostname }}"
+mealie_url: "{{ caddy_scheme }}{{ mealie_domain }}"
+mealie_http_port: 9925
+
+# Extra backend settings (see Mealie's backend configuration page), merged
+# into the container environment: SMTP_*, OIDC_*, theme colours, ...
+mealie_extra_env: {}
+
+# Public access: with this on, anyone who can reach the VM reads the recipes
+# at <mealie_url>/g/home without signing in.
+mealie_public: true
+
+# Login-free editing. Mealie cannot run without accounts, but it trusts a
+# username sent by a reverse proxy. With a user named here Caddy stamps that
+# username on each request it forwards; the browser then signs itself in,
+# so nobody on the LAN sees a login form. The whole household shares this
+# one account, its meal plan and favourites included. Admins log out and
+# get the form at /login?direct=1. Empty: Mealie's own login.
+mealie_shared_user: family
+mealie_shared_name: Family
+mealie_shared_email: "family@{{ inventory_hostname }}"
+# Sent by Caddy with every request so Mealie can tell its traffic from a
+# direct hit on the container. Required with mealie_shared_user.
+mealie_proxy_secret: ""  # put a !vault value in group_vars
+
+# First-run setup through the API. Mealie creates one admin (username
+# `admin`) with a password everyone knows; the role replaces that password
+# and the address, then keeps the public-access settings in line on every
+# run. Empty password: the setup is skipped and the first login is Mealie's
+# own default, changeme@example.com / MyPassword.
+mealie_admin_user: admin  # Mealie's built-in first user; not renamed
+mealie_admin_name: Administrator
+mealie_admin_email: "admin@{{ inventory_hostname }}"
+mealie_admin_password: ""  # put a !vault value in group_vars; 8+ characters
+mealie_api_url: "http://127.0.0.1:{{ mealie_http_port }}/api"

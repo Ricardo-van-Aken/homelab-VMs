@@ -7,6 +7,7 @@ provisioner:
   inventory:
     group_vars:
       all:
+        pihole_domain: localhost
         pihole_web_password: molecule-test-only
         pihole_records:
           - 192.0.2.10 forgejo.example.test forgejo-git.example.test

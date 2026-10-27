@@ -1,0 +1,62 @@
+---
+- name: Check the address settings
+  ansible.builtin.assert:
+    that:
+      - static_address_ip | length > 0
+      - static_address_gateway | length > 0
+    fail_msg: set static_address_ip in host_vars and static_address_gateway in group_vars
+
+- name: Read the connection on the interface
+  ansible.builtin.command: nmcli -g GENERAL.CONNECTION device show {{ static_address_interface }}
+  register: static_address_device
+  changed_when: false
+
+# An interface without a connection prints nothing or "--"; then one is
+# made, named after the interface.
+- name: Name the connection
+  ansible.builtin.set_fact:
+    static_address_conn_name: >-
+      {{ static_address_device.stdout
+         if static_address_device.stdout not in ['', '--'] else static_address_interface }}
+
+- name: Set the address on the connection
+  community.general.nmcli:
+    conn_name: "{{ static_address_conn_name }}"
+    ifname: "{{ static_address_interface }}"
+    type: ethernet
+    method4: manual
+    ip4: "{{ static_address_ip }}/{{ static_address_prefix }}"
+    gw4: "{{ static_address_gateway }}"
+    dns4: "{{ static_address_dns }}"
+    state: present
+  register: static_address_connection
+
+# The module changes the profile, not the running interface. Activating the
+# profile moves the address, which ends this SSH session; do it detached and
+# meet the machine again on its new address. Not handlers: the rest of the
+# play needs the new address, so the switch happens here, in order.
+- name: Activate the connection  # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: sleep 2 && nmcli connection up "{{ static_address_conn_name }}"
+  async: 30
+  poll: 0
+  when: static_address_connection is changed
+  changed_when: true
+
+- name: Wait for SSH on the new address  # noqa: no-handler
+  ansible.builtin.wait_for:
+    host: "{{ static_address_ip }}"
+    port: 22
+    delay: 5
+    timeout: "{{ static_address_timeout }}"
+  delegate_to: localhost
+  become: false
+  when: static_address_connection is changed
+
+- name: Continue on the new address  # noqa: no-handler
+  ansible.builtin.set_fact:
+    ansible_host: "{{ static_address_ip }}"
+  when: static_address_connection is changed
+
+- name: Reconnect
+  ansible.builtin.meta: reset_connection

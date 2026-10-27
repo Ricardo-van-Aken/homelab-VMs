@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+{{ caddy_scheme }}{{ jellyfin_domain }} {
+	import dns_challenge
+	reverse_proxy 127.0.0.1:8096
+}

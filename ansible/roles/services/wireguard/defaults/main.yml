@@ -1,0 +1,24 @@
+---
+# WireGuard through wg-easy, whose web UI manages the clients.
+wireguard_image: >-
+  ghcr.io/wg-easy/wg-easy:15@sha256:071f79a639e9361123a5e57733107320207b844ddbbd92dfa6962f541fe8aac8
+wireguard_dir: /opt/stacks/wg-easy
+# Clients, server key and the UI's settings.
+wireguard_data_dir: "{{ wireguard_dir }}/data"
+
+# The tunnel, published on the machine.
+wireguard_port: 51820
+
+# The web UI, through Caddy (role caddy); wg-easy listens on 127.0.0.1 only.
+wireguard_domain: "{{ inventory_hostname }}"
+wireguard_web_port: 51821
+# wg-easy refuses plain HTTP unless told so.
+wireguard_insecure: "{{ not (caddy_https | bool) }}"
+
+# Docker network, as wg-easy's own compose file defines it. Caddy's requests
+# arrive from its gateway.
+wireguard_docker_subnet: 10.42.42.0/24
+wireguard_docker_address: 10.42.42.42
+wireguard_docker_subnet6: fdcc:ad94:bacf:61a3::/64
+wireguard_docker_address6: fdcc:ad94:bacf:61a3::2a
+wireguard_trusted_proxies: 10.42.42.1,fdcc:ad94:bacf:61a3::1

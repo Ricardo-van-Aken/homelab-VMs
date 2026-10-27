@@ -1,0 +1,3 @@
+---
+# WireGuard (wg-easy) settings.
+wireguard_domain: "wireguard.{{ homelab_domain }}"

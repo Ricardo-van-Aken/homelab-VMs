@@ -57,7 +57,8 @@
         avatar_hash: >-
           {{ lookup('ansible.builtin.pipe',
                     '{ printf %s- ' ~ forgejo_admin_account.json.id ~ '; cat '
-                    ~ (playbook_dir ~ '/../../roles/forgejo/files/admin-avatar.png' | quote) ~ '; } | sha256sum')
+                    ~ (playbook_dir ~ '/../../roles/services/forgejo/files/admin-avatar.png' | quote)
+                    ~ '; } | sha256sum')
              | split | first }}
       ansible.builtin.assert:
         that:

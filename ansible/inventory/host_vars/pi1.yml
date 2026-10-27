@@ -1,0 +1,5 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+
+# Fixed address (role static_address); keep it out of the router's DHCP pool.
+static_address_ip: 10.0.1.100
