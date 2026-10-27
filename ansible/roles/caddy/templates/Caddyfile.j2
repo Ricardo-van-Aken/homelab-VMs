@@ -1,9 +1,0 @@
-# {{ ansible_managed }}
-{
-	admin off
-	auto_https off
-	http_port {{ caddy_http_port }}
-}
-
-# One file per service, written by its role.
-import sites/*.caddy

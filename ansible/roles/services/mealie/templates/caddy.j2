@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+{{ caddy_scheme }}{{ mealie_domain }} {
+	import dns_challenge
+{% if mealie_shared_user %}
+	# Forward as the shared user. header_up overwrites the headers a client
+	# sent; the secret is also in proxy.env for Mealie to compare.
+	reverse_proxy 127.0.0.1:{{ mealie_http_port }} {
+		header_up X-Forwarded-User {{ mealie_shared_user }}
+		header_up X-Mealie-Reverse-Proxy-Secret {{ mealie_proxy_secret }}
+	}
+{% else %}
+	reverse_proxy 127.0.0.1:{{ mealie_http_port }}
+{% endif %}
+}

@@ -39,6 +39,7 @@ updates:
       - /ansible/docker/runtime
       - /ansible/docker/analysis
       - /ansible/docker/molecule-target
+      - /ansible/roles/common/caddy/files
     schedule:
       interval: weekly
     cooldown:
