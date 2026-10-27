@@ -4,4 +4,4 @@
     user: "{{ ansible_user }}"
     key: "{{ item }}"
     state: present
-  loop: "{{ ssh_authorized_keys }}"
+  loop: "{{ ssh_keys_authorized }}"

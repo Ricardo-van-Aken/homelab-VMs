@@ -3,8 +3,8 @@
 # an interrupted build resumes at the missing step.
 - name: Require SSH keys for the cloud-init user
   ansible.builtin.assert:
-    that: ssh_authorized_keys | length > 0
-    fail_msg: set ssh_authorized_keys, otherwise clones have no way to log in
+    that: pve_template_ssh_keys | length > 0
+    fail_msg: set pve_template_ssh_keys, otherwise clones have no way to log in
 
 - name: Read template VM config
   ansible.builtin.command: qm config {{ pve_template_vmid }}
@@ -102,7 +102,7 @@
     - name: Write SSH keys for cloud-init
       ansible.builtin.copy:
         dest: "/tmp/{{ pve_template_name }}.pub"
-        content: "{{ ssh_authorized_keys | join('\n') }}\n"
+        content: "{{ pve_template_ssh_keys | join('\n') }}\n"
         owner: root
         group: root
         mode: "0600"
