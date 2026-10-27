@@ -61,7 +61,7 @@ up certain VMs, follow the instructions at
 **Inventory**
 * `host_vars/srv1.yml`: `ansible_host`, `pve_storage_pools`,
   `pve_passthrough_devices`
-* `group_vars/all.yml`: `ssh_authorized_keys`
+* `group_vars/all.yml`: `ssh_keys_authorized`
 * `group_vars/proxmox.yml`: `pve_vms_gateway`
 * `host_vars/<vm>.yml` per VM: `ansible_host`, `pve_vm`
 * `group_vars/gaming.yml`: `desktop_force_connector`
@@ -128,7 +128,7 @@ Type the value, press Ctrl-D, and paste the output over the old block in the
 same file.
 
 > [!WARNING]
-> Every key in the `ssh_authorized_keys` secret can log in to your Proxmox
+> Every key in the `ssh_keys_authorized` list can log in to your Proxmox
 > host and VMs. Replace my public keys in `inventory/group_vars/all.yml` with
 > your own, or I have access to your systems.
 >
@@ -139,7 +139,7 @@ same file.
 <summary><strong>Optional: generate an SSH key and keep it in the repository</strong></summary>
 
 If you don't have an SSH key for your homelab yet, make one and put its public
-key (`~/.ssh/homelab_ed25519.pub`) in `ssh_authorized_keys`:
+key (`~/.ssh/homelab_ed25519.pub`) in `ssh_keys_authorized`:
 
 ```sh
 ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/homelab_ed25519
@@ -229,7 +229,7 @@ Make sure the host runs Proxmox VE. Before the first run:
       GPU's Peripheral Component Interconnect (PCI) functions, from `lspci -D`. Leave empty to skip passthrough
   
   `group_vars/all.yml`
-    * `ssh_authorized_keys`: public keys that may log in to the Proxmox host
+    * `ssh_keys_authorized`: public keys that may log in to the Proxmox host
       and the VMs
   
   `group_vars/proxmox.yml`
