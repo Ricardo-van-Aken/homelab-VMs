@@ -13,6 +13,10 @@
       ansible.builtin.assert:
         that: (wireguard_inspect.stdout | from_json)[0].State.Running
 
+    - name: Assert the client DNS servers are passed for the first start
+      ansible.builtin.assert:
+        that: "'INIT_DNS=10.0.1.100,10.0.1.101' in (wireguard_inspect.stdout | from_json)[0].Config.Env"
+
     - name: Read the published ports
       ansible.builtin.command: docker port wg-easy
       changed_when: false
