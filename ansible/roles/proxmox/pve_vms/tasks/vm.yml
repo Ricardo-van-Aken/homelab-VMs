@@ -24,6 +24,7 @@
     current: >-
       {{ dict(pve_vms_config.stdout_lines | map('regex_replace', '^([^:]+): ?(.*)$', '\1')
               | zip(pve_vms_config.stdout_lines | map('regex_replace', '^([^:]+): ?(.*)$', '\2'))) }}
+    nameservers: "{{ pve_vms_spec.nameservers | default(pve_vms_nameservers) }}"
     wanted: >-
       {{ {'name': pve_vms_name,
           'cores': pve_vms_spec.cores | string,
@@ -32,6 +33,7 @@
           'vga': pve_vms_spec.vga,
           'ipconfig0': 'ip=' ~ hostvars[pve_vms_name].ansible_host ~ '/' ~ pve_vms_network_prefix
                        ~ ',gw=' ~ pve_vms_gateway}
+         | combine({'nameserver': nameservers | join(' ')} if nameservers | length > 0 else {})
          | combine({'balloon': pve_vms_spec.balloon | string} if pve_vms_spec.balloon is defined else {})
          | combine(dict(range(pve_vms_spec.hostpci | length)
                         | map('regex_replace', '^', 'hostpci')
@@ -60,7 +62,7 @@
 - name: "Apply settings to {{ pve_vms_name }}"
   ansible.builtin.command: >-
     qm set {{ pve_vms_spec.vmid }}
-    {% for key, value in pve_vms_changes.items() %} --{{ key }} {{ value }}{% endfor %}
+    {% for key, value in pve_vms_changes.items() %} --{{ key }} {{ value | quote }}{% endfor %}
   when: pve_vms_changes | length > 0
   changed_when: true
 
