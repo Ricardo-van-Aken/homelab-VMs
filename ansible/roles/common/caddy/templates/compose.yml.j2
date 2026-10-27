@@ -1,0 +1,25 @@
+# {{ ansible_managed }}
+services:
+  caddy:
+{% if caddy_https | bool %}
+    build:
+      context: ./image
+      args:
+        CADDY_DNS_PLUGIN: {{ caddy_dns_plugin }}
+    # Tagged by plugin, so a changed plugin is a new image to build.
+    image: caddy-dns:{{ caddy_dns_plugin | regex_replace('[^A-Za-z0-9_.-]', '-') }}
+{% else %}
+    image: {{ caddy_image }}
+{% endif %}
+    container_name: caddy
+    restart: unless-stopped
+    # Host network: binds the ports on the machine and reaches the services
+    # where they publish, on 127.0.0.1.
+    network_mode: host
+    working_dir: /etc/caddy
+    env_file:
+      - caddy.env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      - {{ caddy_data_dir }}:/data

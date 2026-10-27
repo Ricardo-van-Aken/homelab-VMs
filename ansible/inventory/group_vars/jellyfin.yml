@@ -3,7 +3,7 @@
 # The service name the dns VM resolves (see group_vars/pihole.yml), and the
 # URL Jellyfin advertises to clients.
 jellyfin_domain: "jellyfin.{{ homelab_domain }}"
-jellyfin_published_url: "http://{{ jellyfin_domain }}"
+jellyfin_published_url: "{{ caddy_scheme }}{{ jellyfin_domain }}"
 # Which of the host's GPUs Jellyfin transcodes on; empty for software only.
 jellyfin_gpu_vendor: "{{ gpu_vendors[0] if gpu_vendors | length > 0 else '' }}"
 # Media library root; the VM mounts its media shares (pve_vm.shares) under it.
@@ -15,7 +15,7 @@ jellyfin_gpu_device: /dev/dri/by-path/pci-0000:01:00.0-render
 # The R9 380X (Tonga) decodes H.264, MPEG-2 and VC-1 only.
 jellyfin_hw_decoding_codecs: [h264, mpeg2video, vc1]
 
-# First-run setup (see roles/jellyfin/defaults). The wizard runs once with
+# First-run setup (see roles/services/jellyfin/defaults). The wizard runs once with
 # these; change the password afterwards in Jellyfin itself.
 jellyfin_server_name: Jelly
 jellyfin_metadata_country: NL

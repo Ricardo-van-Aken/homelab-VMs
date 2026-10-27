@@ -1,0 +1,8 @@
+---
+# WireGuard (wg-easy) settings.
+wireguard_domain: "wireguard.{{ homelab_domain }}"
+
+# The old wg-easy from the tutorial, taken over by the first run.
+# TODO: remove both after that run, and the old directory with them.
+wireguard_import_compose_dir: /home/zeepaardje/home-server
+wireguard_import_data_dir: /home/zeepaardje/home-server/volumes/wireguard

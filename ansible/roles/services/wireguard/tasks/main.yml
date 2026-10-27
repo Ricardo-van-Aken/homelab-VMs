@@ -1,0 +1,81 @@
+---
+- name: Create stacks directory
+  ansible.builtin.file:
+    path: "{{ wireguard_dir | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create wg-easy directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop:
+    - "{{ wireguard_dir }}"
+    - "{{ wireguard_data_dir }}"
+
+- name: Move a wg-easy that ran elsewhere on this machine
+  when: wireguard_import_compose_dir | length > 0
+  block:
+    - name: Check the old compose project exists
+      ansible.builtin.stat:
+        path: "{{ wireguard_import_compose_dir }}"
+      register: wireguard_import_compose
+
+    - name: Check the old data exists
+      ansible.builtin.stat:
+        path: "{{ wireguard_import_data_dir }}"
+      register: wireguard_import_data
+
+    - name: Check what is in the data directory
+      ansible.builtin.find:
+        paths: "{{ wireguard_data_dir }}"
+      register: wireguard_data_contents
+
+    # Both projects name their container wg-easy and publish the same ports.
+    - name: Take the old project down
+      community.docker.docker_compose_v2:
+        project_src: "{{ wireguard_import_compose_dir }}"
+        state: absent
+      when: wireguard_import_compose.stat.exists
+
+    - name: Copy the old data
+      ansible.builtin.copy:
+        src: "{{ wireguard_import_data_dir }}/"
+        dest: "{{ wireguard_data_dir }}/"
+        remote_src: true
+        owner: root
+        group: root
+        mode: preserve
+      when:
+        - wireguard_import_data.stat.exists
+        - wireguard_data_contents.matched == 0
+
+- name: Render compose file
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ wireguard_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render the Caddy site
+  ansible.builtin.template:
+    src: caddy.j2
+    dest: "{{ caddy_sites_dir }}/wireguard.caddy"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Caddy
+
+- name: Deploy wg-easy stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ wireguard_dir }}"
+    state: present
+    remove_orphans: true
+    wait: true
+    wait_timeout: 120

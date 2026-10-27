@@ -1,0 +1,37 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Inspect wg-easy container
+      ansible.builtin.command: docker inspect wg-easy
+      changed_when: false
+      register: wireguard_inspect
+
+    - name: Assert wg-easy is running
+      ansible.builtin.assert:
+        that: (wireguard_inspect.stdout | from_json)[0].State.Running
+
+    - name: Read the published ports
+      ansible.builtin.command: docker port wg-easy
+      changed_when: false
+      register: wireguard_ports
+
+    # The tunnel on every address, the web UI only on the loopback.
+    - name: Assert the tunnel is published and the UI is bound to 127.0.0.1
+      ansible.builtin.assert:
+        that:
+          - wireguard_ports.stdout is search('51820/udp -> 0.0.0.0:51820')
+          - wireguard_ports.stdout is search('51821/tcp -> 127.0.0.1:51821')
+          - wireguard_ports.stdout is not search('51821/tcp -> 0.0.0.0')
+
+    - name: Open the web UI through Caddy
+      ansible.builtin.uri:
+        url: http://localhost/
+        return_content: true
+      register: wireguard_ui
+
+    - name: Assert wg-easy answered
+      ansible.builtin.assert:
+        that: "'wg-easy' in wireguard_ui.content | lower"

@@ -1,8 +1,0 @@
----
-# caddy:2.11.7-alpine -- digest pushed 2026-10-21 21:32 UTC
-caddy_image: caddy@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
-caddy_dir: /opt/stacks/caddy
-# One file per site, written by the role of the service it fronts; the
-# Caddyfile imports them all.
-caddy_sites_dir: "{{ caddy_dir }}/sites"
-caddy_http_port: 80

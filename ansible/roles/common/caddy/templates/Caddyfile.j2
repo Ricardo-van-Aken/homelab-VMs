@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+{
+	admin off
+	http_port {{ caddy_http_port }}
+{% if caddy_https | bool %}
+	https_port {{ caddy_https_port }}
+	email {{ caddy_acme_email }}
+	# Every site proves its name with a temporary DNS record at the provider.
+	acme_dns {{ caddy_dns_provider }} {env.CADDY_DNS_TOKEN}
+{% else %}
+	auto_https off
+{% endif %}
+}
+
+# One file per service, written by its role.
+import sites/*.caddy

@@ -1,0 +1,4 @@
+# {{ ansible_managed }}
+{{ caddy_scheme }}{{ wireguard_domain }} {
+	reverse_proxy 127.0.0.1:{{ wireguard_web_port }}
+}

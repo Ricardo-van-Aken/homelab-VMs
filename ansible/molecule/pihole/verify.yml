@@ -37,9 +37,18 @@
       loop_control:
         label: "{{ item.item }}"
 
-    - name: Log in to the admin API with the configured password
+    - name: Read the published ports
+      ansible.builtin.command: docker port pihole 80/tcp
+      changed_when: false
+      register: pihole_web_binding
+
+    - name: Assert the admin UI is bound to 127.0.0.1 only
+      ansible.builtin.assert:
+        that: pihole_web_binding.stdout_lines | map('regex_replace', ':\d+$', '') | unique == ['127.0.0.1']
+
+    - name: Log in to the admin API through Caddy with the configured password
       ansible.builtin.uri:
-        url: http://127.0.0.1/api/auth
+        url: http://localhost/api/auth
         method: POST
         body_format: json
         body:
