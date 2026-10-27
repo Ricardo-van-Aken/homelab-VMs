@@ -1,0 +1,13 @@
+---
+# Settings shared by every Raspberry Pi.
+ansible_user: zeepaardje  # the user chosen in Raspberry Pi Imager
+# Accept a host key on first contact, but still refuse a changed one.
+ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new
+
+# The fixed address, or the one a fresh Pi still has, passed once with
+# `-e static_address_current=<address>`; role static_address then moves it.
+ansible_host: "{{ static_address_current | default(static_address_ip) }}"
+static_address_prefix: 24
+static_address_gateway: 10.0.1.1
+# The dns VM; the router does not answer DNS itself.
+static_address_dns: ["10.0.1.101"]

@@ -1,0 +1,4 @@
+# {{ ansible_managed }}
+{{ caddy_scheme }}{{ pihole_domain }} {
+	reverse_proxy 127.0.0.1:{{ pihole_web_port }}
+}

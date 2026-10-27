@@ -31,8 +31,9 @@ provisioner:
   playbooks:
     prepare: ../prepare.yml  # relative to each scenario directory
   env:
+    # The same role directories as roles_path in ansible.cfg.
     ANSIBLE_ROLES_PATH: >-
-      ${MOLECULE_PROJECT_DIRECTORY}/roles:${MOLECULE_PROJECT_DIRECTORY}/galaxy_roles:/opt/venv/share/ansible/roles
+      ${MOLECULE_PROJECT_DIRECTORY}/roles/proxmox:${MOLECULE_PROJECT_DIRECTORY}/roles/common:${MOLECULE_PROJECT_DIRECTORY}/roles/services:${MOLECULE_PROJECT_DIRECTORY}/galaxy_roles:/opt/venv/share/ansible/roles
     ANSIBLE_COLLECTIONS_PATH: >-
       ${MOLECULE_PROJECT_DIRECTORY}/collections:/opt/venv/share/ansible/collections
   inventory:
@@ -40,6 +41,8 @@ provisioner:
       all:
         base_timezone: Europe/Amsterdam
         gpu_vendors: [amd]
+        # No DNS zone to prove names in: sites are served over plain HTTP.
+        caddy_https: false
 
 verifier:
   name: ansible

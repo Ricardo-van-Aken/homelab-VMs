@@ -1,0 +1,28 @@
+---
+# Reverse proxy in front of the web services on a machine. With caddy_https
+# the image is built from files/Dockerfile, Caddy with a DNS provider
+# plugin; without, this stock image is used.
+caddy_image: >-
+  caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
+caddy_dir: /opt/stacks/caddy
+# One file per site, written by the role of the service it fronts.
+caddy_sites_dir: "{{ caddy_dir }}/sites"
+# Certificates and ACME account.
+caddy_data_dir: "{{ caddy_dir }}/data"
+caddy_http_port: 80
+caddy_https_port: 443
+
+# Let's Encrypt certificates through the DNS challenge, and a redirect from
+# plain HTTP. Off: plain HTTP only, and none of the settings below apply.
+caddy_https: false
+# Scheme the sites and the services' own URLs are written with.
+caddy_scheme: "{{ 'https://' if caddy_https | bool else 'http://' }}"
+# Required with caddy_https.
+caddy_acme_email: ""
+# The provider hosting the domain's DNS records: its Caddy module name, the
+# Go module providing it (see github.com/caddy-dns), and an API token that
+# may change the records. Required with caddy_https; the token is a !vault
+# value in group_vars.
+caddy_dns_provider: ""  # e.g. hetzner
+caddy_dns_plugin: ""  # e.g. github.com/caddy-dns/hetzner/v2@v2.0.0
+caddy_dns_token: ""
