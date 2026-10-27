@@ -22,8 +22,3 @@ wireguard_docker_address: 10.42.42.42
 wireguard_docker_subnet6: fdcc:ad94:bacf:61a3::/64
 wireguard_docker_address6: fdcc:ad94:bacf:61a3::2a
 wireguard_trusted_proxies: 10.42.42.1,fdcc:ad94:bacf:61a3::1
-
-# A wg-easy that ran elsewhere on this machine: its compose project is taken
-# down and its data copied into an empty wireguard_data_dir.
-wireguard_import_compose_dir: ""
-wireguard_import_data_dir: ""

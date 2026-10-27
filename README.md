@@ -193,6 +193,12 @@ this step.
 
 #### Step 5: set up the VMs
 
+The other VMs resolve names through the dns VM, so it goes first:
+
+```sh
+ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
+```
+
 ```sh
 ansible-playbook playbooks/site.yml --limit vms --ask-vault-pass
 ```
@@ -281,6 +287,7 @@ Make sure the host runs Proxmox VE. Before the first run:
   
   `group_vars/proxmox.yml`
     * `pve_vms_gateway`: the VMs' default gateway
+    * `pve_vms_nameservers`: the VMs' DNS servers
 
 ```sh
 ansible-playbook playbooks/site.yml --limit proxmox
@@ -387,9 +394,6 @@ key installed.
   pool.
 * Replace the encrypted `pihole_web_password` in `group_vars/pihole.yml` with
   your own (see Secrets).
-* To take over an existing wg-easy, point `wireguard_import_compose_dir` and
-  `wireguard_import_data_dir` in `group_vars/wireguard.yml` at it; remove
-  both after the first run.
 
 The first run gives the Pi its fixed address, so it needs the Pi's current
 address:
@@ -515,7 +519,7 @@ In the order the playbook runs them. They live in three directories under
 | samba           | SMB shares of the mounted media datasets                     |
 | mealie          | Mealie behind a Caddy proxy that signs the LAN in as one shared account; admin takeover, accounts and public access via API |
 | pihole          | Pi-hole compose stack with local records from the inventory, admin UI behind Caddy; frees port 53 from systemd-resolved |
-| wireguard       | wg-easy compose stack: WireGuard with a web UI behind Caddy; carries an existing wg-easy's clients over |
+| wireguard       | wg-easy compose stack: WireGuard with a web UI behind Caddy |
 
 </details>
 
