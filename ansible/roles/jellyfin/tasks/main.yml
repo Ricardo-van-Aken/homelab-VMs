@@ -54,6 +54,15 @@
     group: root
     mode: "0644"
 
+- name: Render the Caddy site
+  ansible.builtin.template:
+    src: caddy.j2
+    dest: "{{ caddy_sites_dir }}/jellyfin.caddy"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Caddy
+
 - name: Deploy Jellyfin stack
   community.docker.docker_compose_v2:
     project_src: "{{ jellyfin_dir }}"
