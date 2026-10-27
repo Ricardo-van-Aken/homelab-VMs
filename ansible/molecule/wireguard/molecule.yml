@@ -1,0 +1,11 @@
+---
+# Inherits .config/molecule/config.yml. Docker runs inside the instance, so
+# the compose stack really starts; the tunnel needs the WireGuard module of
+# the host running the instance.
+scenario:
+  name: wireguard
+provisioner:
+  inventory:
+    group_vars:
+      all:
+        wireguard_domain: localhost

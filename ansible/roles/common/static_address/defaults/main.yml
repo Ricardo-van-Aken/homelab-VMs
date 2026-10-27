@@ -1,0 +1,10 @@
+---
+# Fixed IPv4 address on the interface's NetworkManager connection.
+static_address_interface: eth0
+static_address_ip: ""  # required, e.g. 10.0.1.100
+static_address_prefix: 24
+static_address_gateway: ""  # required, e.g. 10.0.1.1
+# Resolvers for the machine itself.
+static_address_dns: ["{{ static_address_gateway }}"]
+# Seconds to wait for SSH on the new address after the switch.
+static_address_timeout: 120

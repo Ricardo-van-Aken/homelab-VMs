@@ -21,3 +21,8 @@ pve_template_ssh_keys: "{{ ssh_keys_authorized }}"
 # host_vars/<vmname>.yml), with this prefix length and gateway.
 pve_vms_network_prefix: 24
 pve_vms_gateway: 10.0.1.1
+# The Pi-holes, the ones not on this host's VMs first.
+pve_vms_nameservers: >-
+  {{ ((groups['pis'] | default([]) | intersect(groups['pihole']))
+      + (groups['vms'] | intersect(groups['pihole'])))
+     | map('extract', hostvars, 'ansible_host') | list }}

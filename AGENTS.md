@@ -15,7 +15,7 @@ and when touching a pin, update the pin and its comment in the same change.
 | Kind | Pin | Comment beside it |
 |---|---|---|
 | Base image in a Dockerfile | `FROM name:tag@sha256:…` | none; Dependabot moves tag and digest together |
-| Container image in Ansible vars | `name@sha256:…` (no tag in the reference) | `name:tag -- digest pushed YYYY-MM-DD HH:MM UTC` |
+| Container image in Ansible vars | `name:tag@sha256:…`, as a folded scalar (`>-`) to keep lines short | none |
 | GitHub action | full commit SHA | `# vX.Y.Z` |
 | Galaxy role | git `src` + `scm: git` + commit SHA as `version` | `# X.Y.Z` |
 | Galaxy collection | exact `version:` | none needed; published versions are immutable |
@@ -24,21 +24,19 @@ and when touching a pin, update the pin and its comment in the same change.
 | GitHub runner | `ubuntu-XX.04`, never `ubuntu-latest` | none |
 
 A tag next to a digest is documentation only: Docker ignores it and applies
-no check. In Ansible vars the tag therefore goes in the comment. Dockerfiles
-are the exception because Dependabot reads the tag from the `FROM` line to
-find newer versions; with a digest alone it would follow `latest`, and it
-does not read `FROM ${ARG}` at all.
+no check. It is written anyway, in the `name:tag@sha256:…` form, because
+update tools read the tag to find newer versions: Dependabot does so on
+`FROM` lines (with a digest alone it would follow `latest`, and it does not
+read `FROM ${ARG}` at all), and Renovate, if it is added, would do the
+same for the Ansible vars.
 
 ### Resolving a pin
 
-Container image digest and push time:
+Container image digest:
 
 ```sh
 docker buildx imagetools inspect <name>:<tag> | grep Digest
-docker buildx imagetools inspect --format '{{range $k,$v := .Image}}{{$k}} {{$v.Created}}{{"\n"}}{{end}}' <name>@sha256:…
 ```
-
-Use the `linux/amd64` timestamp.
 
 GitHub action or Galaxy role commit for a tag:
 
@@ -66,9 +64,9 @@ updates and unattended-upgrades is enabled on purpose.
 Dependabot (`.github/dependabot.yml`) proposes updates for GitHub actions,
 Python packages and Dockerfile base images once a release is two days old.
 Everything else is bumped by hand: one commit per bump, or one per related
-group. Resolve the new digest or commit as above, update the comment with
-the new tag and date, and let CI rebuild the images; their tags are content
-hashes so nothing else changes.
+group. Resolve the new digest or commit as above, update the version
+comment where there is one, and let CI rebuild the images; their tags are
+content hashes so nothing else changes.
 
 ## Replies
 

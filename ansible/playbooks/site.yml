@@ -9,11 +9,20 @@
     - pve_template
     - pve_vms
 
-- name: Base configuration for every VM
-  hosts: vms
+- name: Fixed addresses for the Raspberry Pis
+  hosts: pis
+  roles:
+    - static_address
+
+- name: Base configuration for every VM and Pi
+  hosts: vms:pis
   roles:
     - ssh_keys
     - base
+
+- name: Host datasets on the VMs
+  hosts: vms
+  roles:
     - shares
 
 - name: Jellyfin media servers
@@ -46,3 +55,8 @@
   hosts: pihole
   roles:
     - pihole  # depends on geerlingguy.docker role
+
+- name: VPN endpoints
+  hosts: wireguard
+  roles:
+    - wireguard
