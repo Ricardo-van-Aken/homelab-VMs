@@ -6,7 +6,8 @@ pve_template_bridge: vmbr0
 pve_template_disk_size: 20G
 pve_template_memory: 2048
 pve_template_cores: 2
-pve_template_ssh_keys: []
+# Public keys cloud-init installs for the `ubuntu` user on every clone.
+ssh_authorized_keys: []
 
 # Ubuntu 26.04 cloud image, release serial 20260823 (immutable URL; `current`
 # moves). Checksum from that release's SHA256SUMS.

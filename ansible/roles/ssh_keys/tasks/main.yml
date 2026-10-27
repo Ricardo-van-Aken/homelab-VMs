@@ -1,0 +1,7 @@
+---
+- name: Authorize SSH keys for the login user
+  ansible.posix.authorized_key:
+    user: "{{ ansible_user }}"
+    key: "{{ item }}"
+    state: present
+  loop: "{{ ssh_authorized_keys }}"

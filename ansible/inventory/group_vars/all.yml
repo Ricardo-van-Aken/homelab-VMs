@@ -2,6 +2,13 @@
 # Settings shared by every machine.
 base_timezone: Europe/Amsterdam
 
+# Public keys that may log in as `ansible_user` on every machine (role
+# ssh_keys) and as `ubuntu` on every new VM (cloud-init, role pve_template).
+ssh_authorized_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAmSIvhk/L829v6onj9pQRYkas44rx8GAtt+b+UGdL3y homelab
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDEb07SmW4aQhUAC9ZKYBtaQ4XDnwDn03+mPR7cGmjJK ricardovanaken@Mac.localdomain
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP8fbzNpDy0ZkUiuOn899MIsR7cFVhOk6aG3ocdWx3YT rvake@DESKTOP-DK4AJRE
+
 # Services are reached as <service>.<domain>, VMs as <name>.<domain>. The dns
 # VM answers those names on the LAN; the public zone at the registrar only
 # holds what is deliberately exposed.
