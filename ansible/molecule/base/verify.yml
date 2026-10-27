@@ -7,11 +7,12 @@
     - name: Gather package facts
       ansible.builtin.package_facts:
 
+    # The instance is a container, not a QEMU guest: no agent here.
     - name: Assert base packages are installed
       ansible.builtin.assert:
         that:
-          - "'qemu-guest-agent' in ansible_facts.packages"
           - "'unattended-upgrades' in ansible_facts.packages"
+          - "'qemu-guest-agent' not in ansible_facts.packages"
 
     - name: Read auto-upgrades config
       ansible.builtin.slurp:

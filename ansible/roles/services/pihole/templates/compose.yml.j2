@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+services:
+  pihole:
+    image: {{ pihole_image }}
+    container_name: pihole
+    restart: unless-stopped
+    environment:
+      TZ: {{ base_timezone }}
+      # Answer on every interface: queries arrive from the Docker bridge.
+      FTLCONF_dns_listeningMode: all
+      FTLCONF_dns_upstreams: {{ pihole_upstreams | join(';') }}
+      FTLCONF_dns_hosts: "{{ pihole_records | join(';') }}"
+    env_file:
+      - pihole.env
+    ports:
+      - "{{ pihole_dns_port }}:53/tcp"
+      - "{{ pihole_dns_port }}:53/udp"
+      - "127.0.0.1:{{ pihole_web_port }}:80/tcp"
+    volumes:
+      - {{ pihole_data_dir }}:/etc/pihole
