@@ -15,6 +15,10 @@ wireguard_web_port: 51821
 # wg-easy refuses plain HTTP unless told so.
 wireguard_insecure: "{{ not (caddy_https | bool) }}"
 
+# Resolvers written into every new client's config. wg-easy reads this on
+# its first start only; afterwards the web UI owns the setting.
+wireguard_client_dns: []
+
 # Docker network, as wg-easy's own compose file defines it. Caddy's requests
 # arrive from its gateway.
 wireguard_docker_subnet: 10.42.42.0/24
