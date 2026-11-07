@@ -1,15 +1,43 @@
 ---
 name: Analysis
 
+# Lints what a change touched; a manual run lints everything.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
+  files:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      run: ${{ steps.pick.outputs.run }}
+      yamllint: ${{ steps.pick.outputs.yamllint }}
+      ansible_lint: ${{ steps.pick.outputs.ansible_lint }}
+      syntax: ${{ steps.pick.outputs.syntax }}
+    steps:
+      # A pull request is checked out as a merge commit and a push as the new
+      # commit; either way the first parent is what main was before.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Pick the files to lint
+        id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            python3 .github/scripts/lint-files.py --all < /dev/null
+          else
+            git diff --name-only HEAD^1 HEAD | python3 .github/scripts/lint-files.py
+          fi
+
   image:
+    needs: files
+    if: needs.files.outputs.run == 'true'
     uses: ./.github/workflows/build-image.yml
     permissions:
       contents: read
@@ -21,7 +49,7 @@ jobs:
       hash_paths: ansible/docker/analysis ansible/requirements.yml
 
   lint:
-    needs: image
+    needs: [files, image]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -37,14 +65,35 @@ jobs:
     defaults:
       run:
         working-directory: ansible
+    env:
+      YAMLLINT_FILES: ${{ needs.files.outputs.yamllint }}
+      ANSIBLE_LINT_FILES: ${{ needs.files.outputs.ansible_lint }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: Lint YAML repo-wide
-        run: yamllint --strict "$GITHUB_WORKSPACE"
+      # File lists are relative to the repository root.
+      - name: Lint YAML
+        if: needs.files.outputs.yamllint != ''
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ "$YAMLLINT_FILES" = all ]; then
+            yamllint --strict .
+          else
+            # shellcheck disable=SC2086 # one word per file
+            yamllint --strict $YAMLLINT_FILES
+          fi
 
+      # File lists are relative to ansible/.
       - name: Lint Ansible
-        run: ansible-lint --strict
+        if: needs.files.outputs.ansible_lint != ''
+        run: |
+          if [ "$ANSIBLE_LINT_FILES" = all ]; then
+            ansible-lint --strict
+          else
+            # shellcheck disable=SC2086 # one word per file
+            ansible-lint --strict $ANSIBLE_LINT_FILES
+          fi
 
       - name: Syntax check
+        if: needs.files.outputs.syntax == 'true'
         run: ansible-playbook --syntax-check playbooks/site.yml

@@ -511,7 +511,7 @@ the dns VM's on UDP port 51820, the Pi's on 51821.
 │                            this from the git root only)
 ├── .github/
 │   ├── workflows/           analysis, molecule, and the shared image build
-│   └── scripts/             JUnit to job-summary renderer
+│   └── scripts/             JUnit to job-summary renderer, Molecule scenario and lint file pickers
 └── .yamllint                one YAML style for the whole repo
 ```
 
@@ -576,6 +576,13 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
   ghcr.io/ricardo-van-aken/homelab-vms/ansible-molecule:<tag> \
   molecule test --scenario-name base
 ```
+
+In GitHub Actions, a pull request to main runs only the scenarios its
+changes affect: a scenario's own files, the roles it applies and their
+dependencies, or files every scenario shares. The run's summary lists why
+each one was picked. Running the Molecule workflow by hand runs them all.
+The Analysis workflow likewise lints only the changed files, and everything
+when run by hand or when a lint setting changes.
 
 | Scenario | Notes                                                        |
 |----------|--------------------------------------------------------------|
