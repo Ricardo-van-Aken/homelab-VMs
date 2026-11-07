@@ -56,10 +56,25 @@
     mode: "0644"
   notify: Restart Caddy
 
+# Compose only says "unhealthy"; the reason is in wg-easy's own log.
 - name: Deploy wg-easy stack
-  community.docker.docker_compose_v2:
-    project_src: "{{ wireguard_dir }}"
-    state: present
-    remove_orphans: true
-    wait: true
-    wait_timeout: 120
+  block:
+    - name: Start wg-easy
+      community.docker.docker_compose_v2:
+        project_src: "{{ wireguard_dir }}"
+        state: present
+        remove_orphans: true
+        wait: true
+        wait_timeout: 120
+  rescue:
+    - name: Read wg-easy's log
+      ansible.builtin.command: docker logs --tail 40 wg-easy
+      register: wireguard_log
+      changed_when: false
+      failed_when: false
+
+    - name: Fail with wg-easy's log
+      ansible.builtin.fail:
+        msg: >-
+          {{ ['wg-easy did not become healthy; its last log lines:']
+             + wireguard_log.stdout_lines + wireguard_log.stderr_lines }}
