@@ -1,0 +1,21 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+ansible_host: 10.0.1.140
+
+# The VM as the Proxmox host builds it.
+# Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 140).
+pve_vm:
+  cores: 2
+  memory: 3072
+  balloon: 1536  # kept at least; the rest is given back when idle
+  # Metrics and logs, on its own disk on the tank pool.
+  disks:
+    - storage: tank-vms
+      size: 100
+  # Grafana's web UI and logs pushed in from the LAN; it reaches the whole
+  # LAN to collect metrics.
+  firewall:
+    in:
+      - proto: tcp
+        port: 80,443,3100
+    lan: all

@@ -6,24 +6,34 @@
     - role: pve_passthrough  # only for hosts that pass a GPU to a VM
       when: pve_passthrough_devices | default([]) | length > 0
     - pve_storage
+    - pve_network
     - pve_template
+    - pve_firewall  # before pve_vms, so a new VM starts with its rules
     - pve_vms
 
-- name: Fixed addresses for the Raspberry Pis
+- name: Fixed addresses and firewalls for the Raspberry Pis
   hosts: pis
   roles:
     - static_address
+    - host_firewall
 
+# Only created for now, nothing installed: the isolated VMs, which have no
+# way out until their egress VM has a VPN tunnel, and the monitoring VM.
 - name: Base configuration for every VM and Pi
-  hosts: vms:pis
+  hosts: vms:pis:!torrent:!minecraft-server1:!monitoring
   roles:
     - ssh_keys
     - base
 
 - name: Host datasets on the VMs
-  hosts: vms
+  hosts: vms:!torrent:!minecraft-server1:!monitoring
   roles:
     - shares
+
+- name: Isolated network gateways
+  hosts: egress
+  roles:
+    - egress
 
 - name: Jellyfin media servers
   hosts: jellyfin

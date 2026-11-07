@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[OPTIONS]
+
+enable: 1
+
+[RULES]
+
+IN ACCEPT -source +admin -p tcp -dport 22
+IN ACCEPT -source +admin -p tcp -dport 8006
+IN ACCEPT -source +lan -p icmp
+IN ACCEPT -source +monitoring -p tcp -dport {{ pve_firewall_metrics_port }}

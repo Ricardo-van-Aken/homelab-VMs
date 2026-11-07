@@ -1,0 +1,39 @@
+---
+- name: Check the firewall settings
+  ansible.builtin.assert:
+    that:
+      - host_firewall_lan | length > 0
+      - host_firewall_admin | length > 0
+      - host_firewall_in | rejectattr('proto', 'defined') | list | length == 0
+      - host_firewall_in | rejectattr('port', 'defined') | list | length == 0
+    fail_msg: set host_firewall_lan and host_firewall_admin, and proto and port on every host_firewall_in rule
+
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+
+- name: Write the firewall rules
+  ansible.builtin.template:
+    src: host-firewall.nft.j2
+    dest: /etc/host-firewall.nft
+    owner: root
+    group: root
+    mode: "0644"
+    validate: nft -c -f %s
+  notify: Reload host firewall
+
+- name: Install the firewall unit
+  ansible.builtin.template:
+    src: host-firewall.service.j2
+    dest: /etc/systemd/system/host-firewall.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start the firewall
+  ansible.builtin.systemd_service:
+    name: host-firewall
+    enabled: true
+    state: started
+    daemon_reload: true

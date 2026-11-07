@@ -1,0 +1,36 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+# Only on its own isolated network; reached through minecraft-server1-egress.
+ansible_host: 10.250.226.170
+ansible_ssh_common_args: >-
+  -o StrictHostKeyChecking=accept-new
+  -o ProxyJump=ubuntu@{{ hostvars['minecraft-server1-egress'].ansible_host }}
+
+# The VM as the Proxmox host builds it.
+# Its VMID is the 8 bits of its IP on the isolated network (= 170).
+pve_vm:
+  cores: 4
+  memory: 4096
+  untrusted: true
+  # Worlds, on its own disk on the tank pool; nothing shared with the host.
+  disks:
+    - storage: tank-vms
+      size: 50
+  networks:
+    - bridge: vmbr226
+      address: 10.250.226.170
+      prefix: 24
+      gateway: 10.250.226.1
+  # Resolved through minecraft-server1-egress's VPN tunnel, never the LAN's
+  # Pi-holes.
+  nameservers:
+    - 1.1.1.1
+  # The Proxmox host has no address on the isolated network.
+  wait_for_ssh: false
+  # SSH only from minecraft-server1-egress; nothing on the LAN at all.
+  firewall:
+    in:
+      - proto: tcp
+        port: 22
+        from: 10.250.226.1
+    lan: none
