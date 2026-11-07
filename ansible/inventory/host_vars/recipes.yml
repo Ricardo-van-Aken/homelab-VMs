@@ -14,8 +14,9 @@ pve_vm:
   shares:
     - dataset: mealie
       path: /srv/mealie
-  # The web UI.
   firewall:
     in:
       - proto: tcp
-        port: 80,443
+        port: 80  # HTTP, redirected to HTTPS by Caddy
+      - proto: tcp
+        port: 443  # Mealie web UI, through Caddy

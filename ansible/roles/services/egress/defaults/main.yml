@@ -27,5 +27,5 @@ egress_vpn_table: 51820
 # Ports opened to the VM from the tunnel's side: the provider's port
 # forwarding, or a rented server that tunnels in. Never from the LAN.
 #   - proto: tcp
-#     port: 25565
+#     port: 25565      # say why it is open, e.g. Minecraft players
 egress_inbound: []

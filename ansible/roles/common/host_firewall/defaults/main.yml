@@ -14,6 +14,6 @@ host_firewall_metrics_port: 9100
 
 # What the machine serves itself (not through Docker):
 #   - proto: tcp
-#     port: 443        # a port, a range 47998-48000, or a list 80,443
+#     port: 443        # a port or a range 47998-48000; say why it is open
 #     from: lan        # lan (default) or any
 host_firewall_in: []

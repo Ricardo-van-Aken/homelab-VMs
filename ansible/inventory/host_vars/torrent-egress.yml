@@ -15,10 +15,9 @@ pve_vm:
     - bridge: vmbr225
       address: 10.250.225.1
       prefix: 24
-  # Traffic from the isolated network arrives on net1 to be forwarded.
   firewall:
     in:
-      - iface: net1
+      - iface: net1  # all traffic from torrent, to forward into the VPN tunnel
         from: 10.250.225.0/24
 
 # Role egress.

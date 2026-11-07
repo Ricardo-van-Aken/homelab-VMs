@@ -12,10 +12,13 @@ pve_vm:
   disks:
     - storage: tank-vms
       size: 100
-  # Grafana's web UI and logs pushed in from the LAN; it reaches the whole
-  # LAN to collect metrics.
   firewall:
     in:
       - proto: tcp
-        port: 80,443,3100
+        port: 80  # HTTP, redirected to HTTPS by Caddy
+      - proto: tcp
+        port: 443  # Grafana web UI, through Caddy
+      - proto: tcp
+        port: 3100  # logs pushed in by every machine, Loki
+    # It collects metrics from every machine on the LAN.
     lan: all

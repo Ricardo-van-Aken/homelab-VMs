@@ -19,4 +19,6 @@ host_firewall_admin: "{{ homelab_admin }}"
 host_firewall_monitoring: "{{ homelab_monitoring }}"
 host_firewall_in:
   - proto: tcp
-    port: 80,443
+    port: 80  # HTTP, redirected to HTTPS by Caddy
+  - proto: tcp
+    port: 443  # Pi-hole admin and wg-easy web UIs, through Caddy

@@ -19,9 +19,9 @@ policy_out: {{ 'DROP' if fw.out_only | length > 0 else 'ACCEPT' }}
 [RULES]
 
 {% if fw.lan != 'none' %}
-IN ACCEPT -source +admin -p tcp -dport 22
-IN ACCEPT -source +lan -p icmp
-IN ACCEPT -source +monitoring -p tcp -dport {{ pve_firewall_metrics_port }}
+IN ACCEPT -source +admin -p tcp -dport 22 # SSH, for you and Ansible
+IN ACCEPT -source +lan -p icmp # ping
+IN ACCEPT -source +monitoring -p tcp -dport {{ pve_firewall_metrics_port }} # metrics, collected by the monitoring VM
 {% endif %}
 {% for rule in fw.in %}
 {%   set source = rule.from | default('lan') %}
@@ -36,10 +36,10 @@ IN ACCEPT
 OUT ACCEPT -dest {{ rule.dest }} -p {{ rule.proto }} -dport {{ rule.port }}
 {% endfor %}
 {% if fw.lan != 'none' %}
-OUT ACCEPT -dest +dns -p udp -dport 53
-OUT ACCEPT -dest +dns -p tcp -dport 53
-OUT ACCEPT -dest +monitoring -p tcp -dport {{ pve_firewall_logs_port }}
+OUT ACCEPT -dest +dns -p udp -dport 53 # DNS, to the Pi-holes
+OUT ACCEPT -dest +dns -p tcp -dport 53 # DNS over TCP, to the Pi-holes
+OUT ACCEPT -dest +monitoring -p tcp -dport {{ pve_firewall_logs_port }} # logs, pushed to the monitoring VM
 {% endif %}
 {% if fw.lan != 'all' %}
-OUT DROP -dest +lan
+OUT DROP -dest +lan # nothing else on the LAN
 {% endif %}

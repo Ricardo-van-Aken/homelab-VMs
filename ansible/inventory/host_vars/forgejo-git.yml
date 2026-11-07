@@ -14,8 +14,11 @@ pve_vm:
   shares:
     - dataset: forgejo
       path: /srv/forgejo
-  # The web UI, and git over SSH.
   firewall:
     in:
       - proto: tcp
-        port: 80,443,2222
+        port: 80  # HTTP, redirected to HTTPS by Caddy
+      - proto: tcp
+        port: 443  # Forgejo web UI and git over HTTPS, through Caddy
+      - proto: tcp
+        port: 2222  # git over SSH

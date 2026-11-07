@@ -18,8 +18,7 @@ pve_vm:
       path: /srv/media/series
     - dataset: music
       path: /srv/media/music
-  # The SMB shares.
   firewall:
     in:
       - proto: tcp
-        port: 445
+        port: 445  # SMB shares of the media, Samba

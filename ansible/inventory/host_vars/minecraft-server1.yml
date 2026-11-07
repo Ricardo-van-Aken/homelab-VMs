@@ -31,6 +31,6 @@ pve_vm:
   firewall:
     in:
       - proto: tcp
-        port: 22
+        port: 22  # SSH, for you and Ansible, through minecraft-server1-egress
         from: 10.250.226.1
     lan: none

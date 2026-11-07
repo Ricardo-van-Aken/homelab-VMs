@@ -30,6 +30,6 @@ pve_vm:
   firewall:
     in:
       - proto: tcp
-        port: 22
+        port: 22  # SSH, for you and Ansible, through torrent-egress
         from: 10.250.225.1
     lan: none
