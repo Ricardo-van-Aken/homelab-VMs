@@ -19,6 +19,13 @@ wireguard_insecure: "{{ not (caddy_https | bool) }}"
 # its first start only; afterwards the web UI owns the setting.
 wireguard_client_dns: []
 
+# Admin account and the address clients connect to (with wireguard_port),
+# also read on the first start only; with them wg-easy skips its setup
+# screen. Empty password: the setup screen asks instead.
+wireguard_admin_user: admin
+wireguard_admin_password: ""  # put a !vault value in group_vars
+wireguard_public_host: ""  # your public IP address, or a DNS name for it
+
 # Docker network, as wg-easy's own compose file defines it. Caddy's requests
 # arrive from its gateway.
 wireguard_docker_subnet: 10.42.42.0/24
