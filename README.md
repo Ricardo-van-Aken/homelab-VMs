@@ -40,11 +40,13 @@ unit (GPU) passed through
   * Pi-hole: second resolver with the same records
   * WireGuard: second tunnel, with its own clients
 * **monitoring**: for Grafana, Prometheus and Loki; nothing installed yet
-* **torrent-egress** and **minecraft-server1-egress**: each the only way in
-  and out of one isolated network, through a VPN provider's WireGuard tunnel
-  set in its host vars
-* **torrent** and **minecraft-server1**: each on an isolated network of its own;
-  nothing installed yet
+* **torrent** and **torrent-egress**: torrent runs on an isolated network of
+  its own and has nothing installed yet. torrent-egress is its only way in
+  and out, through a VPN provider's WireGuard tunnel set in its host vars.
+* **minecraft-server1** and **minecraft-server1-egress**: minecraft-server1
+  runs on an isolated network of its own and has nothing installed yet.
+  minecraft-server1-egress is its only way in and out, through a VPN
+  provider's WireGuard tunnel set in its host vars.
 
 Every web UI is served over HTTPS by a Caddy on its machine, with Let's
 Encrypt certificates obtained through the domain's DNS records, so nothing
@@ -291,8 +293,8 @@ Make sure the host runs Proxmox VE. Before the first run:
   `group_vars/all.yml`
     * `ssh_keys_authorized`: public keys that may log in to the Proxmox host
       and the VMs
-    * `homelab_lan`: your LAN, and `homelab_admin`: the addresses that may
-      SSH in and open the Proxmox web UI. Anything else is firewalled off.
+    * `homelab_lan`: your LAN. Devices on it may SSH in and open the
+      Proxmox web UI; anything else is firewalled off.
   
   `group_vars/proxmox.yml`
     * `pve_vms_gateway`: the VMs' default gateway
