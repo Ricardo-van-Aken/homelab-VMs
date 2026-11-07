@@ -9,7 +9,7 @@
 # builder: resolve ansible-core and the Galaxy dependencies into a
 # self-contained virtualenv
 # ---------------------------------------------------------------------------
-FROM python:3.13-alpine3.24@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741 AS builder
+FROM python:3.13-alpine3.24@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8 AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -48,7 +48,7 @@ RUN pip --python /opt/venv/bin/python install --no-compile -r /tmp/requirements-
 # ---------------------------------------------------------------------------
 # base: everything the shipped images share except the virtualenv
 # ---------------------------------------------------------------------------
-FROM python:3.13-alpine3.24@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741 AS base
+FROM python:3.13-alpine3.24@sha256:7984cf56ceaddebe4fefeb75d64000b9f45d8b77b11a09b24524da6cdc3af0c8 AS base
 
 RUN apk add --no-cache \
     # the transport behind the default ssh connection plugin
