@@ -12,6 +12,14 @@ ssh_keys_authorized:
 # Services are reached as <service>.<domain>, machines as <name>.<domain>.
 homelab_domain: zeepaardje98.eu
 
+# Firewalls (roles pve_firewall, host_firewall): the LAN, the machines that
+# may SSH into every machine and open the Proxmox web UI, and the machines
+# that collect metrics and logs (the monitoring VM).
+homelab_lan: 10.0.1.0/24
+# TODO: narrow to your own machines' fixed addresses; the whole LAN for now.
+homelab_admin: ["10.0.1.0/24"]
+homelab_monitoring: ["10.0.1.140"]
+
 # HTTPS for the web UIs (role caddy).
 caddy_https: true
 # Let's Encrypt account for the certificates.

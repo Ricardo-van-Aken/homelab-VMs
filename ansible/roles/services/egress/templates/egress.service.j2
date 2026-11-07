@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Egress firewall (nftables table egress)
+Wants=network-pre.target
+Before=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/egress.nft
+ExecReload=/usr/sbin/nft -f /etc/egress.nft
+ExecStop=/usr/sbin/nft delete table inet egress
+
+[Install]
+WantedBy=multi-user.target

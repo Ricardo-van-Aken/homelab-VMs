@@ -8,6 +8,7 @@ ansible_host: 10.0.1.120
 pve_vm:
   cores: 2
   memory: 2048
+  balloon: 512  # kept at least; the rest is given back when idle
   # Host datasets (pve_storage on srv1) mounted with virtiofs; the samba role
   # exports them (group_vars/samba.yml).
   shares:
@@ -17,3 +18,8 @@ pve_vm:
       path: /srv/media/series
     - dataset: music
       path: /srv/media/music
+  # The SMB shares.
+  firewall:
+    in:
+      - proto: tcp
+        port: 445

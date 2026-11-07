@@ -1,0 +1,45 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+
+# Replace only this table.
+table inet egress {}
+delete table inet egress
+
+table inet egress {
+	# Ports passed from the tunnel to the VM.
+	chain prerouting {
+		type nat hook prerouting priority dstnat; policy accept;
+
+{% for rule in egress_inbound %}
+		iifname "{{ egress_vpn_interface }}" {{ rule.proto }} dport { {{ rule.port }} } dnat ip to {{ egress_isolated.vm }}
+{% endfor %}
+	}
+
+	# The isolated network may only leave through the tunnel, and only the
+	# passed ports may come in from it.
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		ct state established,related accept
+{% if egress_vpn %}
+		iifname "{{ egress_isolated_interface }}" oifname "{{ egress_vpn_interface }}" accept
+{% endif %}
+{% for rule in egress_inbound %}
+		iifname "{{ egress_vpn_interface }}" oifname "{{ egress_isolated_interface }}" ip daddr {{ egress_isolated.vm }} {{ rule.proto }} dport { {{ rule.port }} } accept
+{% endfor %}
+	}
+
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+
+		oifname "{{ egress_vpn_interface }}" masquerade
+	}
+
+	# Nothing from the isolated network reaches this machine but replies.
+	chain input {
+		type filter hook input priority filter; policy accept;
+
+		iifname "{{ egress_isolated_interface }}" ct state established,related accept
+		iifname "{{ egress_isolated_interface }}" drop
+	}
+}

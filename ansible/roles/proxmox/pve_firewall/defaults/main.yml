@@ -1,0 +1,39 @@
+---
+# The Proxmox firewall: the datacenter switch, the host's management access,
+# and one rule file per VM. Written as files under /etc/pve; pve-firewall
+# applies changes on its own.
+
+# The LAN, as one network. Required.
+pve_firewall_lan: ""  # e.g. 10.0.1.0/24
+# Addresses or networks that may SSH into the host and the VMs and open the
+# host's web UI. Required.
+pve_firewall_admin: []
+# DNS servers every VM may query (the Pi-holes).
+pve_firewall_dns: []
+# Machines that collect metrics and logs (a Grafana stack); every VM lets
+# them scrape pve_firewall_metrics_port and may push to
+# pve_firewall_logs_port on them. Empty until such a machine exists.
+pve_firewall_monitoring: []
+pve_firewall_metrics_port: 9100
+pve_firewall_logs_port: 3100
+
+# Each VM's rules come from `firewall` in its pve_vm (host_vars):
+#   firewall:
+#     in:                  # what the VM serves
+#       - proto: tcp       # optional, as is port
+#         port: 443        # a port, a range 47998:48000, or a list 80,443
+#         from: lan        # lan (default), any, or an address or network
+#         iface: net1      # optional: only on this network card
+#     lan: dns             # what it may reach on the LAN: dns, all or none
+#     out_only:            # when set, all other outgoing traffic is dropped
+#       - dest: 198.51.100.7
+#         proto: udp
+#         port: 51820
+pve_firewall_vm_defaults:
+  in: []
+  lan: dns
+  out_only: []
+
+# Where rendered files are staged before they are copied into /etc/pve,
+# which does not support setting owner or mode.
+pve_firewall_staging_dir: /root/pve-firewall

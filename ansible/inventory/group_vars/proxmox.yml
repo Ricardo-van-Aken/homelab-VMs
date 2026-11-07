@@ -26,3 +26,15 @@ pve_vms_nameservers: >-
   {{ ((groups['vms'] | intersect(groups['pihole']))
       + (groups['pis'] | default([]) | intersect(groups['pihole'])))
      | map('extract', hostvars, 'ansible_host') | list }}
+
+# Bridges without a physical port or host address (role pve_network), one
+# per isolated VM; each one's only way out is its own egress VM. Named after
+# that egress VM's last octet: egress 10.0.1.225 serves vmbr225 and
+# 10.250.225.0/24. Lower numbers are kept for networks that are not isolated.
+pve_network_isolated_bridges: [vmbr225, vmbr226]
+
+# Firewall (role pve_firewall). Each VM's rules are `firewall` in its pve_vm.
+pve_firewall_lan: "{{ homelab_lan }}"
+pve_firewall_admin: "{{ homelab_admin }}"
+pve_firewall_dns: "{{ pve_vms_nameservers }}"
+pve_firewall_monitoring: "{{ homelab_monitoring }}"

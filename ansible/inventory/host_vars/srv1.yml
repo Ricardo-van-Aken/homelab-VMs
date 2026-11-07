@@ -51,4 +51,8 @@ pve_storage_pools:
         owner: 2001
       - name: mealie  # recipes, images and database
         owner: 2003
+      - name: vms  # extra VM disks (pve_vm.disks), each VM's own, not shared
+        share: false
+        storage: tank-vms
+        content: images
       # later: minecraft, s3, forgejo-runners

@@ -13,7 +13,7 @@ pihole_records: >-
       {%- set _ = names.append(service if groups[service] | length == 1 else host ~ '.' ~ service) -%}
     {%- endfor -%}
     {%- set _ = records.append(hostvars[host].ansible_host ~ ' '
-                               ~ (names | map('regex_replace', '$', '.' ~ homelab_domain) | join(' '))) -%}
+                               ~ (names | unique | map('regex_replace', '$', '.' ~ homelab_domain) | join(' '))) -%}
   {%- endfor -%}
   {{ records }}
 

@@ -1,0 +1,28 @@
+---
+# The bridges live in files of their own, so the host's main network file,
+# and with it its own address, is never touched.
+- name: Check the network files are read
+  ansible.builtin.command: grep -Eq '^source(-directory)? {{ pve_network_dir }}' /etc/network/interfaces
+  register: pve_network_sourced
+  changed_when: false
+  failed_when: false
+
+- name: Refuse to write bridges the host would not read
+  ansible.builtin.assert:
+    that: pve_network_sourced.rc == 0
+    fail_msg: /etc/network/interfaces does not source {{ pve_network_dir }}; add `source {{ pve_network_dir }}/*`
+  when: pve_network_isolated_bridges | length > 0
+
+- name: Write the isolated bridges
+  ansible.builtin.template:
+    src: bridge.j2
+    dest: "{{ pve_network_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ pve_network_isolated_bridges }}"
+  notify: Bring up the bridges
+
+# VMs are attached to the bridges later in the same run.
+- name: Bring up changed bridges now
+  ansible.builtin.meta: flush_handlers
