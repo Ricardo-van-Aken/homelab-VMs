@@ -16,8 +16,7 @@ homelab_domain: zeepaardje98.eu
 # may SSH into every machine and open the Proxmox web UI, and the machines
 # that collect metrics and logs (the monitoring VM).
 homelab_lan: 10.0.1.0/24
-# TODO: narrow to your own machines' fixed addresses; the whole LAN for now.
-homelab_admin: ["10.0.1.0/24"]
+homelab_admin: ["{{ homelab_lan }}"]
 homelab_monitoring: ["10.0.1.140"]
 
 # HTTPS for the web UIs (role caddy).
