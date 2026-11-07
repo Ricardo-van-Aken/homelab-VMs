@@ -8,8 +8,14 @@ ansible_host: 10.0.1.130
 pve_vm:
   cores: 2
   memory: 2048
+  balloon: 1024  # kept at least; Mealie itself may use up to 1000M
   # Host dataset (pve_storage on srv1) mounted with virtiofs; mealie_data_dir
   # in group_vars/mealie.yml points at it.
   shares:
     - dataset: mealie
       path: /srv/mealie
+  # The web UI.
+  firewall:
+    in:
+      - proto: tcp
+        port: 80,443

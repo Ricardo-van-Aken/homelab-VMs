@@ -26,6 +26,19 @@ pve_vm:
       path: /srv/media/series
     - dataset: games
       path: /srv/games
+  # Jellyfin: web UI, the apps' port, client discovery and DLNA. Sunshine:
+  # pairing, control and RTSP over TCP; video, audio and input over UDP;
+  # mDNS so Moonlight finds it.
+  firewall:
+    in:
+      - proto: tcp
+        port: 80,443,8096
+      - proto: udp
+        port: 1900,7359
+      - proto: tcp
+        port: 47984,47989,48010
+      - proto: udp
+        port: 47998:48000,48002,48010,5353
 
 # Vendors of the GPUs in this VM (hostpci above): any of amd, intel, nvidia.
 # Which GPU each service uses is set in group_vars/<service>.yml.

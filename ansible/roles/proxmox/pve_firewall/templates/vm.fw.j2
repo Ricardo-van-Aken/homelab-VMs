@@ -1,0 +1,45 @@
+# {{ ansible_managed }}
+{% set vm = hostvars[pve_firewall_vm] %}
+{% set fw = pve_firewall_vm_defaults | combine(vm.pve_vm.firewall | default({})) %}
+{% set networks = vm.pve_vm.networks | default([{}]) %}
+[OPTIONS]
+
+enable: 1
+ipfilter: 1
+policy_in: DROP
+policy_out: {{ 'DROP' if fw.out_only | length > 0 else 'ACCEPT' }}
+
+{% for net in networks %}
+# The VM may only send from its own address on this card.
+[IPSET ipfilter-net{{ loop.index0 }}]
+
+{{ net.address | default(vm.ansible_host) }}
+
+{% endfor %}
+[RULES]
+
+{% if fw.lan != 'none' %}
+IN ACCEPT -source +admin -p tcp -dport 22
+IN ACCEPT -source +lan -p icmp
+IN ACCEPT -source +monitoring -p tcp -dport {{ pve_firewall_metrics_port }}
+{% endif %}
+{% for rule in fw.in %}
+{%   set source = rule.from | default('lan') %}
+IN ACCEPT
+{%- if rule.iface is defined %} -i {{ rule.iface }}{% endif %}
+{%- if source == 'lan' %} -source +lan{% elif source != 'any' %} -source {{ source }}{% endif %}
+{%- if rule.proto is defined %} -p {{ rule.proto }}{% endif %}
+{%- if rule.port is defined %} -dport {{ rule.port }}{% endif %}
+
+{% endfor %}
+{% for rule in fw.out_only %}
+OUT ACCEPT -dest {{ rule.dest }} -p {{ rule.proto }} -dport {{ rule.port }}
+{% endfor %}
+{% if fw.lan != 'none' %}
+OUT ACCEPT -dest +dns -p udp -dport 53
+OUT ACCEPT -dest +dns -p tcp -dport 53
+OUT ACCEPT -dest +monitoring -p tcp -dport {{ pve_firewall_logs_port }}
+{% endif %}
+{% if fw.lan != 'all' %}
+OUT DROP -dest +lan
+{% endif %}
