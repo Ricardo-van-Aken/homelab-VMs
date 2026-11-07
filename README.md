@@ -511,7 +511,7 @@ the dns VM's on UDP port 51820, the Pi's on 51821.
 │                            this from the git root only)
 ├── .github/
 │   ├── workflows/           analysis, molecule, and the shared image build
-│   └── scripts/             JUnit to job-summary renderer
+│   └── scripts/             helpers for the workflows
 └── .yamllint                one YAML style for the whole repo
 ```
 
