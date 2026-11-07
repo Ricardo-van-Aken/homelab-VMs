@@ -1,5 +1,21 @@
 ---
-# WireGuard (wg-easy) settings.
-wireguard_domain: "wireguard.{{ homelab_domain }}"
-# The Pi-holes, so homelab names resolve through the tunnel.
+# WireGuard (wg-easy) settings. Each instance has its own clients.
+wireguard_domain: "{{ inventory_hostname }}.wireguard.{{ homelab_domain }}"
+# The Pi-holes, so homelab names resolve through the tunnel; the VM first,
+# the Pi as fallback.
 wireguard_client_dns: ["10.0.1.100", "10.0.1.101"]
+
+# Set on an instance's first start, so wg-easy skips its setup screen. The
+# public host is a public DNS record pointing at your public IP address.
+wireguard_admin_user: admin
+wireguard_public_host: "wg-easy.{{ homelab_domain }}"
+wireguard_admin_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          66336362316330306263653331313632353062656163323638316366306437613739363265656366
+          3739386662323139656435336530373863663832653134350a393737336232386437623132373033
+          34643261356438303566323432356537333034396462396565316335623133343561353062626331
+          6135343336373163320a386431373637366163356365343333643234396431613437616462616536
+          38623837613963663262646239653837323835353365643839663239656361306163303838393731
+          66303238343437383235396137653166323664633430343065393765363362623464346564623730
+          64356430356434646166623561636162393264346535656263333462373733316433373938336464
+          35646664633962623938

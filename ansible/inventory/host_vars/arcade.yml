@@ -13,6 +13,9 @@ pve_vm:
   vga: none
   hostpci:
     - 0000:84:00,pcie=1,x-vga=1  # Radeon R9 380X, both functions
+  # The GPU has no function-level reset: a restart can crash the VM. Changes
+  # need to wait until we can cold power cycle the host.
+  restart_on_change: false
   # Host datasets (pve_storage on srv1) mounted with virtiofs.
   shares:
     - dataset: movies

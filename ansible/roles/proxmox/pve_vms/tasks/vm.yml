@@ -83,12 +83,13 @@
 
 # Hardware changes on a running VM are pending until it is powered off. Shut
 # it down cleanly (never `qm stop`: a GPU without function-level reset would
-# not come back) and start it again below.
+# not come back) and start it again below, unless the VM opted out.
 - name: "Shut down for hardware changes on {{ pve_vms_name }}"
   ansible.builtin.command: qm shutdown {{ pve_vms_spec.vmid }} --timeout {{ pve_vms_ssh_timeout }}
   when:
     - "'status: running' in pve_vms_status.stdout"
     - pve_vms_changes | length > 0 or pve_vms_needs_efidisk
+    - pve_vms_spec.restart_on_change | bool
   register: pve_vms_shutdown
   changed_when: true
 
@@ -113,3 +114,33 @@
     host: "{{ hostvars[pve_vms_name].ansible_host }}"
     port: 22
     timeout: "{{ pve_vms_ssh_timeout }}"
+
+# Settings waiting for the next start, from this run or an earlier one:
+# `qm pending` marks them `new` (changed) or `del` (removed).
+- name: "Read settings waiting on {{ pve_vms_name }}"
+  ansible.builtin.command: qm pending {{ pve_vms_spec.vmid }}
+  register: pve_vms_pending
+  changed_when: false
+
+# Reported as changed so it stands out in the recap.
+- name: "Report settings waiting on {{ pve_vms_name }}"
+  ansible.builtin.debug:
+    msg:
+      - >-
+        {{ pve_vms_name }} (VM {{ pve_vms_spec.vmid }}) has changed settings that are NOT
+        applied yet: {{ pve_vms_pending_keys | join(', ') }}.
+      - >-
+        This play leaves it running: restart_on_change is false in
+        host_vars/{{ pve_vms_name }}.yml.
+      - >-
+        To apply them: shut down all VMs, power {{ inventory_hostname }} off until it is
+        fully off, power it on again, then run this play again
+        (README, Full Setup, Step 4).
+  vars:
+    pve_vms_pending_keys: >-
+      {{ pve_vms_pending.stdout_lines | select('match', '^(new|del) ')
+         | map('regex_replace', '^(new|del) ([^:]+):.*$', '\2') | unique | list }}
+  when:
+    - not (pve_vms_spec.restart_on_change | bool)
+    - pve_vms_pending_keys | length > 0
+  changed_when: true
