@@ -1,4 +1,10 @@
 ---
+- name: Check the first-start settings
+  ansible.builtin.assert:
+    that: wireguard_public_host | length > 0
+    fail_msg: wireguard_admin_password needs wireguard_public_host in group_vars
+  when: wireguard_admin_password | length > 0
+
 - name: Create stacks directory
   ansible.builtin.file:
     path: "{{ wireguard_dir | dirname }}"
@@ -17,6 +23,21 @@
   loop:
     - "{{ wireguard_dir }}"
     - "{{ wireguard_data_dir }}"
+
+# Kept out of compose.yml so that file stays readable.
+- name: Write the first-start settings
+  ansible.builtin.copy:
+    content: |
+      INIT_USERNAME={{ wireguard_admin_user }}
+      INIT_PASSWORD={{ wireguard_admin_password }}
+      INIT_HOST={{ wireguard_public_host }}
+      INIT_PORT={{ wireguard_port }}
+    dest: "{{ wireguard_dir }}/init.env"
+    owner: root
+    group: root
+    mode: "0600"
+  when: wireguard_admin_password | length > 0
+  no_log: true
 
 - name: Render compose file
   ansible.builtin.template:

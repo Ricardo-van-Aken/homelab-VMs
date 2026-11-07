@@ -30,14 +30,15 @@ unit (GPU) passed through
   * Mealie: recipe manager and meal planner; the whole Local Area Network
   (LAN) reads and edits
     without signing in
-* **dns**: name resolution for the LAN
+* **dns**: name resolution for the LAN, and the way in
   * Pi-hole: resolver with a name for every machine and service, and ad
   blocking
-* **pi1**: the Raspberry Pi, independent of the Proxmox host
-  * Pi-hole: second resolver with the same records, so names keep resolving
-  while the host is down
   * WireGuard: Virtual Private Network (VPN) into the LAN from outside, with
   wg-easy's web UI for adding devices
+* **pi1**: the Raspberry Pi, the fallback for both while the Proxmox host
+  is down
+  * Pi-hole: second resolver with the same records
+  * WireGuard: second tunnel, with its own clients
 
 Every web UI is served over HTTPS by a Caddy on its machine, with Let's
 Encrypt certificates obtained through the domain's DNS records, so nothing
@@ -203,7 +204,7 @@ ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
 ansible-playbook playbooks/site.yml --limit vms --ask-vault-pass
 ```
 
-Then make your router hand out `10.0.1.101` (the dns VM) as the DNS server
+Then make your router hand out `10.0.1.100` (the dns VM) as the DNS server
 in its DHCP settings.
 
 > [!TIP]
@@ -212,9 +213,9 @@ in its DHCP settings.
 > outside the repo and export `ANSIBLE_VAULT_PASSWORD_FILE=<path>` instead.
 
 #### Step 6 (optional): set up the Raspberry Pi
-The Raspberry Pi adds a DNS server and a VPN. Both run independent of the
-Proxmox host and its VMs. To leave it out completely, remove `pi1` from
-`inventory/hosts.yml`.
+The Raspberry Pi adds a second DNS server and a second VPN, for when the
+Proxmox host and its VMs are down. To leave it out completely, remove
+`pi1` from `inventory/hosts.yml`.
 
 The first run gives the Pi its fixed IP address (`host_vars/pi1.yml`), so it
 needs the Pi's current address on the first run:
@@ -230,8 +231,8 @@ ansible-playbook playbooks/site.yml --limit pi1 --ask-vault-pass
 ```
 
 Then, in your router:
-* DNS: add `10.0.1.100` as a second DNS server in the DHCP settings.
-* VPN: forward UDP port `51820` to `10.0.1.100`.
+* DNS: add `10.0.1.101` as a second DNS server in the DHCP settings.
+* VPN: forward UDP port `51821` to `10.0.1.101:51821`.
 
 #### Step 7 (optional): HTTPS
 
@@ -303,6 +304,10 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
 <summary><h3 id="arcade" style="display:inline; margin:0; vertical-align:middle">arcade</h3></summary>
 
 * Attach a dummy High-Definition Multimedia Interface (HDMI) plug or set `desktop_force_connector`.
+* `restart_on_change` in `host_vars/arcade.yml` is `false` because my card
+  cannot be reset: the proxmox play then never restarts arcade, changed VM
+  settings wait for the next cold power cycle of the host. With a card that
+  resets cleanly, set it to `true`.
 * Steam gets the games share as a second library. After the first start,
   make it the default under Settings, Storage, so installs go to the pool.
 * Replace the placeholder `jellyfin_admin_password` and the passwords in
@@ -373,6 +378,10 @@ account, log out from the menu and sign in on the page that follows.
 
 * Replace the encrypted `pihole_web_password` in `group_vars/pihole.yml` with
   your own (see Secrets).
+* Replace the encrypted `wireguard_admin_password` in
+  `group_vars/wireguard.yml` with your own (see Secrets), and set
+  `wireguard_public_host` to your public IP address, or a public DNS name
+  pointing at it.
 * Set `homelab_domain` in `group_vars/all.yml` to your domain. Every machine
   and service becomes a subdomain of it, `forgejo.<domain>` for example.
 
@@ -380,8 +389,11 @@ account, log out from the menu and sign in on the page that follows.
 ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
 ```
 
-Then make your router hand out `10.0.1.101` as the Domain Name System (DNS)
-server in its Dynamic Host Configuration Protocol (DHCP) settings.
+Then, in your router:
+* DNS: hand out `10.0.1.100` as the Domain Name System (DNS) server in the
+  Dynamic Host Configuration Protocol (DHCP) settings.
+* VPN: forward UDP port `51820` to `10.0.1.100`. Devices are added in the
+  wg-easy UI.
 
 </details>
 
@@ -394,8 +406,7 @@ key installed.
 * Set `ansible_user` in `group_vars/pis.yml` to the Pi's user.
 * Keep `static_address_ip` (`host_vars/pi1.yml`) out of your router's DHCP
   pool.
-* Replace the encrypted `pihole_web_password` in `group_vars/pihole.yml` with
-  your own (see Secrets).
+* The Pi-hole and wg-easy passwords are the ones set for [dns](#dns).
 
 The first run gives the Pi its fixed address, so it needs the Pi's current
 address:
@@ -411,8 +422,8 @@ ansible-playbook playbooks/site.yml --limit pi1 --ask-vault-pass
 ```
 
 Then, in your router:
-* DNS: add `10.0.1.100` as a second DNS server in the DHCP settings.
-* VPN: forward UDP port `51820` to `10.0.1.100`.
+* DNS: add `10.0.1.101` as a second DNS server in the DHCP settings.
+* VPN: forward UDP port `51821` to `10.0.1.101:51820`.
 
 New VPN clients get the two Pi-holes as DNS servers
 (`wireguard_client_dns` in `group_vars/wireguard.yml`), so homelab names
@@ -438,8 +449,8 @@ All subdomains of `zeepaardje98.eu`.
 
 | Subdomain   | Address    |
 |-------------|------------|
-| pi1         | 10.0.1.100 |
-| dns         | 10.0.1.101 |
+| dns         | 10.0.1.100 |
+| pi1         | 10.0.1.101 |
 | forgejo-git | 10.0.1.110 |
 | nas         | 10.0.1.120 |
 | recipes     | 10.0.1.130 |
@@ -449,9 +460,10 @@ All subdomains of `zeepaardje98.eu`.
 
 | Subdomain  | Address    | Service                 |
 |------------|------------|-------------------------|
-| pi1.pihole | 10.0.1.100 | Pi-hole admin, `/admin` |
-| wireguard  | 10.0.1.100 | wg-easy                 |
-| dns.pihole | 10.0.1.101 | Pi-hole admin, `/admin` |
+| dns.pihole | 10.0.1.100 | Pi-hole admin, `/admin` |
+| dns.wireguard | 10.0.1.100 | wg-easy              |
+| pi1.pihole | 10.0.1.101 | Pi-hole admin, `/admin` |
+| pi1.wireguard | 10.0.1.101 | wg-easy              |
 | forgejo    | 10.0.1.110 | Forgejo                 |
 | mealie     | 10.0.1.130 | Mealie                  |
 | jellyfin   | 10.0.1.160 | Jellyfin                |
@@ -461,14 +473,15 @@ All subdomains of `zeepaardje98.eu`.
 
 | Subdomain  | Address    | Use                                         |
 |------------|------------|---------------------------------------------|
-| pi1.pihole | 10.0.1.100 | DNS server                                  |
-| dns.pihole | 10.0.1.101 | DNS server                                  |
+| dns.pihole | 10.0.1.100 | DNS server                                  |
+| pi1.pihole | 10.0.1.101 | DNS server                                  |
 | forgejo    | 10.0.1.110 | git over SSH, port 2222                     |
 | samba      | 10.0.1.120 | SMB shares, `smb://samba.zeepaardje98.eu`   |
 | jellyfin   | 10.0.1.160 | the Jellyfin apps, port 8096                |
 | gaming     | 10.0.1.160 | Moonlight pairing                           |
 
-The VPN itself connects to your public address, not to a name here.
+The VPNs themselves connect to your public address, not to a name here:
+the dns VM's on UDP port 51820, the Pi's on 51821.
 
 </details>
 
@@ -604,15 +617,16 @@ Protocol (UDP).
 
 On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
 
-* **pi1** (10.0.1.100)
+* **dns** (10.0.1.100)
   * 22/tcp: SSH
   * 53/tcp, 53/udp: DNS
   * 443/tcp: Pi-hole admin UI and API, and the wg-easy UI, through Caddy
-  * 51820/udp: WireGuard, the only port forwarded by the router
-* **dns** (10.0.1.101)
+  * 51820/udp: WireGuard, forwarded by the router
+* **pi1** (10.0.1.101)
   * 22/tcp: SSH
   * 53/tcp, 53/udp: DNS
-  * 443/tcp: Pi-hole admin UI and API, through Caddy
+  * 443/tcp: Pi-hole admin UI and API, and the wg-easy UI, through Caddy
+  * 51821/udp: WireGuard, forwarded by the router
 * **forgejo-git** (10.0.1.110)
   * 22/tcp: SSH to the VM
   * 443/tcp: Forgejo web UI and Hypertext Transfer Protocol (HTTP) clone, through Caddy

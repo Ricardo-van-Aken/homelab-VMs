@@ -2,4 +2,7 @@
 # Facts about this machine. Service settings live in group_vars/<service>.yml.
 
 # Fixed address (role static_address); keep it out of the router's DHCP pool.
-static_address_ip: 10.0.1.100
+static_address_ip: 10.0.1.101
+
+# The dns VM's tunnel has 51820; the router forwards this one here.
+wireguard_port: 51821
