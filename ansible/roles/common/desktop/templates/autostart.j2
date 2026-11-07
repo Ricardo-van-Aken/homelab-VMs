@@ -4,6 +4,11 @@
 
 # Never blank the streamed display.
 xset s off -dpms
+{% if desktop_force_connector %}
+
+# A forced output has no monitor to pick a mode from; set the streamed one.
+xrandr --output {{ desktop_force_connector | regex_replace('^HDMI-A-', 'HDMI-') }} --mode {{ desktop_force_mode | regex_replace('@.*$', '') }} --rate {{ desktop_force_mode | regex_replace('^.*@', '') }}
+{% endif %}
 
 # Hand the X session to user services (Sunshine needs DISPLAY and XAUTHORITY).
 systemctl --user import-environment DISPLAY XAUTHORITY
