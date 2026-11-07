@@ -8,9 +8,15 @@ services:
       PORT: "{{ wireguard_web_port }}"
       INSECURE: "{{ wireguard_insecure | bool | lower }}"
       TRUSTED_PROXIES: {{ wireguard_trusted_proxies }}
-{% if wireguard_client_dns %}
+{% if wireguard_client_dns or wireguard_admin_password %}
       INIT_ENABLED: "true"
+{% endif %}
+{% if wireguard_client_dns %}
       INIT_DNS: {{ wireguard_client_dns | join(',') }}
+{% endif %}
+{% if wireguard_admin_password %}
+    env_file:
+      - init.env
 {% endif %}
     networks:
       wg:
@@ -20,7 +26,8 @@ services:
       - {{ wireguard_data_dir }}:/etc/wireguard
       - /lib/modules:/lib/modules:ro
     ports:
-      - "{{ wireguard_port }}:51820/udp"
+      # wg-easy listens on the port it was set up with (INIT_PORT).
+      - "{{ wireguard_port }}:{{ wireguard_port }}/udp"
       - "127.0.0.1:{{ wireguard_web_port }}:{{ wireguard_web_port }}/tcp"
     cap_add:
       - NET_ADMIN
