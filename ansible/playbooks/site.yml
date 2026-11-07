@@ -33,8 +33,8 @@
 - name: Game streaming hosts
   hosts: gaming
   roles:
+    - sunshine  # depends on gpu and desktop, which makes the user steam needs
     - steam
-    - sunshine  # depends on gpu and desktop
 
 - name: Git forges
   hosts: forgejo

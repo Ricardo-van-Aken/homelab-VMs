@@ -2,3 +2,9 @@
 # Inherits .config/molecule/config.yml
 scenario:
   name: steam
+provisioner:
+  inventory:
+    group_vars:
+      all:
+        steam_user: gamer
+        steam_library_dir: /srv/games

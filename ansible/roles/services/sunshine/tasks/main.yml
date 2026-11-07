@@ -79,3 +79,12 @@
     enabled: true
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ sunshine_uid }}"
+
+- name: Render the Caddy site
+  ansible.builtin.template:
+    src: caddy.j2
+    dest: "{{ caddy_sites_dir }}/sunshine.caddy"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Caddy

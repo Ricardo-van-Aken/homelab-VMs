@@ -8,6 +8,10 @@ services:
       PORT: "{{ wireguard_web_port }}"
       INSECURE: "{{ wireguard_insecure | bool | lower }}"
       TRUSTED_PROXIES: {{ wireguard_trusted_proxies }}
+{% if wireguard_client_dns %}
+      INIT_ENABLED: "true"
+      INIT_DNS: {{ wireguard_client_dns | join(',') }}
+{% endif %}
     networks:
       wg:
         ipv4_address: {{ wireguard_docker_address }}

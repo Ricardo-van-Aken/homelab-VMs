@@ -4,3 +4,15 @@ steam_packages:
   - steam-devices
   - gamemode
   - mangohud
+
+# The user Steam runs as (made by role desktop). The Debian launcher
+# installs Steam's own client into their home on first start, after a
+# dialog; this role does that install up front, from the launcher's own
+# pinned download, so no dialog appears.
+steam_user: "{{ desktop_user }}"
+steam_dir: "/home/{{ steam_user }}/.steam/debian-installation"
+
+# A second library, registered with Steam, on a mounted share so games
+# land there instead of on the VM's disk. Empty: no second library.
+steam_library_dir: ""
+steam_library_label: games

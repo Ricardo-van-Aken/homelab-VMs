@@ -9,3 +9,4 @@ provisioner:
     group_vars:
       all:
         wireguard_domain: localhost
+        wireguard_client_dns: ["10.0.1.100", "10.0.1.101"]

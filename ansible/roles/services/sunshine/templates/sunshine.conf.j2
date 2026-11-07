@@ -1,5 +1,7 @@
 # {{ ansible_managed }}
 origin_web_ui_allowed = {{ sunshine_origin_web_ui_allowed }}
+# The web UI is reached through Caddy under this origin.
+csrf_allowed_origins = {{ caddy_scheme }}{{ sunshine_domain }}
 file_apps = {{ sunshine_config_dir }}/apps.json
 {% if sunshine_adapter %}
 adapter_name = {{ sunshine_adapter }}

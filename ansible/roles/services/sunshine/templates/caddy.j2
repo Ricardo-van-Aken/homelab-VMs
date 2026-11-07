@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+{{ caddy_scheme }}{{ sunshine_domain }} {
+	import dns_challenge
+	# Sunshine only speaks HTTPS, with a certificate it made itself.
+	reverse_proxy https://127.0.0.1:{{ sunshine_web_port }} {
+		transport http {
+			tls_insecure_skip_verify
+		}
+	}
+}
