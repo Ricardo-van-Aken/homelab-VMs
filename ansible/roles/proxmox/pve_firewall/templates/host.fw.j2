@@ -5,7 +5,7 @@ enable: 1
 
 [RULES]
 
-IN ACCEPT -source +admin -p tcp -dport 22
-IN ACCEPT -source +admin -p tcp -dport 8006
-IN ACCEPT -source +lan -p icmp
-IN ACCEPT -source +monitoring -p tcp -dport {{ pve_firewall_metrics_port }}
+IN ACCEPT -source +admin -p tcp -dport 22 # SSH, for you and Ansible
+IN ACCEPT -source +admin -p tcp -dport 8006 # Proxmox web UI and API
+IN ACCEPT -source +lan -p icmp # ping
+IN ACCEPT -source +monitoring -p tcp -dport {{ pve_firewall_metrics_port }} # metrics, collected by the monitoring VM
