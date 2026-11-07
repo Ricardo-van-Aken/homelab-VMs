@@ -8,6 +8,9 @@ services:
       PORT: "{{ wireguard_web_port }}"
       INSECURE: "{{ wireguard_insecure | bool | lower }}"
       TRUSTED_PROXIES: {{ wireguard_trusted_proxies }}
+{% if not wireguard_ipv6 | bool %}
+      DISABLE_IPV6: "true"
+{% endif %}
 {% if wireguard_client_dns or wireguard_admin_password %}
       INIT_ENABLED: "true"
 {% endif %}
