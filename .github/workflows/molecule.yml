@@ -1,15 +1,42 @@
 ---
 name: Molecule
 
+# Pull requests to main run the scenarios their changes affect; a manual run
+# runs them all.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
+  scenarios:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      scenarios: ${{ steps.pick.outputs.scenarios }}
+    steps:
+      # A pull request is checked out as a merge commit; its first parent is
+      # main, so the diff between the two is the pull request's change.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Pick the scenarios to run
+        id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            scenarios=$(python3 .github/scripts/molecule-scenarios.py --all)
+          else
+            scenarios=$(git diff --name-only HEAD^1 HEAD | python3 .github/scripts/molecule-scenarios.py)
+          fi
+          echo "scenarios=$scenarios" >> "$GITHUB_OUTPUT"
+
   image:
+    needs: scenarios
+    if: needs.scenarios.outputs.scenarios != '[]'
     uses: ./.github/workflows/build-image.yml
     permissions:
       contents: read
@@ -22,6 +49,8 @@ jobs:
       hash_paths: ansible/docker/runtime ansible/requirements.yml
 
   target:
+    needs: scenarios
+    if: needs.scenarios.outputs.scenarios != '[]'
     uses: ./.github/workflows/build-image.yml
     permissions:
       contents: read
@@ -33,7 +62,7 @@ jobs:
       hash_paths: ansible/docker/molecule-target
 
   test:
-    needs: [image, target]
+    needs: [scenarios, image, target]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -41,7 +70,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [base, gpu, steam, jellyfin, forgejo, samba, mealie, pihole, wireguard]
+        scenario: ${{ fromJSON(needs.scenarios.outputs.scenarios) }}
     container:
       image: ${{ needs.image.outputs.image }}
       credentials:
