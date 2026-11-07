@@ -26,19 +26,28 @@ pve_vm:
       path: /srv/media/series
     - dataset: games
       path: /srv/games
-  # Jellyfin: web UI, the apps' port, client discovery and DLNA. Sunshine:
-  # pairing, control and RTSP over TCP; video, audio and input over UDP;
-  # mDNS so Moonlight finds it.
   firewall:
     in:
       - proto: tcp
-        port: 80,443,8096
-      - proto: udp
-        port: 1900,7359
+        port: 80  # HTTP, redirected to HTTPS by Caddy
       - proto: tcp
-        port: 47984,47989,48010
+        port: 443  # Jellyfin and Sunshine web UIs, through Caddy
+      - proto: tcp
+        port: 8096  # Jellyfin, for the apps
       - proto: udp
-        port: 47998:48000,48002,48010,5353
+        port: 7359  # Jellyfin client discovery
+      - proto: udp
+        port: 1900  # Jellyfin DLNA
+      - proto: tcp
+        port: 47984  # Sunshine pairing over HTTPS, Moonlight
+      - proto: tcp
+        port: 47989  # Sunshine pairing over HTTP, Moonlight
+      - proto: tcp
+        port: 48010  # Sunshine stream control (RTSP)
+      - proto: udp
+        port: 47998:48000  # Sunshine video, control and audio streams
+      - proto: udp
+        port: 5353  # mDNS, so Moonlight finds Sunshine
 
 # Vendors of the GPUs in this VM (hostpci above): any of amd, intel, nvidia.
 # Which GPU each service uses is set in group_vars/<service>.yml.

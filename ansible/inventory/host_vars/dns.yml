@@ -13,15 +13,18 @@ pve_vm:
   nameservers:
     - 1.1.1.1
     - 1.0.0.1
-  # DNS and the web UIs for the LAN, the VPN for the internet. VPN clients
-  # come out of this VM, so it may reach the whole LAN.
   firewall:
     in:
       - proto: udp
-        port: 53
+        port: 53  # DNS, Pi-hole
       - proto: tcp
-        port: 53,80,443
+        port: 53  # DNS over TCP, Pi-hole
+      - proto: tcp
+        port: 80  # HTTP, redirected to HTTPS by Caddy
+      - proto: tcp
+        port: 443  # Pi-hole admin and wg-easy web UIs, through Caddy
       - proto: udp
-        port: 51820
+        port: 51820  # WireGuard VPN (wg-easy), forwarded by the router
         from: any
+    # VPN clients come out of this VM, so it may reach the whole LAN.
     lan: all

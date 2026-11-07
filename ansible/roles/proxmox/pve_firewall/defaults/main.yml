@@ -21,7 +21,7 @@ pve_firewall_logs_port: 3100
 #   firewall:
 #     in:                  # what the VM serves
 #       - proto: tcp       # optional, as is port
-#         port: 443        # a port, a range 47998:48000, or a list 80,443
+#         port: 443        # a port or a range 47998:48000; say why it is open
 #         from: lan        # lan (default), any, or an address or network
 #         iface: net1      # optional: only on this network card
 #     lan: dns             # what it may reach on the LAN: dns, all or none
