@@ -28,6 +28,9 @@ pve_vms_nameservers: []
 #     shares:              # host datasets (pve_storage) mounted with virtiofs;
 #       - dataset: movies  # the guest mounts the tag at path (role shares)
 #         path: /srv/media/movies
+#     restart_on_change: false  # changed settings on a running VM wait for
+#                          # its next start instead of a restart by this
+#                          # role; the run lists what is waiting
 # Defaults for the optional keys:
 pve_vms_defaults:
   cores: 2
@@ -36,3 +39,4 @@ pve_vms_defaults:
   vga: serial0
   hostpci: []
   shares: []
+  restart_on_change: true
