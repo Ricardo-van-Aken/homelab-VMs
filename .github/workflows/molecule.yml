@@ -67,16 +67,6 @@ jobs:
       # the docker client in so it can fetch the target image from ghcr.
       - name: Log in to ghcr.io
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      # wg-easy needs the WireGuard kernel module, which a VM loads itself but
-      # a container cannot. Load it on the runner: a privileged container joins
-      # the runner's namespaces and runs the runner's own modprobe.
-      - name: Load the WireGuard module on the runner
-        if: matrix.scenario == 'wireguard'
-        run: >-
-          docker run --rm --privileged --pid=host "$MOLECULE_TARGET_IMAGE"
-          nsenter --target 1 --mount --uts --ipc --net -- modprobe wireguard
-
       - name: Molecule test
         run: molecule test --scenario-name ${{ matrix.scenario }} --report
         env:
