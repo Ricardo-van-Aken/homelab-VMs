@@ -10,3 +10,6 @@ provisioner:
       all:
         wireguard_domain: localhost
         wireguard_client_dns: ["10.0.1.100", "10.0.1.101"]
+        # The GitHub runner's kernel has no ip6tables nat table loaded, and a
+        # container cannot load it.
+        wireguard_ipv6: false
