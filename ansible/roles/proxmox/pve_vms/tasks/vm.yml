@@ -25,16 +25,49 @@
       {{ dict(pve_vms_config.stdout_lines | map('regex_replace', '^([^:]+): ?(.*)$', '\1')
               | zip(pve_vms_config.stdout_lines | map('regex_replace', '^([^:]+): ?(.*)$', '\2'))) }}
     nameservers: "{{ pve_vms_spec.nameservers | default(pve_vms_nameservers) }}"
+    # Per card: netN on its bridge with the firewall on (role pve_firewall),
+    # keeping an existing card's MAC; ipconfigN for cloud-init.
+    networks: >-
+      {%- set out = {} -%}
+      {%- for net in pve_vms_spec.networks | default([{}]) -%}
+        {%- set i = loop.index0 -%}
+        {%- set bridge = net.bridge | default(pve_vms_bridge) -%}
+        {%- set card = current.get('net' ~ i, '') -%}
+        {%- if card -%}
+          {%- set card = card | regex_replace('bridge=[^,]*', 'bridge=' ~ bridge)
+                              | regex_replace(',?firewall=[01]', '') ~ ',firewall=1' -%}
+        {%- else -%}
+          {%- set card = 'virtio,bridge=' ~ bridge ~ ',firewall=1' -%}
+        {%- endif -%}
+        {%- set address = net.address | default(hostvars[pve_vms_name].ansible_host if i == 0 else '') -%}
+        {%- set gateway = net.gateway | default(pve_vms_gateway if i == 0 and net.address is not defined else '') -%}
+        {%- set ipconfig = 'ip=' ~ address ~ '/' ~ (net.prefix | default(pve_vms_network_prefix))
+                           ~ (',gw=' ~ gateway if gateway else '') -%}
+        {%- set _ = out.update({'net' ~ i: card, 'ipconfig' ~ i: ipconfig}) -%}
+      {%- endfor -%}
+      {{ out }}
+    # Extra disks from scsi1 on; one that exists is left as it is, so its
+    # data is never touched.
+    disks: >-
+      {%- set out = {} -%}
+      {%- for disk in pve_vms_spec.disks -%}
+        {%- set key = 'scsi' ~ loop.index -%}
+        {%- if key not in current -%}
+          {%- set _ = out.update({key: disk.storage ~ ':' ~ disk.size ~ ',iothread=1,discard=on'}) -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ out }}
     wanted: >-
       {{ {'name': pve_vms_name,
           'cores': pve_vms_spec.cores | string,
           'memory': pve_vms_spec.memory | string,
           'bios': pve_vms_spec.bios,
-          'vga': pve_vms_spec.vga,
-          'ipconfig0': 'ip=' ~ hostvars[pve_vms_name].ansible_host ~ '/' ~ pve_vms_network_prefix
-                       ~ ',gw=' ~ pve_vms_gateway}
+          'vga': pve_vms_spec.vga}
+         | combine(networks)
          | combine({'nameserver': nameservers | join(' ')} if nameservers | length > 0 else {})
          | combine({'balloon': pve_vms_spec.balloon | string} if pve_vms_spec.balloon is defined else {})
+         | combine({'balloon': '0', 'agent': '0', 'tablet': '0'} if pve_vms_spec.untrusted | bool else {})
+         | combine(disks)
          | combine(dict(range(pve_vms_spec.hostpci | length)
                         | map('regex_replace', '^', 'hostpci')
                         | zip(pve_vms_spec.hostpci)))
@@ -114,6 +147,7 @@
     host: "{{ hostvars[pve_vms_name].ansible_host }}"
     port: 22
     timeout: "{{ pve_vms_ssh_timeout }}"
+  when: pve_vms_spec.wait_for_ssh | bool
 
 # Settings waiting for the next start, from this run or an earlier one:
 # `qm pending` marks them `new` (changed) or `del` (removed).

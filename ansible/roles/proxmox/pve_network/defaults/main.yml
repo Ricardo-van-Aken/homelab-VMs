@@ -1,0 +1,7 @@
+---
+# Bridges with no physical port and no address on the host: VMs attached
+# only to one reach nothing but the other VMs on it, and not the host.
+pve_network_isolated_bridges: []
+# Written here; the host's /etc/network/interfaces must source this
+# directory, as a stock Proxmox install does.
+pve_network_dir: /etc/network/interfaces.d

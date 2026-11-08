@@ -1,0 +1,84 @@
+---
+- name: Check the firewall settings
+  ansible.builtin.assert:
+    that:
+      - pve_firewall_lan | length > 0
+      - pve_firewall_admin | length > 0
+    fail_msg: set pve_firewall_lan and pve_firewall_admin in group_vars/proxmox.yml
+
+- name: Check each VM's firewall settings
+  ansible.builtin.assert:
+    that:
+      - fw.lan in ['dns', 'all', 'none']
+      - fw.in | selectattr('port', 'defined') | rejectattr('proto', 'defined') | list | length == 0
+      - fw.out_only | rejectattr('dest', 'defined') | list | length == 0
+    fail_msg: "{{ item }}: firewall needs lan in dns/all/none, a proto on every rule with a port, and dest on out_only"
+  vars:
+    fw: "{{ pve_firewall_vm_defaults | combine(hostvars[item].pve_vm.firewall | default({})) }}"
+  loop: "{{ groups['vms'] }}"
+
+- name: Create the staging directory
+  ansible.builtin.file:
+    path: "{{ pve_firewall_staging_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Render the VM rules
+  ansible.builtin.template:
+    src: vm.fw.j2
+    dest: "{{ pve_firewall_staging_dir }}/{{ hostvars[pve_firewall_vm].ansible_host | split('.') | last }}.fw"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ groups['vms'] }}"
+  loop_control:
+    loop_var: pve_firewall_vm
+
+- name: Render the host and datacenter rules
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ pve_firewall_staging_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop:
+    - host.fw
+    - cluster.fw
+
+# Staged file and its place in /etc/pve. The VM and host rules come before
+# the datacenter switch, so nothing is filtered before the rules that let
+# you in exist.
+- name: List the rule files to install
+  ansible.builtin.set_fact:
+    pve_firewall_files: >-
+      {%- set files = [] -%}
+      {%- for vm in groups['vms'] -%}
+        {%- set name = (hostvars[vm].ansible_host | split('.') | last) ~ '.fw' -%}
+        {%- set _ = files.append({'src': name, 'dest': '/etc/pve/firewall/' ~ name}) -%}
+      {%- endfor -%}
+      {%- set _ = files.append({'src': 'host.fw', 'dest': '/etc/pve/nodes/' ~ inventory_hostname ~ '/host.fw'}) -%}
+      {%- set _ = files.append({'src': 'cluster.fw', 'dest': '/etc/pve/firewall/cluster.fw'}) -%}
+      {{ files }}
+
+# /etc/pve is the cluster file system; it takes a plain copy but no owner or
+# mode, so files are compared and copied rather than templated there.
+- name: Install the firewall rules
+  ansible.builtin.shell:
+    cmd: >-
+      cmp -s {{ (pve_firewall_staging_dir ~ '/' ~ item.src) | quote }} {{ item.dest | quote }}
+      || { cp {{ (pve_firewall_staging_dir ~ '/' ~ item.src) | quote }} {{ item.dest | quote }} && echo copied; }
+  register: pve_firewall_install
+  changed_when: "'copied' in pve_firewall_install.stdout"
+  loop: "{{ pve_firewall_files }}"
+  loop_control:
+    label: "{{ item.dest }}"
+
+# Reads and compiles every rule file; a rule it cannot parse is reported on
+# stderr and skipped, so any stderr counts as a failure here.
+- name: Check the rules compile
+  ansible.builtin.command: pve-firewall compile
+  register: pve_firewall_compile
+  changed_when: false
+  failed_when: pve_firewall_compile.rc != 0 or pve_firewall_compile.stderr | length > 0

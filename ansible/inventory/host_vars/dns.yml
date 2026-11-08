@@ -8,7 +8,23 @@ ansible_host: 10.0.1.100
 pve_vm:
   cores: 1
   memory: 1024
+  balloon: 512  # kept at least; the rest is given back when idle
   # Public resolvers: this VM is the resolver the others use.
   nameservers:
     - 1.1.1.1
     - 1.0.0.1
+  firewall:
+    in:
+      - proto: udp
+        port: 53  # DNS, Pi-hole
+      - proto: tcp
+        port: 53  # DNS over TCP, Pi-hole
+      - proto: tcp
+        port: 80  # HTTP, redirected to HTTPS by Caddy
+      - proto: tcp
+        port: 443  # Pi-hole admin and wg-easy web UIs, through Caddy
+      - proto: udp
+        port: 51820  # WireGuard VPN (wg-easy), forwarded by the router
+        from: any
+    # VPN clients come out of this VM, so it may reach the whole LAN.
+    lan: all

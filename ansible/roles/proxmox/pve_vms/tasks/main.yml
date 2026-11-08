@@ -15,6 +15,18 @@
     fail_msg: "{{ item }} needs ansible_host and a pve_vm dict in its host_vars"
   loop: "{{ groups['vms'] }}"
 
+# Host datasets and passed-through devices are paths from the VM into the
+# host; an untrusted VM gets neither.
+- name: Refuse host access for untrusted VMs
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].pve_vm.shares | default([]) | length == 0
+      - hostvars[item].pve_vm.hostpci | default([]) | length == 0
+      - hostvars[item].pve_vm.balloon is not defined
+    fail_msg: "{{ item }} is untrusted: remove its shares, hostpci and balloon"
+  loop: "{{ groups['vms'] }}"
+  when: hostvars[item].pve_vm.untrusted | default(false) | bool
+
 # The inventory name becomes the VM name, which Proxmox validates as a DNS
 # label: letters, digits and hyphens only.
 - name: Require DNS-safe VM names

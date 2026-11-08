@@ -1,0 +1,92 @@
+---
+- name: Check the egress settings
+  ansible.builtin.assert:
+    that:
+      - egress_isolated.address is defined
+      - egress_isolated.network is defined
+      - egress_isolated.vm is defined
+      - >-
+        not egress_vpn_endpoint or (egress_vpn_address | length > 0
+        and egress_vpn_peer_public_key | length > 0 and egress_vpn_private_key | length > 0)
+      - egress_vpn_endpoint or not (egress_vpn_address or egress_vpn_peer_public_key)
+      - egress_inbound | rejectattr('proto', 'defined') | list | length == 0
+      - egress_inbound | rejectattr('port', 'defined') | list | length == 0
+    fail_msg: >-
+      set egress_isolated with address, network and vm; egress_vpn_address,
+      _private_key, _peer_public_key and _endpoint all set or all empty;
+      egress_inbound with proto and port
+
+# Cloud-init names the cards; find the one on the isolated network.
+- name: Find the isolated network's interface
+  ansible.builtin.set_fact:
+    egress_isolated_interface: >-
+      {%- set found = namespace(name='') -%}
+      {%- for name in ansible_facts.interfaces -%}
+        {%- set card = ansible_facts[name | replace('-', '_')] | default({}) -%}
+        {%- if card.ipv4 is defined and card.ipv4.address == egress_isolated.address -%}
+          {%- set found.name = name -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ found.name }}
+
+- name: Check the interface was found
+  ansible.builtin.assert:
+    that: egress_isolated_interface | length > 0
+    fail_msg: no interface has {{ egress_isolated.address }}; is the VM's second card on the isolated bridge?
+
+- name: Install WireGuard and nftables
+  ansible.builtin.apt:
+    name:
+      - wireguard-tools
+      - nftables
+    state: present
+
+- name: Forward packets
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_file: /etc/sysctl.d/90-egress.conf
+
+- name: Write the egress firewall
+  ansible.builtin.template:
+    src: egress.nft.j2
+    dest: /etc/egress.nft
+    owner: root
+    group: root
+    mode: "0644"
+    validate: nft -c -f %s
+  notify: Reload egress firewall
+
+- name: Install the egress firewall unit
+  ansible.builtin.template:
+    src: egress.service.j2
+    dest: /etc/systemd/system/egress.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start the egress firewall
+  ansible.builtin.systemd_service:
+    name: egress
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Set up the VPN tunnel
+  when: egress_vpn_endpoint | length > 0
+  block:
+    - name: Write the tunnel config
+      ansible.builtin.template:
+        src: vpn.conf.j2
+        dest: "/etc/wireguard/{{ egress_vpn_interface }}.conf"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      notify: Restart VPN tunnel
+
+    - name: Start the tunnel
+      ansible.builtin.systemd_service:
+        name: "wg-quick@{{ egress_vpn_interface }}"
+        enabled: true
+        state: started

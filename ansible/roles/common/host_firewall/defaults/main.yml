@@ -1,0 +1,19 @@
+---
+# Firewall for a machine outside Proxmox (a Raspberry Pi): an nftables table
+# of its own that drops incoming traffic except what is listed. It leaves
+# Docker's tables alone; ports Docker publishes are forwarded to containers
+# and never reach this table, so they need no rule here.
+
+# The LAN, as one network. Required.
+host_firewall_lan: ""  # e.g. 10.0.1.0/24
+# Addresses or networks that may SSH in. Required.
+host_firewall_admin: []
+# Machines that collect metrics; they may scrape host_firewall_metrics_port.
+host_firewall_monitoring: []
+host_firewall_metrics_port: 9100
+
+# What the machine serves itself (not through Docker):
+#   - proto: tcp
+#     port: 443        # a port or a range 47998-48000; say why it is open
+#     from: lan        # lan (default) or any
+host_firewall_in: []

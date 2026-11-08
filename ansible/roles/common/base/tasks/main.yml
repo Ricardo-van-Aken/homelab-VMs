@@ -27,13 +27,16 @@
   community.general.timezone:
     name: "{{ base_timezone }}"
 
-# Only a QEMU guest has the virtio serial device the agent talks over. A Pi
-# reports kvm too, as a host, since it has /dev/kvm. The unit is static
-# (udev-activated), so it is started, never enabled.
+# The agent talks over a virtio serial port that only exists when Proxmox
+# gives the VM one; untrusted VMs, a Pi and containers have none. The unit
+# is static (udev-activated), so it is started, never enabled.
+- name: Look for the guest agent's port
+  ansible.builtin.stat:
+    path: /dev/virtio-ports/org.qemu.guest_agent.0
+  register: base_agent_port
+
 - name: Set up the QEMU guest agent
-  when:
-    - ansible_facts.virtualization_role == 'guest'
-    - ansible_facts.virtualization_type in ['kvm', 'qemu']
+  when: base_agent_port.stat.exists
   block:
     - name: Install QEMU guest agent
       ansible.builtin.apt:

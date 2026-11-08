@@ -1,0 +1,35 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+# Only on its own isolated network; reached through torrent-egress.
+ansible_host: 10.250.225.150
+ansible_ssh_common_args: >-
+  -o StrictHostKeyChecking=accept-new
+  -o ProxyJump=ubuntu@{{ hostvars['torrent-egress'].ansible_host }}
+
+# The VM as the Proxmox host builds it.
+# Its VMID is the 8 bits of its IP on the isolated network (= 150).
+pve_vm:
+  cores: 2
+  memory: 2048
+  untrusted: true
+  # Downloads, on its own disk on the tank pool; nothing shared with the host.
+  disks:
+    - storage: tank-vms
+      size: 500
+  networks:
+    - bridge: vmbr225
+      address: 10.250.225.150
+      prefix: 24
+      gateway: 10.250.225.1
+  # Resolved through torrent-egress's VPN tunnel, never the LAN's Pi-holes.
+  nameservers:
+    - 1.1.1.1
+  # The Proxmox host has no address on the isolated network.
+  wait_for_ssh: false
+  # SSH only from torrent-egress; nothing on the LAN at all.
+  firewall:
+    in:
+      - proto: tcp
+        port: 22  # SSH, for you and Ansible, through torrent-egress
+        from: 10.250.225.1
+    lan: none

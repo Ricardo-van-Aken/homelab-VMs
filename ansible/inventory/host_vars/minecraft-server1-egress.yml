@@ -1,0 +1,47 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+# The minecraft-server1 VM's only way in and out.
+ansible_host: 10.0.1.226
+
+# The VM as the Proxmox host builds it.
+# Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 226).
+pve_vm:
+  cores: 1
+  memory: 512
+  untrusted: true
+  # The LAN, and the gateway address of minecraft-server1's isolated network.
+  networks:
+    - bridge: vmbr0
+    - bridge: vmbr226
+      address: 10.250.226.1
+      prefix: 24
+  firewall:
+    in:
+      - iface: net1  # all traffic from minecraft-server1, to forward into the VPN tunnel
+        from: 10.250.226.0/24
+
+# Role egress.
+egress_isolated:
+  address: 10.250.226.1
+  network: 10.250.226.0/24
+  vm: 10.250.226.170
+# The tunnel, from its WireGuard config. Empty: minecraft-server1 has no way out.
+# TODO: fill in from the rented server's WireGuard config for this tunnel.
+egress_vpn_address: ""  # [Interface] Address
+egress_vpn_peer_public_key: ""  # [Peer] PublicKey
+egress_vpn_endpoint: ""  # [Peer] Endpoint
+# [Interface] PrivateKey.
+# TODO: replace with your own !vault value; this one will not decrypt.
+egress_vpn_private_key: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          35656130376262386636326464303762393032363066333761333833373662666466653036656432
+          3431623230366265333139326165323038366138366333650a656530353066623463313865643533
+          30303631653866316361363036663236623635313664646339643461316336643665633466316630
+          3736613236393261340a373839373564353661336638323239396363353637623738316663666137
+          6639
+# Ports passed from the tunnel to minecraft-server1.
+egress_inbound:
+  - proto: tcp
+    port: 25565  # Minecraft Java players
+  - proto: udp
+    port: 19132  # Minecraft Bedrock players

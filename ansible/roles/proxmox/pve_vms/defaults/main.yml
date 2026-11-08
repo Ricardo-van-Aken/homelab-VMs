@@ -31,6 +31,18 @@ pve_vms_nameservers: []
 #     restart_on_change: false  # changed settings on a running VM wait for
 #                          # its next start instead of a restart by this
 #                          # role; the run lists what is waiting
+#     networks:            # network cards, net0 first; default one card on
+#       - bridge: vmbr225  # pve_vms_bridge with ansible_host and the gateway
+#         address: 10.250.225.150
+#         prefix: 24       # default pve_vms_network_prefix
+#         gateway: 10.250.225.1  # optional
+#     disks:               # extra virtual disks, scsi1 onwards; created once,
+#       - storage: tank-vms  # never resized or removed by this role
+#         size: 100        # GiB
+#     wait_for_ssh: false  # for a VM the Proxmox host cannot reach
+#     untrusted: true      # fewest channels to the host: fixed memory (no
+#                          # ballooning), no guest agent, no USB tablet; and
+#                          # no shares or hostpci, which are refused
 # Defaults for the optional keys:
 pve_vms_defaults:
   cores: 2
@@ -40,3 +52,8 @@ pve_vms_defaults:
   hostpci: []
   shares: []
   restart_on_change: true
+  wait_for_ssh: true
+  untrusted: false
+  disks: []
+# Bridge of a VM's first network card when it lists no networks.
+pve_vms_bridge: "{{ pve_template_bridge }}"

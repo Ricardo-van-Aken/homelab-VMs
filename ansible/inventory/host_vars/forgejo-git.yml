@@ -8,8 +8,17 @@ ansible_host: 10.0.1.110
 pve_vm:
   cores: 2
   memory: 4096
+  balloon: 1024  # kept at least; the rest is given back when idle
   # Host dataset (pve_storage on srv1) mounted with virtiofs; forgejo_data_dir
   # in group_vars/forgejo.yml points at it.
   shares:
     - dataset: forgejo
       path: /srv/forgejo
+  firewall:
+    in:
+      - proto: tcp
+        port: 80  # HTTP, redirected to HTTPS by Caddy
+      - proto: tcp
+        port: 443  # Forgejo web UI and git over HTTPS, through Caddy
+      - proto: tcp
+        port: 2222  # git over SSH
