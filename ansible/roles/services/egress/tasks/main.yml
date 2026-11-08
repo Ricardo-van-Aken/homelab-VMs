@@ -6,15 +6,15 @@
       - egress_isolated.network is defined
       - egress_isolated.vm is defined
       - >-
-        not egress_vpn or (egress_vpn.address is defined and egress_vpn.private_key is defined
-        and egress_vpn.peer_public_key is defined and egress_vpn.endpoint is defined)
+        not egress_vpn_endpoint or (egress_vpn_address | length > 0
+        and egress_vpn_peer_public_key | length > 0 and egress_vpn_private_key | length > 0)
+      - egress_vpn_endpoint or not (egress_vpn_address or egress_vpn_peer_public_key)
       - egress_inbound | rejectattr('proto', 'defined') | list | length == 0
       - egress_inbound | rejectattr('port', 'defined') | list | length == 0
-      - egress_inbound | length == 0 or egress_vpn | length > 0
     fail_msg: >-
-      set egress_isolated with address, network and vm; egress_vpn empty or with
-      address, private_key, peer_public_key and endpoint; egress_inbound with proto
-      and port, and only with a tunnel
+      set egress_isolated with address, network and vm; egress_vpn_address,
+      _private_key, _peer_public_key and _endpoint all set or all empty;
+      egress_inbound with proto and port
 
 # Cloud-init names the cards; find the one on the isolated network.
 - name: Find the isolated network's interface
@@ -73,7 +73,7 @@
     daemon_reload: true
 
 - name: Set up the VPN tunnel
-  when: egress_vpn | length > 0
+  when: egress_vpn_endpoint | length > 0
   block:
     - name: Write the tunnel config
       ansible.builtin.template:

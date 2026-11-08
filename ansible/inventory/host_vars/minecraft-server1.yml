@@ -27,10 +27,17 @@ pve_vm:
     - 1.1.1.1
   # The Proxmox host has no address on the isolated network.
   wait_for_ssh: false
-  # SSH only from minecraft-server1-egress; nothing on the LAN at all.
+  # SSH only from minecraft-server1-egress, players from anywhere; nothing on
+  # the LAN at all.
   firewall:
     in:
       - proto: tcp
         port: 22  # SSH, for you and Ansible, through minecraft-server1-egress
         from: 10.250.226.1
+      - proto: tcp
+        port: 25565  # Minecraft Java players, through the tunnel
+        from: any
+      - proto: udp
+        port: 19132  # Minecraft Bedrock players, through the tunnel
+        from: any
     lan: none
