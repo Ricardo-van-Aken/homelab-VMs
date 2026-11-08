@@ -1,7 +1,7 @@
 # {{ ansible_managed }}
 [Interface]
-PrivateKey = {{ egress_vpn.private_key }}
-Address = {{ egress_vpn.address }}
+PrivateKey = {{ egress_vpn_private_key }}
+Address = {{ egress_vpn_address }}
 # The tunnel's default route goes into its own table, which only the
 # isolated network's traffic uses; this machine keeps its LAN route.
 Table = {{ egress_vpn_table }}
@@ -9,7 +9,7 @@ PostUp = ip rule add from {{ egress_isolated.network }} lookup {{ egress_vpn_tab
 PostDown = ip rule del from {{ egress_isolated.network }} lookup {{ egress_vpn_table }} priority 100
 
 [Peer]
-PublicKey = {{ egress_vpn.peer_public_key }}
-Endpoint = {{ egress_vpn.endpoint }}
+PublicKey = {{ egress_vpn_peer_public_key }}
+Endpoint = {{ egress_vpn_endpoint }}
 AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25

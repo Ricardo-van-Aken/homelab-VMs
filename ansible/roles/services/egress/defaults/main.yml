@@ -12,13 +12,12 @@
 #   vm: 10.250.225.150
 egress_isolated: {}
 
-# The tunnel, from the provider's WireGuard config. Empty: no tunnel, and no
-# way out for the isolated network.
-#   address: 10.64.12.34/32         # [Interface] Address
-#   private_key: <!vault value>     # [Interface] PrivateKey
-#   peer_public_key: <key>          # [Peer] PublicKey
-#   endpoint: 198.51.100.7:51820    # [Peer] Endpoint
-egress_vpn: {}
+# The tunnel, from its WireGuard config. All empty: no tunnel, and no way
+# out for the isolated network.
+egress_vpn_address: ""  # [Interface] Address, e.g. 10.64.12.34/32
+egress_vpn_private_key: ""  # [Interface] PrivateKey, as a !vault value
+egress_vpn_peer_public_key: ""  # [Peer] PublicKey
+egress_vpn_endpoint: ""  # [Peer] Endpoint, e.g. 198.51.100.7:51820
 egress_vpn_interface: vpn
 # Routing table for the isolated network's traffic: only a route into the
 # tunnel lives there.

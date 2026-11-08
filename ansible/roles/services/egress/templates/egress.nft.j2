@@ -21,7 +21,7 @@ table inet egress {
 		type filter hook forward priority filter; policy drop;
 
 		ct state established,related accept
-{% if egress_vpn %}
+{% if egress_vpn_endpoint %}
 		iifname "{{ egress_isolated_interface }}" oifname "{{ egress_vpn_interface }}" accept
 {% endif %}
 {% for rule in egress_inbound %}
