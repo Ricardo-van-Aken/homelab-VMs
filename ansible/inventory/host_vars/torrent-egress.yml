@@ -25,8 +25,12 @@ egress_isolated:
   address: 10.250.225.1
   network: 10.250.225.0/24
   vm: 10.250.225.150
-# TODO: fill in from your VPN provider's WireGuard config for this device,
-# the private key as a !vault value: address, private_key, peer_public_key,
-# endpoint. Until then the torrent VM has no way out.
-egress_vpn: {}
+# The tunnel, from its WireGuard config. Empty: torrent has no way out.
+# TODO: fill in from the VPN provider's WireGuard config for this device.
+egress_vpn_address: ""  # [Interface] Address
+egress_vpn_peer_public_key: ""  # [Peer] PublicKey
+egress_vpn_endpoint: ""  # [Peer] Endpoint
+# [Interface] PrivateKey.
+# TODO: replace with your own !vault value; this one will not decrypt.
+egress_vpn_private_key: ""
 egress_inbound: []
