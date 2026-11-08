@@ -5,15 +5,15 @@
 # --- tools we invoke directly ---------------------------------------------
 
 # Role test harness: create -> converge -> idempotence -> verify -> destroy.
-molecule==26.10.0
+molecule==26.11.0
 # Drivers for molecule; the docker extra runs instances on the host's daemon.
-molecule-plugins[docker]==26.10.12
+molecule-plugins[docker]==26.11.0
 
 # --- transitive: required by molecule -------------------------------------
 
-ansible-compat==26.10.0
+ansible-compat==26.11.0
 attrs==26.1.0
-bracex==3.2
+bracex==3.2.1
 click==8.5.0
 enrich==1.2.7
 jsonschema==4.26.0
@@ -26,7 +26,7 @@ referencing==0.37.0
 rich==15.0.0
 rpds-py==2026.9.1
 subprocess-tee==0.4.2
-wcmatch==11.2
+wcmatch==12.0
 
 # --- transitive: required by molecule-plugins -----------------------------
 
