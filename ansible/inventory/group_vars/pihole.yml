@@ -20,6 +20,10 @@ pihole_records: >-
 # Admin UI, through Caddy; one name per instance.
 pihole_domain: "{{ inventory_hostname }}.pihole.{{ homelab_domain }}"
 
+# Handed to DHCP clients; each instance's range is in its host_vars.
+pihole_dhcp_router: 10.0.1.1
+pihole_dhcp_dns: ["10.0.1.100", "10.0.1.101"]
+
 # Password for the admin UI.
 
 pihole_web_password: !vault |

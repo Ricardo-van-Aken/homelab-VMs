@@ -12,12 +12,19 @@ static_address_gateway: 10.0.1.1
 # The dns VM; the router does not answer DNS itself.
 static_address_dns: ["10.0.1.100"]
 
-# Firewall (role host_firewall). DNS and the VPN are published by Docker and
-# pass by this firewall; Caddy is not.
+# Firewall (role host_firewall). The VPN is published by Docker and passes
+# by this firewall; Caddy and Pi-hole, on the host's network, do not.
 host_firewall_lan: "{{ homelab_lan }}"
 host_firewall_admin: "{{ homelab_admin }}"
 host_firewall_monitoring: "{{ homelab_monitoring }}"
 host_firewall_in:
+  - proto: udp
+    port: 53  # DNS, Pi-hole
+  - proto: tcp
+    port: 53  # DNS over TCP, Pi-hole
+  - proto: udp
+    port: 67  # DHCP, Pi-hole; clients have no address yet
+    from: any
   - proto: tcp
     port: 80  # HTTP, redirected to HTTPS by Caddy
   - proto: tcp

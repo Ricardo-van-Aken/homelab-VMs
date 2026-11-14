@@ -4,6 +4,15 @@
     that: pihole_web_password | length > 0
     fail_msg: pihole_web_password is empty; put a !vault value in group_vars.
 
+- name: Check the DHCP settings
+  ansible.builtin.assert:
+    that:
+      - (pihole_dhcp_start | length > 0) == (pihole_dhcp_end | length > 0)
+      - not pihole_dhcp_start or (pihole_dhcp_router | length > 0 and pihole_dhcp_dns | length > 0)
+    fail_msg: >-
+      set pihole_dhcp_start and pihole_dhcp_end both or neither; with a
+      range, pihole_dhcp_router and pihole_dhcp_dns are required too.
+
 # Ubuntu's systemd-resolved holds port 53 on 127.0.0.53, which Docker's port
 # publishing cannot share. Turn the stub listener off and let the VM read
 # the upstream resolvers it got from cloud-init directly.
