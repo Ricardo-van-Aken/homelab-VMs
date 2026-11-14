@@ -30,6 +30,9 @@ pihole_dhcp_end: ""  # e.g. 10.0.1.59
 pihole_dhcp_router: ""  # the gateway handed to clients
 pihole_dhcp_dns: []  # the DNS servers handed to clients
 pihole_dhcp_lease_time: 24h
+# Seconds to wait before answering. Above 0 on a backup, so it only wins
+# when the main instance is down.
+pihole_dhcp_reply_delay: 0
 
 # Password for the admin UI and API. Required: without one Pi-hole picks a
 # random password at every start.

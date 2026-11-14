@@ -414,7 +414,8 @@ hand out the addresses instead:
   `host_vars/pi1.yml` to two ranges that do not overlap, and
   `pihole_dhcp_router` and `pihole_dhcp_dns` in `group_vars/pihole.yml` to
   your router and your Pi-holes. Remove the ranges if your router can hand
-  out the DNS servers itself.
+  out the DNS servers itself. `pi1` waits `pihole_dhcp_reply_delay` seconds
+  before it answers, so it only hands out addresses while `dns` is down.
 * Run the playbook for `dns` and `pi1`.
 * In the router, turn its own DHCP server off. An AirPort cannot do that
   while it shares one address: shrink its DHCP range to a single address

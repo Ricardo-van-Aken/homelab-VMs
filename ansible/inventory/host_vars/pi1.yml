@@ -10,3 +10,5 @@ wireguard_port: 51821
 # Addresses this Pi-hole hands out; the dns VM has the range before it.
 pihole_dhcp_start: 10.0.1.60
 pihole_dhcp_end: 10.0.1.99
+# The backup: the dns VM answers first while it is up.
+pihole_dhcp_reply_delay: 3

@@ -18,7 +18,8 @@ services:
       FTLCONF_dhcp_end: {{ pihole_dhcp_end }}
       FTLCONF_dhcp_router: {{ pihole_dhcp_router }}
       FTLCONF_dhcp_leaseTime: {{ pihole_dhcp_lease_time }}
-      FTLCONF_misc_dnsmasq_lines: "dhcp-option=option:dns-server,{{ pihole_dhcp_dns | join(',') }}"
+      FTLCONF_misc_dnsmasq_lines: "dhcp-option=option:dns-server,{{ pihole_dhcp_dns | join(',') }}
+        {%- if pihole_dhcp_reply_delay | int > 0 %};dhcp-reply-delay={{ pihole_dhcp_reply_delay | int }}{% endif %}"
       # On the host's network the container's ports are the host's.
       FTLCONF_dns_port: {{ pihole_dns_port }}
       FTLCONF_webserver_port: "127.0.0.1:{{ pihole_web_port }}"
