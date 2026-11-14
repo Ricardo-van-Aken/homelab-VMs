@@ -1,0 +1,33 @@
+# {{ ansible_managed }}
+[OPTIONS]
+
+enable: 1
+
+[IPSET lan]
+
+{{ pve_firewall_lan }}
+
+# Allowed to the host's web UI and SSH.
+[IPSET management]
+
+{% for address in pve_firewall_admin %}
+{{ address }}
+{% endfor %}
+
+[IPSET admin]
+
+{% for address in pve_firewall_admin %}
+{{ address }}
+{% endfor %}
+
+[IPSET dns]
+
+{% for address in pve_firewall_dns %}
+{{ address }}
+{% endfor %}
+
+[IPSET monitoring]
+
+{% for address in pve_firewall_monitoring %}
+{{ address }}
+{% endfor %}

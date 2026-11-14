@@ -1,0 +1,30 @@
+---
+# The only way in and out of one isolated network, which holds one VM:
+# traffic from it is forwarded into a WireGuard tunnel to a VPN provider and
+# nowhere else. Without a tunnel configured, nothing is forwarded. The
+# isolated network cannot reach this machine, except for replies to
+# connections it starts (SSH to the VM there).
+
+# This machine's address on the isolated network, the network, and the VM
+# on it.
+#   address: 10.250.225.1
+#   network: 10.250.225.0/24
+#   vm: 10.250.225.150
+egress_isolated: {}
+
+# The tunnel, from its WireGuard config. All empty: no tunnel, and no way
+# out for the isolated network.
+egress_vpn_address: ""  # [Interface] Address, e.g. 10.64.12.34/32
+egress_vpn_private_key: ""  # [Interface] PrivateKey, as a !vault value
+egress_vpn_peer_public_key: ""  # [Peer] PublicKey
+egress_vpn_endpoint: ""  # [Peer] Endpoint, e.g. 198.51.100.7:51820
+egress_vpn_interface: vpn
+# Routing table for the isolated network's traffic: only a route into the
+# tunnel lives there.
+egress_vpn_table: 51820
+
+# Ports opened to the VM from the tunnel's side: the provider's port
+# forwarding, or a rented server that tunnels in. Never from the LAN.
+#   - proto: tcp
+#     port: 25565      # say why it is open, e.g. Minecraft players
+egress_inbound: []

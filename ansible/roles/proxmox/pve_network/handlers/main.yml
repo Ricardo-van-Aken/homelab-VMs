@@ -1,0 +1,5 @@
+---
+# ifreload brings up new bridges and leaves the rest as they are.
+- name: Bring up the bridges
+  ansible.builtin.command: ifreload -a
+  changed_when: true

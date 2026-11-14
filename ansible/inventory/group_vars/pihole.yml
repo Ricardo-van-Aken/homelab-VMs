@@ -13,12 +13,16 @@ pihole_records: >-
       {%- set _ = names.append(service if groups[service] | length == 1 else host ~ '.' ~ service) -%}
     {%- endfor -%}
     {%- set _ = records.append(hostvars[host].ansible_host ~ ' '
-                               ~ (names | map('regex_replace', '$', '.' ~ homelab_domain) | join(' '))) -%}
+                               ~ (names | unique | map('regex_replace', '$', '.' ~ homelab_domain) | join(' '))) -%}
   {%- endfor -%}
   {{ records }}
 
 # Admin UI, through Caddy; one name per instance.
 pihole_domain: "{{ inventory_hostname }}.pihole.{{ homelab_domain }}"
+
+# Handed to DHCP clients; each instance's range is in its host_vars.
+pihole_dhcp_router: 10.0.1.1
+pihole_dhcp_dns: ["10.0.1.100", "10.0.1.101"]
 
 # Password for the admin UI.
 
