@@ -10,7 +10,7 @@ pve_vm:
   memory: 4096
   balloon: 1024  # kept at least; the rest is given back when idle
   # Host dataset (pve_storage on srv1) mounted with virtiofs; forgejo_data_dir
-  # in group_vars/forgejo.yml points at it.
+  # in group_vars/forgejo/main.yml points at it.
   shares:
     - dataset: forgejo
       path: /srv/forgejo

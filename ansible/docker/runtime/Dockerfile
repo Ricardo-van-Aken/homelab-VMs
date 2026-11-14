@@ -78,6 +78,21 @@ CMD ["sh"]
 # ---------------------------------------------------------------------------
 FROM base AS runtime
 
+# SOPS, which decrypts the *.sops.yaml files in the inventory (the
+# community.sops vars plugin calls it). Release v3.13.3.
+ARG TARGETARCH
+USER root
+RUN case "${TARGETARCH}" in \
+        amd64) checksum=e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b ;; \
+        arm64) checksum=53b0abacd38ef1b12a66d6c100956691b9cefce018d91f81e73ddf7438b94d77 ;; \
+        *) echo "no SOPS checksum for ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && wget -q -O /usr/local/bin/sops \
+        "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.${TARGETARCH}" \
+    && echo "${checksum}  /usr/local/bin/sops" | sha256sum -c - \
+    && chmod 0755 /usr/local/bin/sops
+USER operator
+
 COPY --from=builder --chown=root:root /opt/venv /opt/venv
 
 LABEL org.opencontainers.image.title="ansible-runtime" \

@@ -25,5 +25,5 @@ pihole_dhcp_router: 10.0.1.1
 pihole_dhcp_dns: ["10.0.1.100", "10.0.1.101"]
 
 # Password for the admin UI.
-
-pihole_web_password: ""
+# SECRET: in secrets.sops.yaml.
+# pihole_web_password: <string>

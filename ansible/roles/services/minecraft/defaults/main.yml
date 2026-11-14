@@ -64,11 +64,11 @@ minecraft_backup_image: >-
   itzg/mc-backup:2026.11.0@sha256:a68dee00b2b56bd443bee7d310e5fc49e66682c0d1f4040cda6efa52d8c51df8
 minecraft_backup_repository: ""  # s3:https://<endpoint>/<bucket>
 minecraft_backup_region: auto  # the bucket's region; auto on Cloudflare R2
-# The bucket's key pair, as !vault values.
+# The bucket's key pair, in the group's secrets.sops.yaml.
 minecraft_backup_access_key_id: ""
 minecraft_backup_secret_access_key: ""
-# Encrypts the backups, as a !vault value. Keep a copy elsewhere: without
-# it no backup can be read.
+# Encrypts the backups; in secrets.sops.yaml too. Keep a copy elsewhere:
+# without it no backup can be read.
 minecraft_backup_password: ""
 minecraft_backup_interval: 1h
 # No backups while nobody is playing: nothing changes then.

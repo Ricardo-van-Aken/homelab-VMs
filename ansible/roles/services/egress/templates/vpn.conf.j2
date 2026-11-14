@@ -7,6 +7,9 @@ Table = {{ egress_vpn_table }}
 # The private key stays in its own file, out of this one.
 PostUp = wg set %i private-key {{ egress_vpn_key_file }}
 PostUp = ip rule add from {{ egress_isolated.network }} lookup {{ egress_vpn_table }} priority 100
+# Players arrive through the tunnel from addresses this machine would
+# itself reach over the LAN; do not drop them for that.
+PostUp = sysctl -q -w net.ipv4.conf.%i.rp_filter=2
 PostDown = ip rule del from {{ egress_isolated.network }} lookup {{ egress_vpn_table }} priority 100
 
 [Peer]

@@ -13,8 +13,9 @@
 [![License](https://img.shields.io/github/license/Ricardo-van-Aken/homelab-VMs)](LICENSE)
 </div>
 
-Ansible for my homelab: a Proxmox host, the Virtual Machines (VMs) on it, and
-a Raspberry Pi beside it. Each machine runs one or more services:
+Ansible for my homelab: a Proxmox host, the Virtual Machines (VMs) on it, a
+Raspberry Pi beside it, and two rented servers made with Terraform. Each
+machine runs one or more services:
 
 * **arcade**: media and game streaming, with the host's graphics processing
 unit (GPU) passed through
@@ -43,18 +44,19 @@ unit (GPU) passed through
 * **torrent** and **torrent-egress**: torrent runs on an isolated network of
   its own and has nothing installed yet. torrent-egress is its only way in
   and out, through a VPN provider's WireGuard tunnel set in its host vars.
-* **minecraft-server1** and **minecraft-server1-egress**: minecraft-server1
-  runs a modded Minecraft server for Java and Bedrock players, on an
-  isolated network of its own.
+* **minecraft-server1**, **minecraft-server1-egress** and
+  **minecraft-server1-relay**: minecraft-server1 runs a modded Minecraft
+  server for Java and Bedrock players, on an isolated network of its own.
   minecraft-server1-egress is its only way in and out, through a WireGuard
-  tunnel to a rented server that players connect to, set in its host vars.
-* **minecraft-standby**: the same Minecraft server, rented at Hetzner, for
-  when the one at home is down. It loads the world from the backups both
-  keep in one bucket.
+  tunnel to minecraft-server1-relay, a rented server. Players connect to
+  the relay, so the home address stays hidden.
+* **minecraft-standby**: the same Minecraft server, rented, for when the
+  one at home is down. It loads the world from the backups both keep in
+  one bucket.
 
 Every web UI is served over HTTPS by a Caddy on its machine, with Let's
-Encrypt certificates obtained through the domain's DNS records, so nothing
-but the VPN is reachable from the internet.
+Encrypt certificates obtained through the domain's DNS records, so at home
+nothing but the VPN is reachable from the internet.
 
 <details open>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="prerequisites" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Prerequisites</h2></summary>
@@ -83,6 +85,10 @@ up certain VMs, follow the instructions at
 
 **Your machine**
 * ansible-core, or Docker.
+* [SOPS](https://github.com/getsops/sops) and
+  [age](https://github.com/FiloSottile/age), for the secrets.
+* [Terraform](https://developer.hashicorp.com/terraform/install) 1.17.2,
+  only for the rented servers.
 
 </details>
 
@@ -105,8 +111,9 @@ docker build -t ansible-runtime:local --target runtime \
 ```
 
 The container uses your SSH agent; load the key first (`ssh-add -l` lists
-it). On macOS the agent is reached through a fixed path, on Linux through
-your own socket:
+it). It also takes the unlocked SOPS key from your terminal
+([docs/secrets.md](docs/secrets.md)). On macOS the agent is reached through
+a fixed path, on Linux through your own socket:
 
 ```sh
 agent=$SSH_AUTH_SOCK; [ "$(uname)" = Darwin ] && agent=/run/host-services/ssh-auth.sock
@@ -115,6 +122,7 @@ agent=$SSH_AUTH_SOCK; [ "$(uname)" = Darwin ] && agent=/run/host-services/ssh-au
 ```sh
 docker run --rm -it -v "$PWD/..:/work" -w /work/ansible \
   -v "$agent:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
+  -e SOPS_AGE_KEY \
   ansible-runtime:local
 ```
 
@@ -133,20 +141,14 @@ yours; every variable is explained where it is set. The sections under
 [Set up only select VMs](#set-up-only-select-vms) say what each machine
 needs.
 
-The encrypted values in `inventory/group_vars/` (`!vault` blocks) were made
-with my personal vault password, so replace them too. Pick a vault password,
-then per secret:
-
-```sh
-ansible-vault encrypt_string --ask-vault-pass --stdin-name forgejo_admin_password
-```
-
-Type the value, press Ctrl-D, and paste the output over the old block in the
-same file.
+**Secrets.** They are in the files ending in `.sops.yaml` and `.sops.json`,
+encrypted with [SOPS](https://github.com/getsops/sops) for my key. You
+cannot read them, so delete them and make your own:
+[docs/secrets.md](docs/secrets.md) says how, and which file holds what.
 
 > [!WARNING]
 > Every key in the `ssh_keys_authorized` list can log in to your Proxmox
-> host and VMs. Replace my public keys in `inventory/group_vars/all.yml` with
+> host and VMs. Replace my public keys in `inventory/group_vars/all/main.yml` with
 > your own, or I have access to your systems.
 >
 > You already need SSH access to the Proxmox host, so the public key you use
@@ -163,19 +165,19 @@ ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/homelab_ed25519
 ssh-add ~/.ssh/homelab_ed25519
 ```
 
-`ansible/homelab_ed25519.vault` is my own SSH private key, encrypted with my
-vault password so I can share it between my computers. You cannot decrypt it,
+`ansible/homelab_ed25519.sops.json` is my own SSH private key, encrypted with
+SOPS so I can share it between my computers. You cannot decrypt it,
 and Ansible never reads it, so delete it. To share yours between your own
-computers the same way, encrypt it with your vault password:
+computers the same way, encrypt it, from `ansible/`:
 
 ```sh
-ansible-vault encrypt --output homelab_ed25519.vault ~/.ssh/homelab_ed25519
+sops encrypt --input-type binary --output-type json --output homelab_ed25519.sops.json ~/.ssh/homelab_ed25519
 ```
 
 On another computer, restore it with:
 
 ```sh
-(umask 077; ansible-vault decrypt --output ~/.ssh/homelab_ed25519 homelab_ed25519.vault)
+(umask 077; sops decrypt --output-type binary --output ~/.ssh/homelab_ed25519 homelab_ed25519.sops.json)
 ```
 
 </details>
@@ -209,20 +211,24 @@ this step.
 The other VMs resolve names through the dns VM, so it goes first:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit dns
 ```
 
 ```sh
-ansible-playbook playbooks/site.yml --limit vms --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit vms
 ```
 
 Then make your router hand out `10.0.1.100` (the dns VM) as the DNS server
 in its DHCP settings.
 
+minecraft-server1-egress fails until its rented relay exists
+([minecraft-server1](#minecraft-server1)). Until then, leave it out with
+`--limit 'vms:!minecraft-server1-egress'`.
+
 > [!TIP]
-> The vault password is needed whenever a play touches an encrypted value
-> from the inventory. To avoid the prompt, keep the password in a file
-> outside the repo and export `ANSIBLE_VAULT_PASSWORD_FILE=<path>` instead.
+> Every run decrypts the secrets, so unlock the SOPS key in that terminal
+> first ([docs/secrets.md](docs/secrets.md)). A run that says it failed to
+> get the data key means the key is not unlocked.
 
 #### Step 6 (optional): set up the Raspberry Pi
 The Raspberry Pi adds a second DNS server and a second VPN, for when the
@@ -233,13 +239,13 @@ The first run gives the Pi its fixed IP address (`host_vars/pi1.yml`), so it
 needs the Pi's current address on the first run:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit pi1 -e static_address_current=<current address> --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit pi1 -e static_address_current=<current address>
 ```
 
 Any subsequent runs can use:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit pi1 --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit pi1
 ```
 
 Then, in your router:
@@ -251,15 +257,15 @@ Then, in your router:
 Every web UI gets a Let's Encrypt certificate, proven through your DNS
 provider's API, so nothing has to be reachable from the internet.
 
-* Set `caddy_https: true` in `group_vars/all.yml`.
+* Set `caddy_https: true` in `group_vars/all/main.yml`.
 * Set `caddy_dns_provider` and `caddy_dns_plugin` to your provider's
   [caddy-dns](https://github.com/caddy-dns) plugin, and replace the
-  encrypted `caddy_dns_token` with an API token of that provider (see
-  Secrets).
-* Replace the encrypted `caddy_acme_email` with yours.
+  encrypted `caddy_dns_token` in `group_vars/all/secrets.sops.yaml` with an
+  API token of that provider (see Secrets).
+* Replace the encrypted `caddy_acme_email` there with yours.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit vms:pis --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit vms:pis
 ```
 
 </details>
@@ -274,7 +280,8 @@ host in `inventory/hosts.yml`, with
 * `pve_vm`: cores, memory, GPU, shares
 
 Any configuration of the services within the VM have to be adjusted in
-`inventory/group_vars/<service>.yml`
+`inventory/group_vars/<service>.yml`, or `<service>/main.yml` for a service
+with secrets.
 
 <details>
 <summary><h3 id="proxmox-host" style="display:inline; margin:0; vertical-align:middle">Proxmox host</h3></summary>
@@ -294,7 +301,7 @@ Make sure the host runs Proxmox VE. Before the first run:
     * `pve_passthrough_devices`: only for a VM with a GPU (arcade); the
       GPU's Peripheral Component Interconnect (PCI) functions, from `lspci -D`. Leave empty to skip passthrough
   
-  `group_vars/all.yml`
+  `group_vars/all/main.yml`
     * `ssh_keys_authorized`: public keys that may log in to the Proxmox host
       and the VMs
     * `homelab_lan`: your LAN. Devices on it may SSH in and open the
@@ -310,7 +317,7 @@ ansible-playbook playbooks/site.yml --limit proxmox
 
 This also clones and starts every VM in the inventory. With passthrough
 devices listed, the first run reboots the host and needs one cold power cycle
-afterwards (see [Proxmox host roles](#proxmox-host-roles)).
+afterwards (see [Full Setup](#full-setup), Step 4).
 
 </details>
 
@@ -324,8 +331,8 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
   resets cleanly, set it to `true`.
 * Steam gets the games share as a second library. After the first start,
   make it the default under Settings, Storage, so installs go to the pool.
-* Replace the placeholder `jellyfin_admin_password` and the passwords in
-  `jellyfin_users` in `group_vars/jellyfin.yml` with `!vault` values (see
+* Replace the encrypted `jellyfin_admin_password` and `jellyfin_users` in
+  `group_vars/jellyfin/secrets.sops.yaml` with your own (see
   Secrets). The role runs Jellyfin's setup wizard with them: admin user,
   extra users, libraries from `jellyfin_libraries`, hardware transcoding.
   Leave the admin password empty to do the wizard in the browser instead.
@@ -333,7 +340,7 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
   finds the GPU driver not yet bound.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit arcade --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit arcade
 ```
 
 </details>
@@ -342,13 +349,13 @@ ansible-playbook playbooks/site.yml --limit arcade --ask-vault-pass
 <summary><h3 id="forgejo-git" style="display:inline; margin:0; vertical-align:middle">forgejo-git</h3></summary>
 
 * Replace the encrypted `forgejo_admin_email` and `forgejo_admin_password` in
-  `group_vars/forgejo.yml` with your own (see Secrets), or create the admin
+  `group_vars/forgejo/secrets.sops.yaml` with your own (see Secrets), or create the admin
   by hand afterwards.
 * Add your own accounts to `forgejo_users` in the same file, name, email and
   password each encrypted. Every account needs its own address.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit forgejo-git --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit forgejo-git
 ```
 
 </details>
@@ -356,12 +363,12 @@ ansible-playbook playbooks/site.yml --limit forgejo-git --ask-vault-pass
 <details>
 <summary><h3 id="nas" style="display:inline; margin:0; vertical-align:middle">nas</h3></summary>
 
-* Replace the encrypted `samba_password` in `group_vars/samba.yml` with your
+* Replace the encrypted `samba_password` in `group_vars/samba/secrets.sops.yaml` with your
   own (see Secrets). It is set once; change it later with `smbpasswd media`
   on the VM.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit nas --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit nas
 ```
 
 Then connect from a laptop with `smb://10.0.1.120/movies` (or `series`,
@@ -374,11 +381,11 @@ user ID (uid), so they show up in the library on the next scan.
 <summary><h3 id="recipes" style="display:inline; margin:0; vertical-align:middle">recipes</h3></summary>
 
 * Replace the encrypted `mealie_admin_password` and `mealie_proxy_secret` in
-  `group_vars/mealie.yml` with your own (see Secrets). The secret is any
+  `group_vars/mealie/secrets.sops.yaml` with your own (see Secrets). The secret is any
   long random string.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit recipes --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit recipes
 ```
 
 Then open `http://mealie.<domain>`. Everyone on the LAN is signed in as the
@@ -390,18 +397,18 @@ account, log out from the menu and sign in on the page that follows.
 <details>
 <summary><h3 id="dns" style="display:inline; margin:0; vertical-align:middle">dns</h3></summary>
 
-* Replace the encrypted `pihole_web_password` in `group_vars/pihole.yml` with
-  your own (see Secrets).
+* Replace the encrypted `pihole_web_password` in
+  `group_vars/pihole/secrets.sops.yaml` with your own (see Secrets).
 * Replace the encrypted `wireguard_admin_password` in
-  `group_vars/wireguard.yml` with your own (see Secrets), and set
+  `group_vars/wireguard/secrets.sops.yaml` with your own (see Secrets), and set
   `wireguard_public_host` to your public IP address, or a public DNS name
   pointing at it.
-* Replace the encrypted `homelab_domain` in `group_vars/all.yml` with your
-  domain (see Secrets). Every machine and service becomes a subdomain of
-  it, `forgejo.<domain>` for example.
+* Put your domain in `group_vars/all/identity.sops.yaml` as
+  `homelab_domain` (see Secrets). Every machine and service becomes
+  a subdomain of it, `forgejo.<domain>` for example.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit dns
 ```
 
 Then, in your router:
@@ -410,22 +417,23 @@ Then, in your router:
 * VPN: forward UDP port `51820` to `10.0.1.100`. Devices are added in the
   wg-easy UI.
 
-Some routers cannot hand out a DNS server on your own network. An Apple
-AirPort hands out itself and passes lookups on to the DNS servers you set,
-but only to ones on the internet, never to the Pi-hole. Let the Pi-holes
-hand out the addresses instead:
+Some routers cannot hand out a DNS server that is on your own network. An
+Apple AirPort always hands out itself, and only passes lookups on to DNS
+servers on the internet. Then let the Pi-holes hand out the addresses,
+which is how this repository is set; with a router that can hand out the
+Pi-holes itself, remove the two ranges instead.
 
 * Set `pihole_dhcp_start` and `pihole_dhcp_end` in `host_vars/dns.yml` and
-  `host_vars/pi1.yml` to two ranges that do not overlap, and
-  `pihole_dhcp_router` and `pihole_dhcp_dns` in `group_vars/pihole.yml` to
-  your router and your Pi-holes. Remove the ranges if your router can hand
-  out the DNS servers itself. `pi1` waits `pihole_dhcp_reply_delay` seconds
-  before it answers, so it only hands out addresses while `dns` is down.
-* Run the playbook for `dns` and `pi1`.
-* In the router, turn its own DHCP server off. An AirPort cannot do that
-  while it shares one address: shrink its DHCP range to a single address
-  outside the Pi-holes' ranges, and reserve that address for a hardware
-  address no device has.
+  `host_vars/pi1.yml` to two ranges that do not overlap.
+* Set `pihole_dhcp_router` and `pihole_dhcp_dns` in
+  `group_vars/pihole/main.yml` to your router and your Pi-holes.
+* Run the playbook for `dns` and `pi1`. `pi1` answers a few seconds late
+  (`pihole_dhcp_reply_delay`), so it only hands out addresses while `dns`
+  is down.
+* Turn the router's own DHCP server off. An AirPort cannot do that while
+  it shares one address: shrink its DHCP range to a single address outside
+  the Pi-holes' ranges, and reserve that address for a hardware address no
+  device has.
 
 </details>
 
@@ -444,13 +452,13 @@ The first run gives the Pi its fixed address, so it needs the Pi's current
 address:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit pi1 -e static_address_current=<current address> --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit pi1 -e static_address_current=<current address>
 ```
 
 After that:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit pi1 --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit pi1
 ```
 
 Then, in your router:
@@ -458,7 +466,7 @@ Then, in your router:
 * VPN: forward UDP port `51821` to `10.0.1.101:51821`.
 
 New VPN clients get the two Pi-holes as DNS servers
-(`wireguard_client_dns` in `group_vars/wireguard.yml`), so homelab names
+(`wireguard_client_dns` in `group_vars/wireguard/main.yml`), so homelab names
 resolve through the tunnel. wg-easy takes this from Ansible on its first
 start only; on an instance that is already set up, change it in its web UI
 under the client defaults instead.
@@ -466,210 +474,29 @@ under the client defaults instead.
 </details>
 
 <details>
-<summary><h3 id="minecraft-server1-egress" style="display:inline; margin:0; vertical-align:middle">minecraft-server1-egress</h3></summary>
+<summary><h3 id="minecraft-server1" style="display:inline; margin:0; vertical-align:middle">minecraft-server1, with its egress, relay and standby</h3></summary>
 
-The only way in and out of minecraft-server1: a WireGuard tunnel to a
-server with a public address, which players connect to. Your router
-forwards nothing for it.
+A Minecraft server for Java and Bedrock players on an isolated VM. Its
+egress VM tunnels to minecraft-server1-relay, a rented server players
+connect to at `mc.<domain>`, so your router forwards nothing and your home
+address shows up nowhere. minecraft-standby is the same server, rented,
+for when the one at home is down.
 
-```sh
-ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-egress --ask-vault-pass
-```
-
-The run makes a key pair on the VM and shows its public key. Give the
-server's operator:
-
-* that public key;
-* the ports to pass on to the address they give this VM in the tunnel:
-  `25565` TCP (Java players) and `19132` UDP (Bedrock players).
-
-Their server needs a WireGuard peer for this VM with that public key and
-its tunnel address as the allowed address, and forwarding switched on. It
-sends the two ports on to the tunnel address and hides (masquerades)
-whatever comes out of the tunnel behind its own address. If it leaves the
-players' source addresses as they are, the Minecraft server sees who
-connects, and bans by address work.
-
-From what they send back, set `egress_vpn_address`,
-`egress_vpn_peer_public_key` and `egress_vpn_endpoint` in
-`host_vars/minecraft-server1-egress.yml`, and run the command again. It
-fails while the other side does not answer.
-
-</details>
-
-<details>
-<summary><h3 id="minecraft-server1" style="display:inline; margin:0; vertical-align:middle">minecraft-server1</h3></summary>
-
-A Fabric server for Java players, which Bedrock players can join too
-(Geyser and Floodgate), with the mods in `roles/services/minecraft/defaults/main.yml`.
-It is installed through the tunnel of
-[minecraft-server1-egress](#minecraft-server1-egress), so set that up first;
-until then the playbook skips this VM.
-
-In `group_vars/minecraft.yml`:
-
-* Read Mojang's [End User License Agreement (EULA)](https://aka.ms/MinecraftEULA)
-  and set `minecraft_eula` to `true` to agree.
-* Set `minecraft_seed` and `minecraft_world_radius`, the border a new world
-  starts with. A seed only counts when a world is created: for another
-  seed, give `minecraft_world` a new name.
-* Structure settings shape the world as it is created. Save your
-  `structurify.json` (and other mod settings) under
-  `inventory/files/minecraft/` and list them in `minecraft_config_files`
-  before the first run.
+* Make the rented servers ([Cloud resources](#cloud-resources)).
+* In `group_vars/minecraft/main.yml`, read Mojang's
+  [End User License Agreement (EULA)](https://aka.ms/MinecraftEULA) and set
+  `minecraft_eula` to `true` to agree, and set the seed and the world's
+  border.
+* Replace the encrypted backup secrets in
+  `group_vars/minecraft/secrets.sops.yaml` with your own (see Secrets).
 
 ```sh
-ansible-playbook playbooks/site.yml --limit minecraft-server1 --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-relay,minecraft-server1-egress,minecraft-server1
 ```
 
-Players connect to the address of the server at the other end of the
-tunnel. Nobody gets in without being on the whitelist. That, and anything
-else on the running server, is changed with commands, without Ansible:
-
-```sh
-ssh -J ubuntu@10.0.1.226 ubuntu@10.250.226.170 sudo docker exec minecraft rcon-cli "<command>"
-```
-
-| Command | Does |
-|---|---|
-| `whitelist add <name>` | lets a Java player in |
-| `fwhitelist add <gamertag>` | lets a Bedrock player in |
-| `whitelist remove <name>` | removes a player; Bedrock names start with a `.` |
-| `op <name>` | lets a player run these commands in the game |
-| `worldborder set <width>` | moves the border of the Overworld; the width is twice the distance from the middle |
-| `execute in minecraft:the_nether run worldborder set <width>` | the same for the Nether; `minecraft:the_end` for the End |
-| `chunky radius 1250`, then `chunky start` | creates the whole world up front, so nobody waits for it |
-
-The mods' settings are files in `/srv/minecraft/data/config` on the VM;
-restart the server after changing one:
-
-```sh
-ssh -J ubuntu@10.0.1.226 ubuntu@10.250.226.170 sudo docker restart minecraft
-```
-
-Bedrock clients update on their own. When they are refused after an
-update, bump `geyser` in the role's mod list (see `AGENTS.md`, Dependency
-pinning).
-
-**Backups.** With a bucket at any Simple Storage Service (S3) provider, the
-world and the server's settings are backed up every hour while somebody is
-playing. Backups are encrypted before they leave the machine, and only what
-changed is uploaded. In `group_vars/minecraft.yml`:
-
-* Set `minecraft_backup_repository` to the bucket,
-  `s3:https://<endpoint>/<bucket>`, and `minecraft_backup_region` to its
-  region. [minecraft-standby](#minecraft-standby) makes one at Hetzner.
-* Replace the encrypted `minecraft_backup_access_key_id` and
-  `minecraft_backup_secret_access_key` with a key pair that may read and
-  write that bucket, and the encrypted `minecraft_backup_password` with a
-  long random string (see Secrets). Keep that password somewhere else too:
-  without it no backup can be read.
-
-Run the playbook again. To go back to a backup, on the VM:
-
-```sh
-sudo minecraft-restore
-```
-
-lists them, and
-
-```sh
-sudo minecraft-restore <ID>
-```
-
-stops the server, puts the world back as it was in that backup (`latest`
-for the newest), and starts it again. The world from before the restore
-is kept next to it until you delete it. Add `with-settings` after the ID
-to bring back the whitelist, operators, bans and the mods' settings as
-well. For a backup right now:
-
-```sh
-sudo docker exec minecraft-backup backup now
-```
-
-The same server runs on a rented machine instead, an Amazon Elastic
-Compute Cloud (EC2) instance for example, with Ubuntu and at least 6 GB of
-memory. No tunnel or egress VM is involved there:
-
-* Add the machine to the `minecraft` group in `inventory/hosts.yml`, and
-  only to that group.
-* Give it a `host_vars/<name>.yml` with `ansible_host` and `ansible_user`
-  (`ubuntu` on Ubuntu images), and `minecraft_data_device` if the worlds go
-  on a disk of their own.
-* In the provider's firewall, open `25565` TCP and `19132` UDP to everyone,
-  and `22` TCP to your own address only. Nothing in this repository
-  firewalls that machine.
-* Run the playbook with `--limit <name>`. Players connect to the machine's
-  own public address.
-
-</details>
-
-<details>
-<summary><h3 id="minecraft-standby" style="display:inline; margin:0; vertical-align:middle">minecraft-standby</h3></summary>
-
-A second Minecraft server, rented at Hetzner, for when minecraft-server1 is
-down. Both back up to one bucket, and a server that has no world yet loads
-the newest backup from it, with the whitelist and the mods' settings.
-The `minecraft` stack of [Cloud resources](#cloud-resources) makes the
-bucket and the server with its firewall and its name; do the steps there
-first, and apply the `dns` stack before this one.
-
-* Replace the encrypted `minecraft_backup_access_key_id` and
-  `minecraft_backup_secret_access_key` in `group_vars/minecraft.yml` with
-  the same S3 credentials Terraform uses (see Secrets).
-* Set `backup_bucket` and `ssh_public_keys` in
-  `terraform/stacks/minecraft/terraform.tfvars`.
-
-```sh
-terraform -chdir=terraform/stacks/minecraft init
-```
-
-```sh
-terraform -chdir=terraform/stacks/minecraft apply
-```
-
-Put the `backup_repository` it prints in `minecraft_backup_repository`,
-then install the server:
-
-```sh
-cd ansible
-```
-
-```sh
-ansible-playbook playbooks/site.yml --limit minecraft-standby --ask-vault-pass
-```
-
-Players connect to `minecraft-standby.<domain>`. Only one of the two
-servers may run at a time: each would carry on with its own copy of the
-world.
-
-**When minecraft-server1 is down.** Run the playbook for minecraft-standby
-as above; a new server loads the newest backup, which is up to an hour
-old. A standby you kept from last time still has its old world: run
-`minecraft-restore latest with-settings` on it before anyone plays, within
-the hour, or its old world becomes the newest backup.
-
-**Going back home.** On minecraft-standby, take a last backup and stop the
-server:
-
-```sh
-ssh root@minecraft-standby.<domain> docker exec minecraft-backup backup now
-```
-
-```sh
-ssh root@minecraft-standby.<domain> docker compose --project-directory /opt/stacks/minecraft stop
-```
-
-Then, on minecraft-server1:
-
-```sh
-sudo minecraft-restore latest with-settings
-```
-
-The server costs money while it exists, and one that is made anew always
-starts from the newest backup. So after going back home, set
-`standby_server = false` in the stack's `terraform.tfvars` and apply to
-remove it and its name; the bucket stays, and `true` makes a new one.
+[docs/minecraft.md](docs/minecraft.md) has the rest: the whitelist and
+other commands for the running server, backups and going back to one, the
+standby, and running either end of the tunnel without the other.
 
 </details>
 
@@ -678,86 +505,13 @@ remove it and its name; the bucket stays, and `true` makes a new one.
 <details>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="cloud-resources" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Cloud resources</h2></summary>
 
-What is rented outside the house is made with
-[Terraform](https://developer.hashicorp.com/terraform/install) 1.17.2,
-under `terraform/`. It is split into stacks, one per purpose. Each stack
-keeps its own record of what it made, so working on one cannot change
-another.
-
-| Stack | Makes |
-|---|---|
-| `stacks/dns` | the domain's Domain Name System (DNS) zone at Hetzner, taken over as it is, and the records kept by hand |
-| `stacks/minecraft` | the bucket for the Minecraft backups, and [minecraft-standby](#minecraft-standby) with its firewall and its name |
-
-**Secrets.** They are in two files under `terraform/secrets/`, encrypted
-with [SOPS](https://github.com/getsops/sops) and safe to commit. Install
-SOPS and [age](https://github.com/FiloSottile/age), then make a key; it
-prints its public half:
-
-```sh
-mkdir -p ~/.config/sops/age
-```
-
-```sh
-age-keygen -o ~/.config/sops/age/keys.txt
-```
-
-Keep a copy of that file somewhere safe: without it the secrets cannot be
-read. Put the public key in `terraform/.sops.yaml`.
-
-In the [Hetzner console](https://console.hetzner.com), in the project that
-holds the zone, make an Application Programming Interface (API) token with
-read and write access (Security, API tokens) and S3 credentials (Security,
-S3 credentials). Then write the two files; each command opens an editor
-and encrypts on saving. The `.example.yaml` file next to each shows what
-goes in.
-
-```sh
-cd terraform
-```
-
-```sh
-sops edit secrets/credentials.sops.yaml
-```
-
-```sh
-sops edit secrets/home.sops.yaml
-```
-
-The first holds the token and the S3 credentials. Terraform logs in with
-them and never writes them down. The second holds your domain and your
-home's public address: where the VPN name points, and the only address
-that may log in to a rented server. Both say whose homelab this is, so
-they are written nowhere else in the repository.
-
-**Running a stack.** From the repository's root, the `dns` stack first:
-
-```sh
-terraform -chdir=terraform/stacks/dns init
-```
-
-```sh
-terraform -chdir=terraform/stacks/dns plan
-```
-
-Read the plan before going on. The zone and the `wg-easy` record exist
-already and are taken over (imported), so the plan should change little
-about them and destroy nothing. Records that are in no stack are left
-alone; to manage another one, add it to the stack's `main.tf` with an
-`import` block like the ones there.
-
-```sh
-terraform -chdir=terraform/stacks/dns apply
-```
-
-Each stack keeps what it made in a `terraform.tfstate` file next to its
-code, out of git. Keep those files, and keep them to yourself: without
-one, Terraform no longer knows what is its own, and it holds your domain
-and home address in plain text.
-
-For something new, a bucket for photo backups for example, add a stack
-beside these two; `modules/backup-bucket` is a bucket that Terraform can
-never empty or remove.
+What is rented outside the house, at Hetzner, is made with Terraform under
+`terraform/`, one stack per purpose: `dns` for the domain's Domain Name
+System (DNS) zone, and `minecraft` for the backup bucket, the relay and
+the standby server. Terraform reads the domain, the SSH keys and the
+servers' names from the Ansible inventory, so nothing is kept twice.
+[docs/cloud-resources.md](docs/cloud-resources.md) says what to make in
+the Hetzner console first and how to run a stack.
 
 </details>
 
@@ -767,9 +521,8 @@ never empty or remove.
 Built from the inventory by the Pi-holes, under `homelab_domain`:
 `<machine>` for every machine and `<service>` for every service, or
 `<machine>.<service>` where a service runs on several machines. Every name
-points at one address.
-
-All subdomains of your domain.
+points at one address. These names only resolve on the LAN and through
+the VPN.
 
 **Machines**, for SSH:
 
@@ -814,6 +567,10 @@ All subdomains of your domain.
 The VPNs themselves connect to your public address, not to a name here:
 the dns VM's on UDP port 51820, the Pi's on 51821.
 
+Three names are public, in the domain's zone at the DNS provider:
+`wg-easy` (your public address, for the VPN), `mc` (the Minecraft relay)
+and `minecraft-standby`.
+
 </details>
 
 <details>
@@ -826,7 +583,9 @@ the dns VM's on UDP port 51820, the Pi's on 51821.
 │   ├── requirements.yml     Galaxy roles and collections
 │   ├── inventory/
 │   │   ├── hosts.yml        proxmox hosts, and VMs in one group per service
-│   │   ├── group_vars/      VM settings (ports, users, data paths, GPU pins)
+│   │   ├── group_vars/      VM settings (ports, users, data paths, GPU pins); a
+│   │   │                    group with secrets is a directory: main.yml, and
+│   │   │                    the secrets in *.sops.yaml
 │   │   └── host_vars/       per machine 'physical' settings: Internet Protocol (IP) address and 
 |   |                        hardware (PCI devices, disks, CPU cores, memory)
 |   |
@@ -843,6 +602,7 @@ the dns VM's on UDP port 51820, the Pi's on 51821.
 │   │                        dns, minecraft
 │   ├── modules/             building blocks the stacks share
 │   └── secrets/             what Terraform logs in with, encrypted with SOPS
+├── docs/                    guides: secrets, cloud resources, Minecraft
 ├── .config/molecule/        settings shared by every scenario (Molecule reads
 │                            this from the git root only)
 ├── .github/
@@ -860,13 +620,21 @@ In the order the playbook runs them. They live in three directories under
 
 | Role            | Purpose                                                      |
 |-----------------|--------------------------------------------------------------|
+| ssh_keys        | lets the public keys in `ssh_keys_authorized` log in         |
 | pve_passthrough | Proxmox host: IOMMU, vfio binding, driver blacklist, console |
 | pve_storage     | Proxmox host: ZFS pools, datasets, virtiofs mappings         |
+| pve_network     | Proxmox host: bridges for the isolated networks              |
 | pve_template    | Proxmox host: Ubuntu cloud-init template VMs are cloned from |
+| pve_firewall    | Proxmox host: its own firewall, and one rule file per VM     |
 | pve_vms         | Proxmox host: clones and reconciles the VMs in the inventory |
 | static_address  | Raspberry Pi: fixed address on its NetworkManager connection |
+| host_firewall   | Raspberry Pi: nftables firewall that drops what is not listed |
 | base            | guest agent (VMs only), unattended upgrades, timezone        |
 | shares          | mounts the VM's virtiofs shares from `pve_vm.shares`         |
+| tunnel_key      | makes a WireGuard key pair on a machine and reads its public half; used by both ends of a tunnel |
+| relay           | public end of an egress VM's tunnel, on a rented server: passes chosen ports down the tunnel and lets the tunnel's traffic out under its own address |
+| egress          | gateway of one isolated network: forwards it into a WireGuard tunnel and nowhere else, and passes chosen ports back in |
+| minecraft       | Minecraft compose stack: Fabric server with checksummed mods, Bedrock players through Geyser, whitelist only, backups |
 | gpu             | firmware, userspace and i386 packages for `gpu_vendors`      |
 | desktop         | Xorg + LightDM autologin + openbox session for `gamer`       |
 | steam           | Steam with i386 libraries, gamemode, mangohud; client installed up front, games share registered as a library |
@@ -878,8 +646,6 @@ In the order the playbook runs them. They live in three directories under
 | mealie          | Mealie behind a Caddy proxy that signs the LAN in as one shared account; admin takeover, accounts and public access via API |
 | pihole          | Pi-hole compose stack with local records from the inventory, admin UI behind Caddy; frees port 53 from systemd-resolved |
 | wireguard       | wg-easy compose stack: WireGuard with a web UI behind Caddy |
-| egress          | gateway of one isolated network: forwards it into a WireGuard tunnel and nowhere else, and passes chosen ports back in |
-| minecraft       | Minecraft compose stack: Fabric server with checksummed mods, Bedrock players through Geyser, whitelist only |
 
 </details>
 
@@ -988,6 +754,10 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
   * 47984/tcp, 47989/tcp: Sunshine pairing and control (Moonlight)
   * 48010/tcp: Sunshine Real-Time Streaming Protocol (RTSP)
   * 47998-48000/udp: Sunshine video, control and audio streams
+* **minecraft-server1-relay** (rented, public)
+  * 22/tcp: SSH, from home only
+  * 51820/udp: WireGuard, from minecraft-server1-egress
+  * 25565/tcp, 19132/udp: Minecraft, passed down the tunnel
 * **minecraft-server1-egress** (10.0.1.226)
   * 22/tcp: SSH
 * **minecraft-server1** (10.250.226.170), through the tunnel only

@@ -34,6 +34,6 @@ resource "hcloud_zone_rrset" "vpn" {
   type = "A"
 
   records = [
-    { value = data.sops_file.home.data["address"] },
+    { value = local.home_address },
   ]
 }
