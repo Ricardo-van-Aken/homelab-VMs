@@ -1,0 +1,130 @@
+# {{ ansible_managed }}
+services:
+  minecraft:
+    image: {{ minecraft_image }}
+    container_name: minecraft
+    restart: unless-stopped
+    user: "{{ minecraft_uid }}:{{ minecraft_uid }}"
+    environment:
+      TZ: {{ base_timezone }}
+      EULA: "{{ minecraft_eula | bool | string | upper }}"
+      TYPE: FABRIC
+      VERSION: "{{ minecraft_version }}"
+      FABRIC_LOADER_VERSION: "{{ minecraft_fabric_loader_version }}"
+      FABRIC_LAUNCHER_VERSION: "{{ minecraft_fabric_launcher_version }}"
+      MEMORY: {{ minecraft_memory }}
+      # The jars in /mods replace the server's own copies at every start.
+      REMOVE_OLD_MODS: "TRUE"
+      LEVEL: "{{ minecraft_world }}"
+{% if minecraft_seed | string | length > 0 %}
+      SEED: "{{ minecraft_seed }}"
+{% endif %}
+      MOTD: "{{ minecraft_motd }}"
+      DIFFICULTY: {{ minecraft_difficulty }}
+      MAX_PLAYERS: "{{ minecraft_max_players }}"
+      # Java players prove who they are to Mojang, Bedrock players to Xbox
+      # (Floodgate).
+      ONLINE_MODE: "TRUE"
+      ENABLE_WHITELIST: "TRUE"
+      ENFORCE_WHITELIST: "TRUE"
+      # Listed names are added; the lists on the server are never replaced.
+      EXISTING_WHITELIST_FILE: MERGE
+      EXISTING_OPS_FILE: MERGE
+{% if minecraft_whitelist %}
+      WHITELIST: "{{ minecraft_whitelist | join(',') }}"
+{% endif %}
+{% if minecraft_ops %}
+      OPS: "{{ minecraft_ops | join(',') }}"
+{% endif %}
+      # Bedrock players cannot sign their chat messages.
+      ENFORCE_SECURE_PROFILE: "FALSE"
+      ENABLE_COMMAND_BLOCK: "FALSE"
+      ENABLE_QUERY: "FALSE"
+      # Seconds a stopping server gets to save the world.
+      STOP_DURATION: "120"
+      # The console's password; the port itself is not published.
+      RCON_PASSWORD_FILE: /run/secrets/rcon-password
+{% for key, value in minecraft_extra_env.items() %}
+      {{ key }}: "{{ value }}"
+{% endfor %}
+    ports:
+      - "{{ minecraft_java_port }}:25565/tcp"
+      - "{{ minecraft_bedrock_port }}:19132/udp"
+    volumes:
+      - {{ minecraft_data_dir }}/data:/data
+      - {{ minecraft_data_dir }}/mods:/mods:ro
+      - {{ minecraft_dir }}/rcon-password:/run/secrets/rcon-password:ro
+    # The image allows two minutes to start; a first start downloads the
+    # server and creates the world, which takes longer.
+    healthcheck:
+      test: mc-health
+      start_period: 15m
+      interval: 15s
+      retries: 4
+    # Longer than STOP_DURATION, or Docker kills the server mid-save.
+    stop_grace_period: 150s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: {{ minecraft_memory_limit }}
+{% if minecraft_backup_repository %}
+
+  # Tells the server to stop writing, uploads what changed, and lets it
+  # write again.
+  backup:
+    image: {{ minecraft_backup_image }}
+    container_name: minecraft-backup
+    # restic sorts backups by this name; a container's own changes.
+    hostname: {{ inventory_hostname }}
+    restart: unless-stopped
+    user: "{{ minecraft_uid }}:{{ minecraft_uid }}"
+    depends_on:
+      minecraft:
+        condition: service_healthy
+    environment:
+      TZ: {{ base_timezone }}
+      BACKUP_METHOD: restic
+      BACKUP_NAME: "{{ minecraft_world }}"
+      BACKUP_INTERVAL: "{{ minecraft_backup_interval }}"
+      # A server started with an old world must not make it the newest backup.
+      BACKUP_ON_STARTUP: "false"
+      PAUSE_IF_NO_PLAYERS: "{{ minecraft_backup_only_with_players | bool | string | lower }}"
+      PRUNE_RESTIC_RETENTION: "{{ minecraft_backup_retention }}"
+      RESTIC_CACHE_DIR: /tmp/restic-cache
+      RCON_HOST: minecraft
+      RCON_PASSWORD_FILE: /run/secrets/rcon-password
+      # Keep trying while the server restarts.
+      RCON_RETRIES: "-1"
+    env_file:
+      - backup.env
+    volumes:
+      - {{ minecraft_data_dir }}/data:/data:ro
+      - {{ minecraft_dir }}/rcon-password:/run/secrets/rcon-password:ro
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  # Not started with the others: minecraft-restore runs restic through it.
+  restore:
+    profiles:
+      - restore
+    image: {{ minecraft_backup_image }}
+    hostname: {{ inventory_hostname }}
+    user: "{{ minecraft_uid }}:{{ minecraft_uid }}"
+    entrypoint: restic
+    environment:
+      RESTIC_CACHE_DIR: /tmp/restic-cache
+    env_file:
+      - backup.env
+    volumes:
+      - {{ minecraft_data_dir }}/data:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+{% endif %}

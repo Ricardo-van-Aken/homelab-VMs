@@ -6,15 +6,15 @@
       - egress_isolated.network is defined
       - egress_isolated.vm is defined
       - >-
-        not egress_vpn_endpoint or (egress_vpn_address | length > 0
-        and egress_vpn_peer_public_key | length > 0 and egress_vpn_private_key | length > 0)
+        not egress_vpn_endpoint
+        or (egress_vpn_address | length > 0 and egress_vpn_peer_public_key | length > 0)
       - egress_vpn_endpoint or not (egress_vpn_address or egress_vpn_peer_public_key)
       - egress_inbound | rejectattr('proto', 'defined') | list | length == 0
       - egress_inbound | rejectattr('port', 'defined') | list | length == 0
     fail_msg: >-
       set egress_isolated with address, network and vm; egress_vpn_address,
-      _private_key, _peer_public_key and _endpoint all set or all empty;
-      egress_inbound with proto and port
+      _peer_public_key and _endpoint all set or all empty; egress_inbound
+      with proto and port
 
 # Cloud-init names the cards; find the one on the isolated network.
 - name: Find the isolated network's interface
@@ -72,9 +72,45 @@
     state: started
     daemon_reload: true
 
+# Before there is a tunnel, so the other side can be given the public key
+# first. A vaulted key is recognised without decrypting it.
+- name: Make this machine's own key pair
+  when:
+    - egress_vpn_private_key is not ansible.builtin.vault_encrypted
+    - egress_vpn_private_key | length == 0
+  block:
+    - name: Make a private key
+      ansible.builtin.shell: >-
+        umask 077 && wg genkey > {{ egress_vpn_key_file }}
+        || { rm -f {{ egress_vpn_key_file }}; exit 1; }
+      args:
+        creates: "{{ egress_vpn_key_file }}"
+
+    - name: Read the public key
+      ansible.builtin.shell: wg pubkey < {{ egress_vpn_key_file }}
+      register: egress_vpn_public_key
+      changed_when: false
+
+    - name: Show the public key
+      ansible.builtin.debug:
+        msg: >-
+          Public key of {{ inventory_hostname }}, for the other side of the
+          tunnel: {{ egress_vpn_public_key.stdout }}
+
 - name: Set up the VPN tunnel
   when: egress_vpn_endpoint | length > 0
   block:
+    - name: Write the private key the other side made
+      ansible.builtin.copy:
+        content: "{{ egress_vpn_private_key }}\n"
+        dest: "{{ egress_vpn_key_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      notify: Restart VPN tunnel
+      when: egress_vpn_private_key | length > 0
+
     - name: Write the tunnel config
       ansible.builtin.template:
         src: vpn.conf.j2
@@ -82,7 +118,6 @@
         owner: root
         group: root
         mode: "0600"
-      no_log: true
       notify: Restart VPN tunnel
 
     - name: Start the tunnel
@@ -90,3 +125,24 @@
         name: "wg-quick@{{ egress_vpn_interface }}"
         enabled: true
         state: started
+
+    - name: Apply a changed tunnel before checking it
+      ansible.builtin.meta: flush_handlers
+
+    # The keepalive makes this side start a handshake right away.
+    - name: Wait for the other side to answer
+      ansible.builtin.command: wg show {{ egress_vpn_interface }} latest-handshakes
+      register: egress_vpn_handshake
+      changed_when: false
+      failed_when: false
+      until: egress_vpn_handshake.stdout is search('\s[1-9][0-9]*$')
+      retries: 6
+      delay: 5
+
+    - name: Check the tunnel is up
+      ansible.builtin.assert:
+        that: egress_vpn_handshake.stdout is search('\s[1-9][0-9]*$')
+        fail_msg: >-
+          The other side of the tunnel does not answer. Check
+          egress_vpn_endpoint and egress_vpn_peer_public_key, and that the
+          other side has this machine's public key and tunnel address.

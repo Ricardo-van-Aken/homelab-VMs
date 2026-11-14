@@ -1,0 +1,119 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Inspect Minecraft container
+      ansible.builtin.command: docker inspect minecraft
+      changed_when: false
+      register: minecraft_inspect
+
+    - name: Assert Minecraft is running, healthy and not root
+      ansible.builtin.assert:
+        that:
+          - minecraft_container.State.Running
+          - minecraft_container.State.Health.Status == 'healthy'
+          - minecraft_container.Config.User == '2004:2004'
+          - minecraft_container.HostConfig.CapDrop == ['ALL']
+      vars:
+        minecraft_container: "{{ (minecraft_inspect.stdout | from_json)[0] }}"
+
+    - name: Read the server log
+      ansible.builtin.command: docker logs minecraft
+      changed_when: false
+      register: minecraft_log
+
+    # Fabric refuses to start with a missing dependency or a declared
+    # conflict, so a started server has accepted the whole set.
+    - name: Assert the server started with every mod
+      ansible.builtin.assert:
+        that:
+          - minecraft_log.stdout is search('Done \\(')
+          - minecraft_log.stdout is search('- ' ~ item ~ ' ')
+        fail_msg: "{{ item }} is not in Fabric's list of loaded mods"
+      loop:
+        - fabric-api
+        - lithostitched
+        - terralith
+        - continents
+        - cristellib
+        - t_and_t
+        - yet_another_config_lib_v3
+        - structurify
+        - lock-end
+        - chunky
+        - ferritecore
+        - geyser-fabric
+        - floodgate
+
+    - name: Read the server settings
+      ansible.builtin.slurp:
+        src: /srv/minecraft/data/server.properties
+      register: minecraft_properties
+
+    - name: Assert the settings are the configured ones
+      ansible.builtin.assert:
+        that: (minecraft_properties.content | b64decode) is search('(?m)^' ~ item ~ '$')
+        fail_msg: "server.properties has no line {{ item }}"
+      loop:
+        - level-seed=-8028949898700072581
+        - white-list=true
+        - enforce-whitelist=true
+        - online-mode=true
+        - enable-query=false
+
+    - name: Read the world border of every dimension
+      ansible.builtin.command: docker exec minecraft rcon-cli execute in {{ item }} run worldborder get
+      changed_when: false
+      register: minecraft_border
+      loop:
+        - minecraft:overworld
+        - minecraft:the_nether
+        - minecraft:the_end
+
+    - name: Assert the new world got a border of 1250 blocks each way
+      ansible.builtin.assert:
+        that: item.stdout is search('2500')
+      loop: "{{ minecraft_border.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Read the published ports
+      ansible.builtin.command: docker port minecraft
+      changed_when: false
+      register: minecraft_ports
+
+    - name: Assert the Java and Bedrock ports are published
+      ansible.builtin.assert:
+        that:
+          - minecraft_ports.stdout is search('25565/tcp')
+          - minecraft_ports.stdout is search('19132/udp')
+
+    - name: Assert Geyser listens for Bedrock players
+      ansible.builtin.assert:
+        that: minecraft_log.stdout is search('Started Geyser on')
+
+    # What makes the whitelist adjustable without Ansible.
+    - name: Add a player to the whitelist on the running server
+      ansible.builtin.command: docker exec minecraft rcon-cli whitelist add Notch
+      changed_when: true
+      register: minecraft_whitelist_add
+
+    - name: Read the whitelist
+      ansible.builtin.slurp:
+        src: /srv/minecraft/data/whitelist.json
+      register: minecraft_whitelist_file
+
+    - name: Assert the player is on the whitelist
+      ansible.builtin.assert:
+        that: (minecraft_whitelist_file.content | b64decode | from_json) | map(attribute='name') | list == ['Notch']
+
+    - name: Read the seeded settings file
+      ansible.builtin.slurp:
+        src: /srv/minecraft/data/config/molecule/seeded.json
+      register: minecraft_seeded
+
+    - name: Assert the settings file was copied
+      ansible.builtin.assert:
+        that: (minecraft_seeded.content | b64decode | from_json).from == 'ansible'
