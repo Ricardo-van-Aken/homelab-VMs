@@ -1,4 +1,5 @@
 # {{ ansible_managed }}
+{% set dhcp = pihole_dhcp_start | length > 0 %}
 services:
   pihole:
     image: {{ pihole_image }}
@@ -10,11 +11,35 @@ services:
       FTLCONF_dns_listeningMode: all
       FTLCONF_dns_upstreams: {{ pihole_upstreams | join(';') }}
       FTLCONF_dns_hosts: "{{ pihole_records | join(';') }}"
+      # Always set, so turning DHCP off again takes effect.
+      FTLCONF_dhcp_active: "{{ dhcp | string | lower }}"
+{% if dhcp %}
+      FTLCONF_dhcp_start: {{ pihole_dhcp_start }}
+      FTLCONF_dhcp_end: {{ pihole_dhcp_end }}
+      FTLCONF_dhcp_router: {{ pihole_dhcp_router }}
+      FTLCONF_dhcp_leaseTime: {{ pihole_dhcp_lease_time }}
+      FTLCONF_misc_dnsmasq_lines: "dhcp-option=option:dns-server,{{ pihole_dhcp_dns | join(',') }}
+        {%- if pihole_dhcp_reply_delay | int > 0 %};dhcp-reply-delay={{ pihole_dhcp_reply_delay | int }}{% endif %}"
+      # On the host's network the container's ports are the host's.
+      FTLCONF_dns_port: {{ pihole_dns_port }}
+      FTLCONF_webserver_port: "127.0.0.1:{{ pihole_web_port }}"
+{% else %}
+      FTLCONF_misc_dnsmasq_lines: ""
+      FTLCONF_dns_port: 53
+      FTLCONF_webserver_port: "80"
+{% endif %}
     env_file:
       - pihole.env
+{% if dhcp %}
+    # DHCP requests are broadcasts, which never reach a Docker bridge.
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+{% else %}
     ports:
       - "{{ pihole_dns_port }}:53/tcp"
       - "{{ pihole_dns_port }}:53/udp"
       - "127.0.0.1:{{ pihole_web_port }}:80/tcp"
+{% endif %}
     volumes:
       - {{ pihole_data_dir }}:/etc/pihole

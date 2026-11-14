@@ -1,0 +1,37 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+# The torrent VM's only way in and out.
+ansible_host: 10.0.1.225
+
+# The VM as the Proxmox host builds it.
+# Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 225).
+pve_vm:
+  cores: 1
+  memory: 512
+  untrusted: true
+  # The LAN, and the gateway address of torrent's isolated network.
+  networks:
+    - bridge: vmbr0
+    - bridge: vmbr225
+      address: 10.250.225.1
+      prefix: 24
+      forwards: true
+  firewall:
+    in:
+      - iface: net1  # all traffic from torrent, to forward into the VPN tunnel
+        from: 10.250.225.0/24
+
+# Role egress.
+egress_isolated:
+  address: 10.250.225.1
+  network: 10.250.225.0/24
+  vm: 10.250.225.150
+# The tunnel, from its WireGuard config. Empty: torrent has no way out.
+# TODO: fill in from the VPN provider's WireGuard config for this device.
+egress_vpn_address: ""  # [Interface] Address
+egress_vpn_peer_public_key: ""  # [Peer] PublicKey
+egress_vpn_endpoint: ""  # [Peer] Endpoint
+# [Interface] PrivateKey.
+# TODO: replace with your own !vault value; this one will not decrypt.
+egress_vpn_private_key: ""
+egress_inbound: []

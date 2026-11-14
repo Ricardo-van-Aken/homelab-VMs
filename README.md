@@ -39,6 +39,14 @@ unit (GPU) passed through
   is down
   * Pi-hole: second resolver with the same records
   * WireGuard: second tunnel, with its own clients
+* **monitoring**: for Grafana, Prometheus and Loki; nothing installed yet
+* **torrent** and **torrent-egress**: torrent runs on an isolated network of
+  its own and has nothing installed yet. torrent-egress is its only way in
+  and out, through a VPN provider's WireGuard tunnel set in its host vars.
+* **minecraft-server1** and **minecraft-server1-egress**: minecraft-server1
+  runs on an isolated network of its own and has nothing installed yet.
+  minecraft-server1-egress is its only way in and out, through a WireGuard
+  tunnel to a rented server that players connect to, set in its host vars.
 
 Every web UI is served over HTTPS by a Caddy on its machine, with Let's
 Encrypt certificates obtained through the domain's DNS records, so nothing
@@ -285,6 +293,8 @@ Make sure the host runs Proxmox VE. Before the first run:
   `group_vars/all.yml`
     * `ssh_keys_authorized`: public keys that may log in to the Proxmox host
       and the VMs
+    * `homelab_lan`: your LAN. Devices on it may SSH in and open the
+      Proxmox web UI; anything else is firewalled off.
   
   `group_vars/proxmox.yml`
     * `pve_vms_gateway`: the VMs' default gateway
@@ -395,6 +405,23 @@ Then, in your router:
 * VPN: forward UDP port `51820` to `10.0.1.100`. Devices are added in the
   wg-easy UI.
 
+Some routers cannot hand out a DNS server on your own network. An Apple
+AirPort hands out itself and passes lookups on to the DNS servers you set,
+but only to ones on the internet, never to the Pi-hole. Let the Pi-holes
+hand out the addresses instead:
+
+* Set `pihole_dhcp_start` and `pihole_dhcp_end` in `host_vars/dns.yml` and
+  `host_vars/pi1.yml` to two ranges that do not overlap, and
+  `pihole_dhcp_router` and `pihole_dhcp_dns` in `group_vars/pihole.yml` to
+  your router and your Pi-holes. Remove the ranges if your router can hand
+  out the DNS servers itself. `pi1` waits `pihole_dhcp_reply_delay` seconds
+  before it answers, so it only hands out addresses while `dns` is down.
+* Run the playbook for `dns` and `pi1`.
+* In the router, turn its own DHCP server off. An AirPort cannot do that
+  while it shares one address: shrink its DHCP range to a single address
+  outside the Pi-holes' ranges, and reserve that address for a hardware
+  address no device has.
+
 </details>
 
 <details>
@@ -423,7 +450,7 @@ ansible-playbook playbooks/site.yml --limit pi1 --ask-vault-pass
 
 Then, in your router:
 * DNS: add `10.0.1.101` as a second DNS server in the DHCP settings.
-* VPN: forward UDP port `51821` to `10.0.1.101:51820`.
+* VPN: forward UDP port `51821` to `10.0.1.101:51821`.
 
 New VPN clients get the two Pi-holes as DNS servers
 (`wireguard_client_dns` in `group_vars/wireguard.yml`), so homelab names
@@ -454,7 +481,12 @@ All subdomains of `example.org`.
 | forgejo-git | 10.0.1.110 |
 | nas         | 10.0.1.120 |
 | recipes     | 10.0.1.130 |
+| monitoring  | 10.0.1.140 |
 | arcade      | 10.0.1.160 |
+| torrent-egress | 10.0.1.225 |
+| minecraft-server1-egress | 10.0.1.226 |
+| torrent     | 10.250.225.150, through torrent-egress |
+| minecraft-server1 | 10.250.226.170, through minecraft-server1-egress |
 
 **Web UIs**, open in the browser:
 
@@ -620,11 +652,13 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
 * **dns** (10.0.1.100)
   * 22/tcp: SSH
   * 53/tcp, 53/udp: DNS
+  * 67/udp: DHCP
   * 443/tcp: Pi-hole admin UI and API, and the wg-easy UI, through Caddy
   * 51820/udp: WireGuard, forwarded by the router
 * **pi1** (10.0.1.101)
   * 22/tcp: SSH
   * 53/tcp, 53/udp: DNS
+  * 67/udp: DHCP
   * 443/tcp: Pi-hole admin UI and API, and the wg-easy UI, through Caddy
   * 51821/udp: WireGuard, forwarded by the router
 * **forgejo-git** (10.0.1.110)

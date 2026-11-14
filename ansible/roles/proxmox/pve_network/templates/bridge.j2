@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+auto {{ item }}
+iface {{ item }} inet manual
+	bridge-ports none
+	bridge-stp off
+	bridge-fd 0

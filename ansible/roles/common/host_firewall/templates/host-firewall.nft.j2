@@ -1,0 +1,48 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+
+# Replace only this table; Docker's tables stay as they are.
+table inet host_firewall {}
+delete table inet host_firewall
+
+table inet host_firewall {
+	set lan {
+		type ipv4_addr
+		flags interval
+		elements = { {{ host_firewall_lan }} }
+	}
+
+	set admin {
+		type ipv4_addr
+		flags interval
+		elements = { {{ host_firewall_admin | join(', ') }} }
+	}
+
+	set monitoring {
+		type ipv4_addr
+		flags interval
+{% if host_firewall_monitoring %}
+		elements = { {{ host_firewall_monitoring | join(', ') }} }
+{% endif %}
+	}
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		ct state established,related accept
+		ct state invalid drop
+		iifname "lo" accept
+		# Containers reaching the host, such as VPN clients through wg-easy.
+		iifname "docker0" accept
+		iifname "br-*" accept
+		# IPv6 needs neighbour discovery.
+		meta l4proto ipv6-icmp accept
+		ip saddr @lan meta l4proto icmp accept
+
+		ip saddr @admin tcp dport 22 accept  # SSH, for you and Ansible
+		ip saddr @monitoring tcp dport {{ host_firewall_metrics_port }} accept  # metrics, collected by the monitoring VM
+{% for rule in host_firewall_in %}
+		{% if rule.from | default('lan') == 'lan' %}ip saddr @lan {% endif %}{{ rule.proto }} dport { {{ rule.port }} } accept
+{% endfor %}
+	}
+}
