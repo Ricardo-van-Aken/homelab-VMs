@@ -1,6 +1,0 @@
-# Who can read the encrypted files in secrets/: the holders of the age keys
-# whose public halves are listed here.
-# TODO: replace with your own age public key (README, Cloud resources).
-creation_rules:
-  - path_regex: secrets/.*\.sops\.yaml$
-    age: age1replacethiswithyourownpublickey

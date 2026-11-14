@@ -1,0 +1,62 @@
+---
+# Jellyfin settings; they follow the service to whichever VM hosts it.
+# The service name the dns VM resolves (see group_vars/pihole/main.yml), and the
+# URL Jellyfin advertises to clients.
+jellyfin_domain: "jellyfin.{{ homelab_domain }}"
+jellyfin_published_url: "{{ caddy_scheme }}{{ jellyfin_domain }}"
+# Which of the host's GPUs Jellyfin transcodes on; empty for software only.
+jellyfin_gpu_vendor: "{{ gpu_vendors[0] if gpu_vendors | length > 0 else '' }}"
+# Media library root; the VM mounts its media shares (pve_vm.shares) under it.
+jellyfin_media_path: /srv/media
+# Render node of the GPU Jellyfin uses, by its address inside the VM. hostpci0
+# with pcie=1 lands on the first PCIe root port, which the guest sees as
+# 01:00.0; check with `ls -l /dev/dri/by-path` on the VM. Empty means any GPU.
+jellyfin_gpu_device: /dev/dri/by-path/pci-0000:01:00.0-render
+# The R9 380X (Tonga) decodes H.264, MPEG-2 and VC-1 only.
+jellyfin_hw_decoding_codecs: [h264, mpeg2video, vc1]
+
+# First-run setup (see roles/services/jellyfin/defaults). The wizard runs once with
+# these; change the password afterwards in Jellyfin itself.
+jellyfin_server_name: Jelly
+jellyfin_metadata_country: NL
+jellyfin_admin_user: Admin
+# Password of jellyfin_admin_user.
+# SECRET: in secrets.sops.yaml.
+# jellyfin_admin_password: <string>
+
+# Extra users, created once. Names are encrypted too, so the (public) repo
+# does not list who uses the server.
+# SECRET: in secrets.sops.yaml.
+# jellyfin_users:
+#   - name: <string>
+#     password: <string>
+
+# One library per media type, each spanning the genre folders inside its
+# share; paths are as the container sees them (/media is jellyfin_media_path).
+# The home screen gets one "Latest ..." row per library; genres are browsed
+# through Jellyfin's metadata genre filter. Libraries not listed are removed.
+jellyfin_libraries:
+  - name: Movies
+    type: movies
+    paths:
+      - /media/movies/disney
+      - /media/movies/superhero
+      - /media/movies/action
+      - /media/movies/fantasy
+      - /media/movies/documentary
+      - /media/movies/comedy
+  - name: Series
+    type: tvshows
+    paths:
+      - /media/series/sitcom
+      - /media/series/fantasy
+      - /media/series/documentary
+      - /media/series/comedy
+  - name: Music
+    type: music
+    paths:
+      - /media/music/hardcore
+      - /media/music/drum-and-bass
+      - /media/music/electronic
+      - /media/music/pop
+      - /media/music/rnb

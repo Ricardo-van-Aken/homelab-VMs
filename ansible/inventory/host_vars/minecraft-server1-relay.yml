@@ -1,0 +1,20 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+# A server at Hetzner, made by terraform/stacks/minecraft with its firewall.
+# Players of minecraft-server1 connect to it. Terraform reads this file for
+# the name under the domain and the tunnel's port.
+ansible_host: "mc.{{ homelab_domain }}"
+ansible_user: root  # what Hetzner's images log in as
+# A server made anew has new host keys. Accept a key on first contact, but
+# still refuse a changed one; remove the stale entry with `ssh-keygen -R`.
+ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new
+
+# Role relay.
+# The home end of the tunnel; its public key, tunnel address and ports are
+# taken from it. For a home end that is not in this inventory, remove this
+# and set relay_peer_public_key, relay_peer_address and relay_forwards.
+relay_egress: minecraft-server1-egress
+relay_port: 51820
+# This end's address in the tunnel; the home end's egress_vpn_address is in
+# the same network.
+relay_address: 10.99.226.1/24

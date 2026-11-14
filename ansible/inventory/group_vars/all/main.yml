@@ -1,0 +1,41 @@
+---
+# Settings shared by every machine.
+base_timezone: Europe/Amsterdam
+
+# Public keys that may log in as `ansible_user` on every machine (role
+# ssh_keys). group_vars/proxmox.yml hands the same list to cloud-init, and
+# Terraform puts them on a rented server, named after the comment at the end
+# of each key, so every key needs one.
+ssh_keys_authorized:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAmSIvhk/L829v6onj9pQRYkas44rx8GAtt+b+UGdL3y homelab
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDEb07SmW4aQhUAC9ZKYBtaQ4XDnwDn03+mPR7cGmjJK ricardovanaken@Mac.localdomain
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP8fbzNpDy0ZkUiuOn899MIsR7cFVhOk6aG3ocdWx3YT rvake@DESKTOP-DK4AJRE
+
+# Services are reached as <service>.<domain>, machines as <name>.<domain>.
+# SECRET: in identity.sops.yaml.
+# homelab_domain: <domain name>
+
+# Public IPv4 address of the home network.
+# SECRET: in identity.sops.yaml.
+# homelab_public_address: <IPv4 address>
+
+# Firewalls (roles pve_firewall, host_firewall): the LAN, the machines that
+# may SSH into every machine and open the Proxmox web UI, and the machines
+# that collect metrics and logs (the monitoring VM).
+homelab_lan: 10.0.1.0/24
+homelab_admin: ["{{ homelab_lan }}"]
+homelab_monitoring: ["10.0.1.140"]
+
+# HTTPS for the web UIs (role caddy).
+caddy_https: true
+# The provider hosting the domain's DNS records: its Caddy module name and
+# the plugin providing it (github.com/caddy-dns).
+caddy_dns_provider: hetzner
+caddy_dns_plugin: github.com/caddy-dns/hetzner/v2@v2.0.0
+# Let's Encrypt account for the certificates.
+# SECRET: in secrets.sops.yaml.
+# caddy_acme_email: <email address>
+
+# API token of that provider that may change the domain's records.
+# SECRET: in secrets.sops.yaml.
+# caddy_dns_token: <string>

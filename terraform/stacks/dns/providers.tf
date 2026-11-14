@@ -3,14 +3,15 @@ ephemeral "sops_file" "credentials" {
   source_file = "${path.root}/../../secrets/credentials.sops.yaml"
 }
 
-# The domain and the home address. They end up in the state, as part of
-# the zone and the record they are used in.
-data "sops_file" "home" {
-  source_file = "${path.root}/../../secrets/home.sops.yaml"
+# The domain and the home's public address, which Ansible reads too. All of
+# this file ends up in the state, so it holds nothing else.
+data "sops_file" "identity" {
+  source_file = "${path.root}/../../../ansible/inventory/group_vars/all/identity.sops.yaml"
 }
 
 locals {
-  domain = data.sops_file.home.data["domain"]
+  domain       = data.sops_file.identity.data["homelab_domain"]
+  home_address = data.sops_file.identity.data["homelab_public_address"]
 }
 
 provider "hcloud" {

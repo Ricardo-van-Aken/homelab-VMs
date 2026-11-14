@@ -8,7 +8,7 @@
       - caddy_dns_token | length > 0
     fail_msg: >-
       caddy_https needs caddy_acme_email, caddy_dns_provider, caddy_dns_plugin
-      and a !vault caddy_dns_token in group_vars
+      and caddy_dns_token (in group_vars/all/secrets.sops.yaml)
   when: caddy_https | bool
 
 - name: Create stacks directory

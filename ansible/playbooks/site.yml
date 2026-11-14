@@ -30,6 +30,14 @@
   roles:
     - shares
 
+# Before the gateways at home, which check that their tunnel answers.
+- name: Public ends of the tunnels
+  hosts: relay
+  roles:
+    - ssh_keys
+    - base
+    - relay
+
 - name: Isolated network gateways
   hosts: egress
   roles:
@@ -40,11 +48,20 @@
 - name: Minecraft servers
   hosts: minecraft
   pre_tasks:
-    - name: Skip a machine whose tunnel is not set up yet
+    - name: Look whether the machine's tunnel is up
+      ansible.builtin.command: >-
+        wg show {{ hostvars[isolated_egress].egress_vpn_interface | default('vpn') }} latest-handshakes
+      delegate_to: "{{ isolated_egress }}"
+      register: site_tunnel
+      changed_when: false
+      failed_when: false
+      when: isolated_egress is defined
+
+    - name: Skip a machine whose tunnel is not up yet
       ansible.builtin.meta: end_host
       when:
         - isolated_egress is defined
-        - hostvars[isolated_egress].egress_vpn_endpoint | default('') | length == 0
+        - site_tunnel.stdout | default('') is not search('\s[1-9][0-9]*$')
   roles:
     - ssh_keys
     - base

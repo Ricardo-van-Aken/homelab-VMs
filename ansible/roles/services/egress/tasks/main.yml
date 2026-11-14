@@ -7,14 +7,18 @@
       - egress_isolated.vm is defined
       - >-
         not egress_vpn_endpoint
-        or (egress_vpn_address | length > 0 and egress_vpn_peer_public_key | length > 0)
+        or (egress_vpn_address | length > 0
+            and (egress_vpn_peer_public_key | length > 0 or egress_relay | length > 0))
       - egress_vpn_endpoint or not (egress_vpn_address or egress_vpn_peer_public_key)
+      - not egress_relay or egress_relay in groups['all']
+      - not egress_relay or egress_vpn_private_key | length == 0
       - egress_inbound | rejectattr('proto', 'defined') | list | length == 0
       - egress_inbound | rejectattr('port', 'defined') | list | length == 0
     fail_msg: >-
       set egress_isolated with address, network and vm; egress_vpn_address,
-      _peer_public_key and _endpoint all set or all empty; egress_inbound
-      with proto and port
+      _peer_public_key and _endpoint all set or all empty (with egress_relay,
+      the inventory name of a relay, its public key is read from it and no
+      private key is given); egress_inbound with proto and port
 
 # Cloud-init names the cards; find the one on the isolated network.
 - name: Find the isolated network's interface
@@ -73,29 +77,38 @@
     daemon_reload: true
 
 # Before there is a tunnel, so the other side can be given the public key
-# first. A vaulted key is recognised without decrypting it.
+# first.
 - name: Make this machine's own key pair
-  when:
-    - egress_vpn_private_key is not ansible.builtin.vault_encrypted
-    - egress_vpn_private_key | length == 0
+  when: egress_vpn_private_key | length == 0
   block:
-    - name: Make a private key
-      ansible.builtin.shell: >-
-        umask 077 && wg genkey > {{ egress_vpn_key_file }}
-        || { rm -f {{ egress_vpn_key_file }}; exit 1; }
-      args:
-        creates: "{{ egress_vpn_key_file }}"
-
-    - name: Read the public key
-      ansible.builtin.shell: wg pubkey < {{ egress_vpn_key_file }}
-      register: egress_vpn_public_key
-      changed_when: false
+    - name: Make the key pair
+      ansible.builtin.include_role:
+        name: tunnel_key
+      vars:
+        tunnel_key_file: "{{ egress_vpn_key_file }}"
 
     - name: Show the public key
       ansible.builtin.debug:
         msg: >-
           Public key of {{ inventory_hostname }}, for the other side of the
-          tunnel: {{ egress_vpn_public_key.stdout }}
+          tunnel: {{ tunnel_key_public.stdout }}
+
+# The other side is one of our own machines: read its public key there. It
+# makes its key now if it has none yet.
+- name: Read the relay's public key
+  when: egress_relay | length > 0
+  block:
+    - name: Read the public key on the relay
+      ansible.builtin.include_role:
+        name: tunnel_key
+        apply:
+          delegate_to: "{{ egress_relay }}"
+      vars:
+        tunnel_key_file: "{{ hostvars[egress_relay].relay_key_file | default('/etc/wireguard/relay.key') }}"
+
+    - name: Remember the relay's public key
+      ansible.builtin.set_fact:
+        egress_vpn_peer_public_key: "{{ tunnel_key_public.stdout }}"
 
 - name: Set up the VPN tunnel
   when: egress_vpn_endpoint | length > 0
@@ -145,4 +158,5 @@
         fail_msg: >-
           The other side of the tunnel does not answer. Check
           egress_vpn_endpoint and egress_vpn_peer_public_key, and that the
-          other side has this machine's public key and tunnel address.
+          other side has this machine's public key and tunnel address. With
+          egress_relay, run the playbook for that relay first.

@@ -16,7 +16,7 @@ variable "standby_server" {
 }
 
 variable "standby_name" {
-  description = "Name of the standby server, also its name under the domain and in the Ansible inventory."
+  description = "Name of the standby server: its name in the Ansible inventory, whose host_vars say what it is called under the domain."
   type        = string
   default     = "minecraft-standby"
 }
@@ -27,18 +27,26 @@ variable "standby_server_type" {
   default     = "cx33"
 }
 
-variable "standby_image" {
-  description = "Operating system image; the Ansible roles are written for Ubuntu."
-  type        = string
-  default     = "ubuntu-26.04"
+variable "relay_server" {
+  description = "Whether the relay exists: the public end of the tunnel to the Minecraft server at home, which players connect to. false removes the server and its DNS record."
+  type        = bool
+  default     = true
 }
 
-variable "ssh_public_keys" {
-  description = "Public keys that may log in as root on a new server, by a name of your choice. Ansible (role ssh_keys) adds the rest later."
-  type        = map(string)
+variable "relay_name" {
+  description = "Name of the relay: its name in the Ansible inventory, whose host_vars say what it is called under the domain, which port the tunnel uses and which machine at home is the other end."
+  type        = string
+  default     = "minecraft-server1-relay"
+}
 
-  validation {
-    condition     = length(var.ssh_public_keys) > 0
-    error_message = "Give at least one key, or nobody can log in to the server."
-  }
+variable "relay_server_type" {
+  description = "Hetzner server type of the relay. It only passes packets on, so the smallest does."
+  type        = string
+  default     = "cx23"
+}
+
+variable "image" {
+  description = "Operating system image of the servers; the Ansible roles are written for Ubuntu."
+  type        = string
+  default     = "ubuntu-26.04"
 }

@@ -1,0 +1,38 @@
+---
+# Minecraft settings.
+
+# Mojang's End User License Agreement, https://aka.ms/MinecraftEULA.
+# TODO: read it and set to true to agree; the role stops while it is false.
+minecraft_eula: false
+
+minecraft_motd: L.A.N party
+minecraft_seed: "-8028949898700072581"
+# A new world's border: 1250 blocks from 0,0 in every direction. Changed on
+# the running server afterwards (docs/minecraft.md).
+minecraft_world_radius: 1250
+
+# Java players who may join and who may run commands from the first start.
+# Everyone else is added on the running server (docs/minecraft.md).
+minecraft_whitelist: []
+minecraft_ops: []
+
+# Mod settings, in place before the world is created. Structurify: how far
+# apart Terralith's and Towns and Towers' structures are.
+minecraft_config_files:
+  - src: "{{ inventory_dir }}/files/minecraft/structurify.json"
+    dest: structurify.json
+
+# Hourly backups to the bucket terraform/stacks/minecraft makes (its output
+# backup_repository). Every server here backs up to it, and one without a
+# world loads the newest backup from it.
+minecraft_backup_repository: s3:https://fsn1.your-objectstorage.com/minecraft-backups-24de02e1
+minecraft_backup_region: fsn1
+# The bucket's S3 credentials; Terraform makes the bucket with them.
+# SECRET: in secrets.sops.yaml.
+# minecraft_backup_access_key_id: <string>
+# minecraft_backup_secret_access_key: <string>
+
+# Encrypts the backups. Any long random string; save it in a password
+# manager, because without it no backup can be read.
+# SECRET: in secrets.sops.yaml.
+# minecraft_backup_password: <string, no single quotes>
