@@ -6,3 +6,7 @@ static_address_ip: 10.0.1.101
 
 # The dns VM's tunnel has 51820; the router forwards this one here.
 wireguard_port: 51821
+
+# Addresses this Pi-hole hands out; the dns VM has the range before it.
+pihole_dhcp_start: 10.0.1.60
+pihole_dhcp_end: 10.0.1.99

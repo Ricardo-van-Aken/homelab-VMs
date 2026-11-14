@@ -21,6 +21,16 @@ pihole_upstreams:
 # inventory builds them in group_vars/pihole.yml.
 pihole_records: []
 
+# DHCP, for a router that cannot hand out the Pi-hole as DNS server. Off
+# while the range is empty. On, the container joins the host's network
+# (DHCP is broadcast traffic), so the host's firewall must let in 53 and
+# 67/udp; the latter from any source, as clients have no address yet.
+pihole_dhcp_start: ""  # e.g. 10.0.1.10
+pihole_dhcp_end: ""  # e.g. 10.0.1.59
+pihole_dhcp_router: ""  # the gateway handed to clients
+pihole_dhcp_dns: []  # the DNS servers handed to clients
+pihole_dhcp_lease_time: 24h
+
 # Password for the admin UI and API. Required: without one Pi-hole picks a
 # random password at every start.
 pihole_web_password: ""  # put a !vault value in group_vars
