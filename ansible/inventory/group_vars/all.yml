@@ -10,7 +10,15 @@ ssh_keys_authorized:
   - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP8fbzNpDy0ZkUiuOn899MIsR7cFVhOk6aG3ocdWx3YT rvake@DESKTOP-DK4AJRE
 
 # Services are reached as <service>.<domain>, machines as <name>.<domain>.
-homelab_domain: example.org
+# Vaulted: the domain says whose homelab this is.
+# TODO: replace with your own !vault value; this one will not decrypt.
+homelab_domain: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          62623262636636306166323036383130333939333934386566383164303061313466323331656461
+          6237633131343535393233656338353461373830383238390a646335333533326463633831373739
+          61646632313861383262386534373534306231623636376132396531363032353035663334313662
+          3162356533353065660a306661353932376338313937313032646131636431393232623165643562
+          36323635623034666633633661383836376336376631616232633830333930333738
 
 # Firewalls (roles pve_firewall, host_firewall): the LAN, the machines that
 # may SSH into every machine and open the Proxmox web UI, and the machines

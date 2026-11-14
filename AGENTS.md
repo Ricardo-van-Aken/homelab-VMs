@@ -1,8 +1,14 @@
 # Instructions for AI agents
 
 All Ansible lives under `ansible/`; run `ansible-*` and `molecule` commands
-from that directory. Terraform for the Proxmox host is planned as a sibling
-`terraform/` directory with its own images and lint.
+from that directory. Terraform lives under `terraform/`: one stack per
+purpose under `stacks/` (`dns`, `minecraft`), each with its own state,
+pins and lock file, and shared building blocks under `modules/`. A stack
+is named after what it is for, never after a provider; a new purpose is a
+new stack, and a stack reads what another owns through a data source, not
+through its state. Terraform for the Proxmox host is planned as another
+stack. Terraform has no lint or image in CI yet: run
+`terraform fmt -check -recursive` and `terraform validate` by hand.
 
 Guidance for automated changes to this repository. Humans are welcome to read
 it, but the README is written for them.
@@ -22,6 +28,7 @@ and when touching a pin, update the pin and its comment in the same change.
 | Python package | exact `==` version, transitives included | grouped and annotated as in `ansible/docker/*/requirements*.txt` |
 | Downloaded file | `checksum: sha256:…` on the download task | the release it came from |
 | GitHub runner | `ubuntu-XX.04`, never `ubuntu-latest` | none |
+| Terraform and its providers | exact `required_version` and `version`, no `~>` or `>=`; commit `.terraform.lock.hcl` | none; the lock file holds the checksums |
 
 A tag next to a digest is documentation only: Docker ignores it and applies
 no check. It is written anyway, in the `name:tag@sha256:…` form, because
@@ -47,6 +54,13 @@ git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag> 'refs/tags/<tag>
 A peeled `^{}` line means the tag is annotated; use that SHA. No peeled line
 means the tag is lightweight and the first SHA is the commit.
 
+Terraform provider checksums, after changing a version in `versions.tf`,
+for every platform the configuration is run on:
+
+```sh
+terraform providers lock -platform=darwin_arm64 -platform=linux_amd64 -platform=linux_arm64
+```
+
 Downloaded file checksum, after confirming the response is the real file and
 not an error page (check `content-length` or the size):
 
@@ -58,6 +72,11 @@ curl -sL <url> | sha256sum
 
 apt packages installed on the VMs. Ubuntu's archive moves with security
 updates and unattended-upgrades is enabled on purpose.
+
+The Minecraft server and Fabric loader jars have an exact version but no
+checksum here: the pinned `itzg/minecraft-server` image downloads them on
+its first start and checks them against Mojang's and Fabric's own hashes.
+The mods are ordinary downloaded files, with a checksum each.
 
 ### Bumping
 
@@ -84,7 +103,18 @@ setting belongs (a Forgejo password goes in `group_vars/forgejo.yml`, not
 create fully encrypted vars files: they cannot be parsed without the password
 and break lint and CI. Do not add `vault_password_file` to `ansible.cfg` for
 the same reason; runs take `--ask-vault-pass` or `ANSIBLE_VAULT_PASSWORD_FILE`.
-Tasks that handle a secret carry `no_log: true`. Placeholders for secrets
+Tasks that handle a secret carry `no_log: true`. Terraform's secrets are
+in `terraform/secrets/*.sops.yaml`, encrypted with SOPS for the age keys
+in `terraform/.sops.yaml`; never write one in plain text, and add a key
+to the matching `.example.yaml` when adding one. Credentials are read
+with an `ephemeral "sops_file"` block, so they stay out of the state; a
+`data "sops_file"` is only for a value that ends up in a resource anyway.
+`terraform.tfvars` is committed and holds settings only, and state files
+are never committed. The domain and the public address of the home
+network are secrets too, because they say whose homelab this is: outside
+the encrypted values they never appear in the repository, in any form.
+Write `<domain>` or `example.org`, and an address from `203.0.113.0/24`,
+in documentation, comments and examples. Placeholders for secrets
 are vaulted too, encrypted with a throwaway password, so a run that still
 carries one fails to decrypt instead of applying a known value.
 

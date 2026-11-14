@@ -1,0 +1,18 @@
+---
+# Inherits .config/molecule/config.yml. Docker runs inside the instance, so
+# the server really starts, with every mod.
+scenario:
+  name: minecraft
+provisioner:
+  inventory:
+    group_vars:
+      all:
+        # The test agrees to https://aka.ms/MinecraftEULA to start the server.
+        minecraft_eula: true
+        minecraft_memory: 2G
+        minecraft_memory_limit: 3g
+        minecraft_seed: "-8028949898700072581"
+        minecraft_world_radius: 1250
+        minecraft_config_files:
+          - src: "{{ lookup('env', 'MOLECULE_SCENARIO_DIRECTORY') }}/seeded.json"
+            dest: molecule/seeded.json

@@ -26,20 +26,13 @@ egress_isolated:
   address: 10.250.226.1
   network: 10.250.226.0/24
   vm: 10.250.226.170
-# The tunnel, from its WireGuard config. Empty: minecraft-server1 has no way out.
-# TODO: fill in from the rented server's WireGuard config for this tunnel.
-egress_vpn_address: ""  # [Interface] Address
-egress_vpn_peer_public_key: ""  # [Peer] PublicKey
-egress_vpn_endpoint: ""  # [Peer] Endpoint
-# [Interface] PrivateKey.
-# TODO: replace with your own !vault value; this one will not decrypt.
-egress_vpn_private_key: !vault |
-          $ANSIBLE_VAULT;1.1;AES256
-          35656130376262386636326464303762393032363066333761333833373662666466653036656432
-          3431623230366265333139326165323038366138366333650a656530353066623463313865643533
-          30303631653866316361363036663236623635313664646339643461316336643665633466316630
-          3736613236393261340a373839373564353661336638323239396363353637623738316663666137
-          6639
+# The tunnel to the rented server. Empty: minecraft-server1 has no way out.
+# This machine makes its own private key; the play shows the public key.
+# TODO: give that public key to the server's operator, and fill these in
+# from what they send back.
+egress_vpn_address: ""  # the address they give this machine in the tunnel
+egress_vpn_peer_public_key: ""  # their server's public key
+egress_vpn_endpoint: ""  # their server's public address and port
 # Ports passed from the tunnel to minecraft-server1.
 egress_inbound:
   - proto: tcp

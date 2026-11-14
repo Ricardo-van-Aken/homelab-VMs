@@ -4,3 +4,10 @@ collections/
 .ansible/
 .reports/
 .vault_pass
+
+# Terraform: downloaded providers, and the state, which holds everything
+# Terraform knows about the account. The lock file is committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log

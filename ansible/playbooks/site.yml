@@ -17,16 +17,16 @@
     - static_address
     - host_firewall
 
-# Only created for now, nothing installed: the isolated VMs, which have no
-# way out until their egress VM has a VPN tunnel, and the monitoring VM.
+# Only created for now, nothing installed: torrent and the monitoring VM.
+# The Minecraft servers have a play of their own, after their gateways.
 - name: Base configuration for every VM and Pi
-  hosts: vms:pis:!torrent:!minecraft-server1:!monitoring
+  hosts: vms:pis:!torrent:!minecraft:!monitoring
   roles:
     - ssh_keys
     - base
 
 - name: Host datasets on the VMs
-  hosts: vms:!torrent:!minecraft-server1:!monitoring
+  hosts: vms:!torrent:!minecraft:!monitoring
   roles:
     - shares
 
@@ -34,6 +34,21 @@
   hosts: egress
   roles:
     - egress
+
+# After the gateways: everything here is downloaded through the tunnel of
+# the machine's egress VM (isolated_egress in its host_vars).
+- name: Minecraft servers
+  hosts: minecraft
+  pre_tasks:
+    - name: Skip a machine whose tunnel is not set up yet
+      ansible.builtin.meta: end_host
+      when:
+        - isolated_egress is defined
+        - hostvars[isolated_egress].egress_vpn_endpoint | default('') | length == 0
+  roles:
+    - ssh_keys
+    - base
+    - minecraft  # depends on geerlingguy.docker role
 
 - name: Jellyfin media servers
   hosts: jellyfin

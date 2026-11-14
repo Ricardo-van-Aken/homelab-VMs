@@ -44,9 +44,13 @@ unit (GPU) passed through
   its own and has nothing installed yet. torrent-egress is its only way in
   and out, through a VPN provider's WireGuard tunnel set in its host vars.
 * **minecraft-server1** and **minecraft-server1-egress**: minecraft-server1
-  runs on an isolated network of its own and has nothing installed yet.
+  runs a modded Minecraft server for Java and Bedrock players, on an
+  isolated network of its own.
   minecraft-server1-egress is its only way in and out, through a WireGuard
   tunnel to a rented server that players connect to, set in its host vars.
+* **minecraft-standby**: the same Minecraft server, rented at Hetzner, for
+  when the one at home is down. It loads the world from the backups both
+  keep in one bucket.
 
 Every web UI is served over HTTPS by a Caddy on its machine, with Let's
 Encrypt certificates obtained through the domain's DNS records, so nothing
@@ -377,7 +381,7 @@ user ID (uid), so they show up in the library on the next scan.
 ansible-playbook playbooks/site.yml --limit recipes --ask-vault-pass
 ```
 
-Then open `http://mealie.example.org`. Everyone on the LAN is signed in as the
+Then open `http://mealie.<domain>`. Everyone on the LAN is signed in as the
 shared `family` account and can add and edit recipes. To use the admin
 account, log out from the menu and sign in on the page that follows.
 
@@ -392,8 +396,9 @@ account, log out from the menu and sign in on the page that follows.
   `group_vars/wireguard.yml` with your own (see Secrets), and set
   `wireguard_public_host` to your public IP address, or a public DNS name
   pointing at it.
-* Set `homelab_domain` in `group_vars/all.yml` to your domain. Every machine
-  and service becomes a subdomain of it, `forgejo.<domain>` for example.
+* Replace the encrypted `homelab_domain` in `group_vars/all.yml` with your
+  domain (see Secrets). Every machine and service becomes a subdomain of
+  it, `forgejo.<domain>` for example.
 
 ```sh
 ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
@@ -460,6 +465,300 @@ under the client defaults instead.
 
 </details>
 
+<details>
+<summary><h3 id="minecraft-server1-egress" style="display:inline; margin:0; vertical-align:middle">minecraft-server1-egress</h3></summary>
+
+The only way in and out of minecraft-server1: a WireGuard tunnel to a
+server with a public address, which players connect to. Your router
+forwards nothing for it.
+
+```sh
+ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-egress --ask-vault-pass
+```
+
+The run makes a key pair on the VM and shows its public key. Give the
+server's operator:
+
+* that public key;
+* the ports to pass on to the address they give this VM in the tunnel:
+  `25565` TCP (Java players) and `19132` UDP (Bedrock players).
+
+Their server needs a WireGuard peer for this VM with that public key and
+its tunnel address as the allowed address, and forwarding switched on. It
+sends the two ports on to the tunnel address and hides (masquerades)
+whatever comes out of the tunnel behind its own address. If it leaves the
+players' source addresses as they are, the Minecraft server sees who
+connects, and bans by address work.
+
+From what they send back, set `egress_vpn_address`,
+`egress_vpn_peer_public_key` and `egress_vpn_endpoint` in
+`host_vars/minecraft-server1-egress.yml`, and run the command again. It
+fails while the other side does not answer.
+
+</details>
+
+<details>
+<summary><h3 id="minecraft-server1" style="display:inline; margin:0; vertical-align:middle">minecraft-server1</h3></summary>
+
+A Fabric server for Java players, which Bedrock players can join too
+(Geyser and Floodgate), with the mods in `roles/services/minecraft/defaults/main.yml`.
+It is installed through the tunnel of
+[minecraft-server1-egress](#minecraft-server1-egress), so set that up first;
+until then the playbook skips this VM.
+
+In `group_vars/minecraft.yml`:
+
+* Read Mojang's [End User License Agreement (EULA)](https://aka.ms/MinecraftEULA)
+  and set `minecraft_eula` to `true` to agree.
+* Set `minecraft_seed` and `minecraft_world_radius`, the border a new world
+  starts with. A seed only counts when a world is created: for another
+  seed, give `minecraft_world` a new name.
+* Structure settings shape the world as it is created. Save your
+  `structurify.json` (and other mod settings) under
+  `inventory/files/minecraft/` and list them in `minecraft_config_files`
+  before the first run.
+
+```sh
+ansible-playbook playbooks/site.yml --limit minecraft-server1 --ask-vault-pass
+```
+
+Players connect to the address of the server at the other end of the
+tunnel. Nobody gets in without being on the whitelist. That, and anything
+else on the running server, is changed with commands, without Ansible:
+
+```sh
+ssh -J ubuntu@10.0.1.226 ubuntu@10.250.226.170 sudo docker exec minecraft rcon-cli "<command>"
+```
+
+| Command | Does |
+|---|---|
+| `whitelist add <name>` | lets a Java player in |
+| `fwhitelist add <gamertag>` | lets a Bedrock player in |
+| `whitelist remove <name>` | removes a player; Bedrock names start with a `.` |
+| `op <name>` | lets a player run these commands in the game |
+| `worldborder set <width>` | moves the border of the Overworld; the width is twice the distance from the middle |
+| `execute in minecraft:the_nether run worldborder set <width>` | the same for the Nether; `minecraft:the_end` for the End |
+| `chunky radius 1250`, then `chunky start` | creates the whole world up front, so nobody waits for it |
+
+The mods' settings are files in `/srv/minecraft/data/config` on the VM;
+restart the server after changing one:
+
+```sh
+ssh -J ubuntu@10.0.1.226 ubuntu@10.250.226.170 sudo docker restart minecraft
+```
+
+Bedrock clients update on their own. When they are refused after an
+update, bump `geyser` in the role's mod list (see `AGENTS.md`, Dependency
+pinning).
+
+**Backups.** With a bucket at any Simple Storage Service (S3) provider, the
+world and the server's settings are backed up every hour while somebody is
+playing. Backups are encrypted before they leave the machine, and only what
+changed is uploaded. In `group_vars/minecraft.yml`:
+
+* Set `minecraft_backup_repository` to the bucket,
+  `s3:https://<endpoint>/<bucket>`, and `minecraft_backup_region` to its
+  region. [minecraft-standby](#minecraft-standby) makes one at Hetzner.
+* Replace the encrypted `minecraft_backup_access_key_id` and
+  `minecraft_backup_secret_access_key` with a key pair that may read and
+  write that bucket, and the encrypted `minecraft_backup_password` with a
+  long random string (see Secrets). Keep that password somewhere else too:
+  without it no backup can be read.
+
+Run the playbook again. To go back to a backup, on the VM:
+
+```sh
+sudo minecraft-restore
+```
+
+lists them, and
+
+```sh
+sudo minecraft-restore <ID>
+```
+
+stops the server, puts the world back as it was in that backup (`latest`
+for the newest), and starts it again. The world from before the restore
+is kept next to it until you delete it. Add `with-settings` after the ID
+to bring back the whitelist, operators, bans and the mods' settings as
+well. For a backup right now:
+
+```sh
+sudo docker exec minecraft-backup backup now
+```
+
+The same server runs on a rented machine instead, an Amazon Elastic
+Compute Cloud (EC2) instance for example, with Ubuntu and at least 6 GB of
+memory. No tunnel or egress VM is involved there:
+
+* Add the machine to the `minecraft` group in `inventory/hosts.yml`, and
+  only to that group.
+* Give it a `host_vars/<name>.yml` with `ansible_host` and `ansible_user`
+  (`ubuntu` on Ubuntu images), and `minecraft_data_device` if the worlds go
+  on a disk of their own.
+* In the provider's firewall, open `25565` TCP and `19132` UDP to everyone,
+  and `22` TCP to your own address only. Nothing in this repository
+  firewalls that machine.
+* Run the playbook with `--limit <name>`. Players connect to the machine's
+  own public address.
+
+</details>
+
+<details>
+<summary><h3 id="minecraft-standby" style="display:inline; margin:0; vertical-align:middle">minecraft-standby</h3></summary>
+
+A second Minecraft server, rented at Hetzner, for when minecraft-server1 is
+down. Both back up to one bucket, and a server that has no world yet loads
+the newest backup from it, with the whitelist and the mods' settings.
+The `minecraft` stack of [Cloud resources](#cloud-resources) makes the
+bucket and the server with its firewall and its name; do the steps there
+first, and apply the `dns` stack before this one.
+
+* Replace the encrypted `minecraft_backup_access_key_id` and
+  `minecraft_backup_secret_access_key` in `group_vars/minecraft.yml` with
+  the same S3 credentials Terraform uses (see Secrets).
+* Set `backup_bucket` and `ssh_public_keys` in
+  `terraform/stacks/minecraft/terraform.tfvars`.
+
+```sh
+terraform -chdir=terraform/stacks/minecraft init
+```
+
+```sh
+terraform -chdir=terraform/stacks/minecraft apply
+```
+
+Put the `backup_repository` it prints in `minecraft_backup_repository`,
+then install the server:
+
+```sh
+cd ansible
+```
+
+```sh
+ansible-playbook playbooks/site.yml --limit minecraft-standby --ask-vault-pass
+```
+
+Players connect to `minecraft-standby.<domain>`. Only one of the two
+servers may run at a time: each would carry on with its own copy of the
+world.
+
+**When minecraft-server1 is down.** Run the playbook for minecraft-standby
+as above; a new server loads the newest backup, which is up to an hour
+old. A standby you kept from last time still has its old world: run
+`minecraft-restore latest with-settings` on it before anyone plays, within
+the hour, or its old world becomes the newest backup.
+
+**Going back home.** On minecraft-standby, take a last backup and stop the
+server:
+
+```sh
+ssh root@minecraft-standby.<domain> docker exec minecraft-backup backup now
+```
+
+```sh
+ssh root@minecraft-standby.<domain> docker compose --project-directory /opt/stacks/minecraft stop
+```
+
+Then, on minecraft-server1:
+
+```sh
+sudo minecraft-restore latest with-settings
+```
+
+The server costs money while it exists, and one that is made anew always
+starts from the newest backup. So after going back home, set
+`standby_server = false` in the stack's `terraform.tfvars` and apply to
+remove it and its name; the bucket stays, and `true` makes a new one.
+
+</details>
+
+</details>
+
+<details>
+<summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="cloud-resources" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Cloud resources</h2></summary>
+
+What is rented outside the house is made with
+[Terraform](https://developer.hashicorp.com/terraform/install) 1.17.2,
+under `terraform/`. It is split into stacks, one per purpose. Each stack
+keeps its own record of what it made, so working on one cannot change
+another.
+
+| Stack | Makes |
+|---|---|
+| `stacks/dns` | the domain's Domain Name System (DNS) zone at Hetzner, taken over as it is, and the records kept by hand |
+| `stacks/minecraft` | the bucket for the Minecraft backups, and [minecraft-standby](#minecraft-standby) with its firewall and its name |
+
+**Secrets.** They are in two files under `terraform/secrets/`, encrypted
+with [SOPS](https://github.com/getsops/sops) and safe to commit. Install
+SOPS and [age](https://github.com/FiloSottile/age), then make a key; it
+prints its public half:
+
+```sh
+mkdir -p ~/.config/sops/age
+```
+
+```sh
+age-keygen -o ~/.config/sops/age/keys.txt
+```
+
+Keep a copy of that file somewhere safe: without it the secrets cannot be
+read. Put the public key in `terraform/.sops.yaml`.
+
+In the [Hetzner console](https://console.hetzner.com), in the project that
+holds the zone, make an Application Programming Interface (API) token with
+read and write access (Security, API tokens) and S3 credentials (Security,
+S3 credentials). Then write the two files; each command opens an editor
+and encrypts on saving. The `.example.yaml` file next to each shows what
+goes in.
+
+```sh
+cd terraform
+```
+
+```sh
+sops edit secrets/credentials.sops.yaml
+```
+
+```sh
+sops edit secrets/home.sops.yaml
+```
+
+The first holds the token and the S3 credentials. Terraform logs in with
+them and never writes them down. The second holds your domain and your
+home's public address: where the VPN name points, and the only address
+that may log in to a rented server. Both say whose homelab this is, so
+they are written nowhere else in the repository.
+
+**Running a stack.** From the repository's root, the `dns` stack first:
+
+```sh
+terraform -chdir=terraform/stacks/dns init
+```
+
+```sh
+terraform -chdir=terraform/stacks/dns plan
+```
+
+Read the plan before going on. The zone and the `wg-easy` record exist
+already and are taken over (imported), so the plan should change little
+about them and destroy nothing. Records that are in no stack are left
+alone; to manage another one, add it to the stack's `main.tf` with an
+`import` block like the ones there.
+
+```sh
+terraform -chdir=terraform/stacks/dns apply
+```
+
+Each stack keeps what it made in a `terraform.tfstate` file next to its
+code, out of git. Keep those files, and keep them to yourself: without
+one, Terraform no longer knows what is its own, and it holds your domain
+and home address in plain text.
+
+For something new, a bucket for photo backups for example, add a stack
+beside these two; `modules/backup-bucket` is a bucket that Terraform can
+never empty or remove.
+
 </details>
 
 <details open>
@@ -470,7 +769,7 @@ Built from the inventory by the Pi-holes, under `homelab_domain`:
 `<machine>.<service>` where a service runs on several machines. Every name
 points at one address.
 
-All subdomains of `example.org`.
+All subdomains of your domain.
 
 **Machines**, for SSH:
 
@@ -508,7 +807,7 @@ All subdomains of `example.org`.
 | dns.pihole | 10.0.1.100 | DNS server                                  |
 | pi1.pihole | 10.0.1.101 | DNS server                                  |
 | forgejo    | 10.0.1.110 | git over SSH, port 2222                     |
-| samba      | 10.0.1.120 | SMB shares, `smb://samba.example.org`   |
+| samba      | 10.0.1.120 | SMB shares, `smb://samba.<domain>`          |
 | jellyfin   | 10.0.1.160 | the Jellyfin apps, port 8096                |
 | gaming     | 10.0.1.160 | Moonlight pairing                           |
 
@@ -539,6 +838,11 @@ the dns VM's on UDP port 51820, the Pi's on 51821.
 │   ├── molecule/            one test scenario per container-testable role
 │   └── docker/              images for code analysis, running ansible, and
 |                            a target for molecule
+├── terraform/
+│   ├── stacks/              one directory per purpose, each applied on its own:
+│   │                        dns, minecraft
+│   ├── modules/             building blocks the stacks share
+│   └── secrets/             what Terraform logs in with, encrypted with SOPS
 ├── .config/molecule/        settings shared by every scenario (Molecule reads
 │                            this from the git root only)
 ├── .github/
@@ -574,6 +878,8 @@ In the order the playbook runs them. They live in three directories under
 | mealie          | Mealie behind a Caddy proxy that signs the LAN in as one shared account; admin takeover, accounts and public access via API |
 | pihole          | Pi-hole compose stack with local records from the inventory, admin UI behind Caddy; frees port 53 from systemd-resolved |
 | wireguard       | wg-easy compose stack: WireGuard with a web UI behind Caddy |
+| egress          | gateway of one isolated network: forwards it into a WireGuard tunnel and nowhere else, and passes chosen ports back in |
+| minecraft       | Minecraft compose stack: Fabric server with checksummed mods, Bedrock players through Geyser, whitelist only |
 
 </details>
 
@@ -620,6 +926,7 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | mealie   | a visit without credentials lands on the shared account through a reverse proxy(Caddy) |
 | pihole   | a local record and a public name resolve; the admin password logs in through Caddy |
 | wireguard | wg-easy runs with the tunnel published and the UI behind Caddy. Needs the WireGuard module on the host running the instance |
+| minecraft | the server starts with every mod loaded and Geyser listening; a player is whitelisted on the running server. Agrees to Mojang's EULA, and downloads about 1.5 GB |
 
 </details>
 
@@ -681,6 +988,12 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
   * 47984/tcp, 47989/tcp: Sunshine pairing and control (Moonlight)
   * 48010/tcp: Sunshine Real-Time Streaming Protocol (RTSP)
   * 47998-48000/udp: Sunshine video, control and audio streams
+* **minecraft-server1-egress** (10.0.1.226)
+  * 22/tcp: SSH
+* **minecraft-server1** (10.250.226.170), through the tunnel only
+  * 22/tcp: SSH, from minecraft-server1-egress
+  * 25565/tcp: Minecraft, Java players
+  * 19132/udp: Minecraft, Bedrock players (Geyser)
 * **srv1** (10.0.1.200), the Proxmox host
   * 22/tcp: SSH
   * 8006/tcp: Proxmox web UI and API (HTTPS, its own certificate)

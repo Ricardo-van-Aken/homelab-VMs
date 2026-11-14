@@ -1,0 +1,56 @@
+#!/bin/sh
+# {{ ansible_managed }}
+# Lists the backups, or puts the world of one back:
+#   minecraft-restore                       the backups, newest last
+#   minecraft-restore <id>                  the world as it was in that backup
+#   minecraft-restore latest                the newest one, of any server
+#   minecraft-restore <id> with-settings    also the whitelist, operators,
+#                                           bans and the mods' settings
+set -eu
+
+stack={{ minecraft_dir }}
+world={{ minecraft_data_dir }}/data/{{ minecraft_world }}
+
+restic() {
+	docker compose --project-directory "$stack" run --rm --no-deps restore "$@"
+}
+
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ] || { [ "$#" -eq 2 ] && [ "$2" != with-settings ]; }; then
+	restic snapshots --tag '{{ minecraft_world }}'
+	echo
+	echo "To put one back: $0 <ID>, or $0 latest; add with-settings for the"
+	echo "whitelist, operators, bans and the mods' settings too."
+	exit 0
+fi
+
+# Stops here when there is no such backup, before anything is touched.
+restic snapshots --tag '{{ minecraft_world }}' "$1" > /dev/null
+
+docker compose --project-directory "$stack" stop
+
+# The world as it is now is moved aside, never deleted.
+kept=
+if [ -e "$world" ]; then
+	kept="$world.before-restore-$(date +%Y%m%d-%H%M%S)"
+	mv "$world" "$kept"
+fi
+
+set -- "$1" --tag '{{ minecraft_world }}' --target / --include '/data/{{ minecraft_world }}' ${2:+{% for path in minecraft_backup_settings %}--include /data/{{ path }} {% endfor %}}
+
+if ! restic restore "$@"; then
+	echo "The restore failed; putting the world back as it was." >&2
+	rm -rf "$world"
+	if [ -n "$kept" ]; then
+		mv "$kept" "$world"
+	fi
+	docker compose --project-directory "$stack" start
+	exit 1
+fi
+
+docker compose --project-directory "$stack" start
+
+echo "The world is back as it was in backup $1."
+if [ -n "$kept" ]; then
+	echo "The world from before the restore is kept in $kept;"
+	echo "delete it once the restored one is right."
+fi
