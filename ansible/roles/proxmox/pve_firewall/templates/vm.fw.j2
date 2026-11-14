@@ -5,16 +5,22 @@
 [OPTIONS]
 
 enable: 1
-ipfilter: 1
+{# A card that forwards sends other machines' packets from their addresses,
+   which no ipset can allow (0.0.0.0/0 is refused). Such a card gets no
+   ipfilter set; the default filter is off so the missing set does not
+   become an empty one, and the other cards keep their explicit sets. #}
+ipfilter: {{ 0 if networks | selectattr('forwards', 'defined') | selectattr('forwards') | list | length > 0 else 1 }}
 policy_in: DROP
 policy_out: {{ 'DROP' if fw.out_only | length > 0 else 'ACCEPT' }}
 
 {% for net in networks %}
+{%   if not net.forwards | default(false) %}
 # The VM may only send from its own address on this card.
 [IPSET ipfilter-net{{ loop.index0 }}]
 
 {{ net.address | default(vm.ansible_host) }}
 
+{%   endif %}
 {% endfor %}
 [RULES]
 

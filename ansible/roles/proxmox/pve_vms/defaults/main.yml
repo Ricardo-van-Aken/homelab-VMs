@@ -36,7 +36,9 @@ pve_vms_nameservers: []
 #         address: 10.250.225.150
 #         prefix: 24       # default pve_vms_network_prefix
 #         gateway: 10.250.225.1  # optional
-#     disks:               # extra virtual disks, scsi1 onwards; created once,
+#         forwards: true   # the VM routes other machines' traffic out of
+#                          # this card, so it may send from any address
+#     disks:             # extra virtual disks, scsi1 onwards; created once,
 #       - storage: tank-vms  # never resized or removed by this role
 #         size: 100        # GiB
 #     wait_for_ssh: false  # for a VM the Proxmox host cannot reach

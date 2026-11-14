@@ -15,6 +15,7 @@ pve_vm:
     - bridge: vmbr226
       address: 10.250.226.1
       prefix: 24
+      forwards: true
   firewall:
     in:
       - iface: net1  # all traffic from minecraft-server1, to forward into the VPN tunnel

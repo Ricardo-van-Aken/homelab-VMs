@@ -24,7 +24,14 @@ pve_vm:
       - proto: tcp
         port: 443  # Pi-hole admin and wg-easy web UIs, through Caddy
       - proto: udp
+        port: 67  # DHCP, Pi-hole; clients have no address yet
+        from: any
+      - proto: udp
         port: 51820  # WireGuard VPN (wg-easy), forwarded by the router
         from: any
     # VPN clients come out of this VM, so it may reach the whole LAN.
     lan: all
+
+# Addresses this Pi-hole hands out; pi1 has the range after it.
+pihole_dhcp_start: 10.0.1.10
+pihole_dhcp_end: 10.0.1.59
