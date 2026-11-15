@@ -37,7 +37,7 @@ table inet relay {
 		ip saddr {{ relay_peer_address }} oifname "{{ public }}" masquerade
 	}
 
-	# This machine itself serves the tunnel and SSH, nothing else, and only
+	# This machine itself serves the tunnel, SSH and its web sites, and only
 	# to the internet: nothing in the tunnel reaches it. Which addresses
 	# reach SSH is the provider's firewall's to say.
 	chain input {
@@ -49,5 +49,8 @@ table inet relay {
 		iifname "{{ public }}" meta l4proto { icmp, ipv6-icmp } accept
 		iifname "{{ public }}" tcp dport 22 accept  # SSH, for you and Ansible
 		iifname "{{ public }}" udp dport {{ relay_port }} accept  # the tunnel, from the home end
+{% if relay_sites %}
+		iifname "{{ public }}" tcp dport { 80, 443 } accept  # the web sites (Caddy), and Let's Encrypt
+{% endif %}
 	}
 }

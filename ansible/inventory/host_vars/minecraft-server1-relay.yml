@@ -3,7 +3,10 @@
 # A server at Hetzner, made by terraform/stacks/minecraft with its firewall.
 # Players of minecraft-server1 connect to it. OpenTofu reads this file for
 # the name under the domain and the tunnel's port.
-ansible_host: "mc.{{ homelab_domain }}"
+ansible_host: "ddg-craft.{{ homelab_domain }}"
+# Other names under the domain for this server; OpenTofu makes their
+# records. map.ddg-craft: the map, in relay_sites.
+relay_aliases: [map.ddg-craft]
 ansible_user: root  # what Hetzner's images log in as
 # A server made anew has new host keys. Accept a key on first contact, but
 # still refuse a changed one; remove the stale entry with `ssh-keygen -R`.
@@ -18,3 +21,15 @@ relay_port: 51820
 # This end's address in the tunnel; the home end's egress_vpn_address is in
 # the same network.
 relay_address: 10.99.226.1/24
+# The map of minecraft-server1's world, served over HTTPS here.
+relay_sites:
+  - "map.ddg-craft.{{ homelab_domain }}"
+# Passed down the tunnel as they are; the map's port 80 is not, this
+# machine asks for it itself.
+relay_forwards:
+  - proto: tcp
+    port: 25565  # Minecraft Java players
+  - proto: tcp
+    port: 19132  # Minecraft Bedrock players, joining (NetherNet)
+  - proto: udp
+    port: 19132  # Minecraft Bedrock players

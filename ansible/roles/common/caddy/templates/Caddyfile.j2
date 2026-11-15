@@ -10,10 +10,11 @@
 {% endif %}
 }
 
-# Imported by every site. With HTTPS: prove the name with a temporary DNS
-# record at the provider, and give it time to reach all nameservers.
+# Imported by every site. With the DNS challenge: prove the name with a
+# temporary DNS record at the provider, and give it time to reach all
+# nameservers. Empty otherwise.
 (dns_challenge) {
-{% if caddy_https | bool %}
+{% if caddy_https | bool and caddy_challenge == 'dns' %}
 	tls {
 		dns {{ caddy_dns_provider }} {env.CADDY_DNS_TOKEN}
 		propagation_delay {{ caddy_dns_propagation_delay }}s

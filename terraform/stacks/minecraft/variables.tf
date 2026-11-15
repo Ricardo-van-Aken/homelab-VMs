@@ -18,13 +18,13 @@ variable "standby_server" {
 variable "standby_name" {
   description = "Name of the standby server: its name in the Ansible inventory, whose host_vars say what it is called under the domain."
   type        = string
-  default     = "minecraft-standby"
+  default     = "minecraft-server1-standby"
 }
 
 variable "standby_server_type" {
-  description = "Hetzner server type. The Minecraft settings want 10 GB of memory or more."
+  description = "Hetzner server type. 8 GB of memory: the standby gives the game less than the server at home (host_vars/minecraft-server1-standby.yml)."
   type        = string
-  default     = "cx43"
+  default     = "cpx32"
 }
 
 variable "relay_server" {

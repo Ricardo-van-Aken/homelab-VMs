@@ -1,0 +1,3 @@
+---
+# Whether this machine has a tunnel of its own.
+egress_vpn_on: "{{ egress_vpn | bool and egress_vpn_endpoint | length > 0 }}"

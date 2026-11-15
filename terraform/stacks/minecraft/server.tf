@@ -56,10 +56,34 @@ resource "hcloud_firewall" "standby" {
   }
 
   rule {
+    description = "Minecraft, Bedrock players joining (Geyser, NetherNet)"
+    direction   = "in"
+    protocol    = "tcp"
+    port        = "19132"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+  }
+
+  rule {
     description = "Minecraft, Bedrock players (Geyser)"
     direction   = "in"
     protocol    = "udp"
     port        = "19132"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+  }
+
+  rule {
+    description = "the map, redirected to HTTPS, and Let's Encrypt"
+    direction   = "in"
+    protocol    = "tcp"
+    port        = "80"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+  }
+
+  rule {
+    description = "the map of the world (BlueMap)"
+    direction   = "in"
+    protocol    = "tcp"
+    port        = "443"
     source_ips  = ["0.0.0.0/0", "::/0"]
   }
 }

@@ -13,6 +13,8 @@ provisioner:
         minecraft_memory_limit: 3g
         minecraft_seed: "-8028949898700072581"
         minecraft_world_radius: 1250
+        minecraft_dimension_radius:
+          the_end: 2000
         minecraft_config_files:
           - src: "{{ lookup('env', 'MOLECULE_SCENARIO_DIRECTORY') }}/seeded.json"
             dest: molecule/seeded.json

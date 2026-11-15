@@ -39,5 +39,33 @@ egress_vpn_endpoint: "{{ hostvars[egress_relay].ansible_host }}:{{ hostvars[egre
 egress_inbound:
   - proto: tcp
     port: 25565  # Minecraft Java players
+  - proto: tcp
+    port: 19132  # Minecraft Bedrock players, joining (NetherNet)
   - proto: udp
     port: 19132  # Minecraft Bedrock players
+  - proto: tcp
+    port: 80  # the map of the world (BlueMap); the relay adds HTTPS
+# Set to false to run without the relay, with NetBird below as the only way
+# in.
+egress_vpn: false
+# With the relay gone, minecraft-server1 still reaches Mojang to check
+# logins, through the home connection.
+egress_outbound_lan: true
+
+# A second way in: a friend's NetBird network, whose public server passes
+# the two game ports on.
+egress_netbird: true
+egress_netbird_inbound:
+  - proto: tcp
+    port: 25565  # Minecraft Java players
+  - proto: tcp
+    port: 19132  # Minecraft Bedrock players, joining (NetherNet)
+  - proto: udp
+    port: 19132  # Minecraft Bedrock players
+  - proto: tcp
+    port: 80  # the map of the world (BlueMap); the friend's server adds HTTPS
+# The friend's management server, https://..., and a setup key from them.
+# SECRET: in secrets.sops.yaml.
+# TODO: write both with `sops edit`; the role stops while they are missing.
+# egress_netbird_management_url: <string>
+# egress_netbird_setup_key: <string>

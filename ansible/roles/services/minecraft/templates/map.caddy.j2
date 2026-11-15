@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+# Under any name, over plain HTTP: for a server in front that adds HTTPS.
+http:// {
+	reverse_proxy 127.0.0.1:{{ minecraft_map_port }}
+}
+{% if minecraft_map_domain %}
+
+{{ caddy_scheme }}{{ minecraft_map_domain }} {
+	import dns_challenge
+	reverse_proxy 127.0.0.1:{{ minecraft_map_port }}
+}
+{% endif %}

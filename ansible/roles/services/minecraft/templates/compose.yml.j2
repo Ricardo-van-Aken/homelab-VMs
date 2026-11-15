@@ -16,6 +16,11 @@ services:
       # The jars in /mods replace the server's own copies at every start.
       REMOVE_OLD_MODS: "TRUE"
       LEVEL: "{{ minecraft_world }}"
+      # The zips in /datapacks replace the world's own copies at every start.
+      REMOVE_OLD_DATAPACKS: "TRUE"
+{% if minecraft_datapacks %}
+      DATAPACKS: "{{ minecraft_datapacks | map('basename') | map('regex_replace', '^', '/datapacks/') | join(',') }}"
+{% endif %}
 {% if minecraft_seed | string | length > 0 %}
       SEED: "{{ minecraft_seed }}"
 {% endif %}
@@ -44,15 +49,23 @@ services:
       STOP_DURATION: "120"
       # The console's password; the port itself is not published.
       RCON_PASSWORD_FILE: /run/secrets/rcon-password
+{% if minecraft_bedrock_advertise %}
+      # Read by Geyser at start, in place of the address it finds itself.
+      JVM_OPTS: "-DgeyserAdvertiseAddresses={{ minecraft_bedrock_advertise | join(',') }}"
+{% endif %}
 {% for key, value in minecraft_extra_env.items() %}
       {{ key }}: "{{ value }}"
 {% endfor %}
     ports:
       - "{{ minecraft_java_port }}:25565/tcp"
+      - "{{ minecraft_bedrock_port }}:19132/tcp"
       - "{{ minecraft_bedrock_port }}:19132/udp"
+      # BlueMap, for Caddy on this machine only.
+      - "127.0.0.1:{{ minecraft_map_port }}:8100/tcp"
     volumes:
       - {{ minecraft_data_dir }}/data:/data
       - {{ minecraft_data_dir }}/mods:/mods:ro
+      - {{ minecraft_data_dir }}/datapacks:/datapacks:ro
       - {{ minecraft_dir }}/rcon-password:/run/secrets/rcon-password:ro
     # The image allows two minutes to start; a first start downloads the
     # server and creates the world, which takes longer.
@@ -94,6 +107,7 @@ services:
       BACKUP_ON_STARTUP: "false"
       PAUSE_IF_NO_PLAYERS: "{{ minecraft_backup_only_with_players | bool | string | lower }}"
       PRUNE_RESTIC_RETENTION: "{{ minecraft_backup_retention }}"
+      EXCLUDES: "{{ minecraft_backup_excludes | join(',') }}"
       RESTIC_CACHE_DIR: /tmp/restic-cache
       RCON_HOST: minecraft
       RCON_PASSWORD_FILE: /run/secrets/rcon-password
