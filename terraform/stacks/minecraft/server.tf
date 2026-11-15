@@ -5,7 +5,7 @@
 # comment at the end of each. They log in as root on a new server.
 locals {
   ssh_keys = {
-    for key in local.ansible_all.ssh_keys_authorized :
+    for key in local.ssh_keys_authorized :
     try(split(" ", trimspace(key))[2], "") => key
   }
 }

@@ -111,7 +111,7 @@ writing it to the maintainer (`sops edit <file>`).
 | Secret | File |
 |---|---|
 | of a group or host | `secrets.sops.yaml` in its directory under `ansible/inventory/group_vars/` or `host_vars/` |
-| the domain and the home's public address | `group_vars/all/identity.sops.yaml`, which holds nothing else |
+| the domain, the home's public address and the SSH public keys | `group_vars/all/identity.sops.yaml`, which holds nothing else |
 | only OpenTofu needs | `terraform/secrets/*.sops.yaml`, with its keys in the `.example.yaml` beside it |
 
 * A group or host gets a directory with its first secret: `<name>.yml`
