@@ -1,0 +1,17 @@
+---
+- name: Install WireGuard's tools
+  ansible.builtin.apt:
+    name: wireguard-tools
+    state: present
+
+- name: Make a private key
+  ansible.builtin.shell: >-
+    umask 077 && wg genkey > {{ tunnel_key_file }}
+    || { rm -f {{ tunnel_key_file }}; exit 1; }
+  args:
+    creates: "{{ tunnel_key_file }}"
+
+- name: Read the public key
+  ansible.builtin.shell: wg pubkey < {{ tunnel_key_file }}
+  register: tunnel_key_public
+  changed_when: false

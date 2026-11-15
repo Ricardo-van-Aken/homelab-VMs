@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Relay firewall (nftables table relay)
+Wants=network-pre.target
+Before=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/relay.nft
+ExecReload=/usr/sbin/nft -f /etc/relay.nft
+ExecStop=/usr/sbin/nft delete table inet relay
+
+[Install]
+WantedBy=multi-user.target

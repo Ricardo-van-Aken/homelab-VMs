@@ -1,0 +1,7 @@
+---
+# Who can read the encrypted *.sops.yaml and *.sops.json files in this
+# repository: the holders of the age keys whose public halves are listed here.
+# TODO: replace with your own age public key (docs/secrets.md).
+creation_rules:
+  - path_regex: \.sops\.(yaml|json)$
+    age: age18fcxx0vceey8e7m6dzyyzyjks6geq97cq3rezglmgpakclncf4ms9hvu83

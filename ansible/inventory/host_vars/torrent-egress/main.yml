@@ -31,7 +31,9 @@ egress_isolated:
 egress_vpn_address: ""  # [Interface] Address
 egress_vpn_peer_public_key: ""  # [Peer] PublicKey
 egress_vpn_endpoint: ""  # [Peer] Endpoint
-# [Interface] PrivateKey.
-# TODO: replace with your own !vault value; this one will not decrypt.
-egress_vpn_private_key: ""
+# [Interface] PrivateKey, when the provider made the key pair. Without one,
+# this machine makes its own and the play shows the public key.
+# SECRET: in secrets.sops.yaml.
+# egress_vpn_private_key: <WireGuard private key>
+
 egress_inbound: []

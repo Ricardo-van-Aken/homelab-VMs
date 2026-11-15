@@ -20,6 +20,8 @@ table inet egress {
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
+		# The tunnel carries smaller packets than the network cards do.
+		oifname "{{ egress_vpn_interface }}" tcp flags syn tcp option maxseg size set rt mtu
 		ct state established,related accept
 {% if egress_vpn_endpoint %}
 		iifname "{{ egress_isolated_interface }}" oifname "{{ egress_vpn_interface }}" accept

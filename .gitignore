@@ -4,3 +4,10 @@ collections/
 .ansible/
 .reports/
 .vault_pass
+
+# OpenTofu: downloaded providers, and the state, which holds everything
+# OpenTofu knows about the account. The lock file is committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log

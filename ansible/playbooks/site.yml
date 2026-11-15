@@ -17,23 +17,61 @@
     - static_address
     - host_firewall
 
-# Only created for now, nothing installed: the isolated VMs, which have no
-# way out until their egress VM has a VPN tunnel, and the monitoring VM.
+# Only created for now, nothing installed: torrent and the monitoring VM.
+# The Minecraft servers have a play of their own, after their gateways.
 - name: Base configuration for every VM and Pi
-  hosts: vms:pis:!torrent:!minecraft-server1:!monitoring
+  hosts: vms:pis:!torrent:!minecraft:!monitoring
   roles:
     - ssh_keys
     - base
 
 - name: Host datasets on the VMs
-  hosts: vms:!torrent:!minecraft-server1:!monitoring
+  hosts: vms:!torrent:!minecraft:!monitoring
   roles:
     - shares
+
+# Before the gateways at home, which check that their tunnel answers.
+- name: Public ends of the tunnels
+  hosts: relay
+  roles:
+    - ssh_keys
+    - base
+    - relay
 
 - name: Isolated network gateways
   hosts: egress
   roles:
     - egress
+
+# After the gateways: everything here is downloaded through the tunnel of
+# the machine's egress VM (isolated_egress in its host_vars).
+- name: Minecraft servers
+  hosts: minecraft
+  # Gathered below, once the machine is known to be reachable.
+  gather_facts: false
+  pre_tasks:
+    - name: Look whether the machine's tunnel is up
+      ansible.builtin.command: >-
+        wg show {{ hostvars[isolated_egress].egress_vpn_interface | default('vpn') }} latest-handshakes
+      # Read before `when`, so it needs a value on a machine without one.
+      delegate_to: "{{ isolated_egress | default(inventory_hostname) }}"
+      register: site_tunnel
+      changed_when: false
+      failed_when: false
+      when: isolated_egress is defined
+
+    - name: Skip a machine whose tunnel is not up yet
+      ansible.builtin.meta: end_host
+      when:
+        - isolated_egress is defined
+        - site_tunnel.stdout | default('') is not search('\s[1-9][0-9]*$')
+
+    - name: Gather facts
+      ansible.builtin.setup:
+  roles:
+    - ssh_keys
+    - base
+    - minecraft  # depends on geerlingguy.docker role
 
 - name: Jellyfin media servers
   hosts: jellyfin

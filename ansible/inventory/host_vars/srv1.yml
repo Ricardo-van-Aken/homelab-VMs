@@ -47,10 +47,13 @@ pve_storage_pools:
           recordsize: 1M
       - name: games  # Steam library, owned by the desktop user
         owner: 2002
+      # mode: what the service's role sets on its data directory in the VM.
       - name: forgejo  # repositories and database
         owner: 2001
+        mode: "0750"
       - name: mealie  # recipes, images and database
         owner: 2003
+        mode: "0750"
       - name: vms  # extra VM disks (pve_vm.disks), each VM's own, not shared
         share: false
         storage: tank-vms

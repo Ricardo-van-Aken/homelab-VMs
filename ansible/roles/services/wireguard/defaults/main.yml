@@ -27,7 +27,7 @@ wireguard_client_dns: []
 # also read on the first start only; with them wg-easy skips its setup
 # screen. Empty password: the setup screen asks instead.
 wireguard_admin_user: admin
-wireguard_admin_password: ""  # put a !vault value in group_vars
+wireguard_admin_password: ""  # put it in the group's secrets.sops.yaml
 wireguard_public_host: ""  # your public IP address, or a DNS name for it
 
 # Docker network, as wg-easy's own compose file defines it. Caddy's requests

@@ -1,6 +1,6 @@
 ---
 # Mealie settings.
-# The service name the dns VM resolves (see group_vars/pihole.yml).
+# The service name the dns VM resolves (see group_vars/pihole/main.yml).
 mealie_domain: "mealie.{{ homelab_domain }}"
 # Recipes, images and database, on the host's mealie dataset (pve_vm.shares).
 mealie_data_dir: /srv/mealie
@@ -13,8 +13,9 @@ mealie_public: true
 # Sent by the Caddy proxy with every request; Mealie rejects requests
 # without it. Any long random string. You don't need to save this in
 # any password manager.
-mealie_proxy_secret: ""
-
+# SECRET: in secrets.sops.yaml.
+# mealie_proxy_secret: <string>
 
 # Password of the `admin` account; the role sets it on the first run.
-mealie_admin_password: ""
+# SECRET: in secrets.sops.yaml.
+# mealie_admin_password: <string, 8 characters or more>

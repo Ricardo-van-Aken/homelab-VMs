@@ -5,12 +5,16 @@ ansible_host: 10.250.226.170
 ansible_ssh_common_args: >-
   -o StrictHostKeyChecking=accept-new
   -o ProxyJump=ubuntu@{{ hostvars['minecraft-server1-egress'].ansible_host }}
+# Its way out; nothing is installed here while that tunnel is not set up.
+isolated_egress: minecraft-server1-egress
 
 # The VM as the Proxmox host builds it.
 # Its VMID is the 8 bits of its IP on the isolated network (= 170).
 pve_vm:
   cores: 4
-  memory: 4096
+  memory: 10240  # 8G of Java heap (minecraft_memory), and room on top
+  # The game loop runs on one core; keep every core it may get a fast one.
+  affinity: performance
   untrusted: true
   # Worlds, on its own disk on the tank pool; nothing shared with the host.
   disks:
@@ -41,3 +45,6 @@ pve_vm:
         port: 19132  # Minecraft Bedrock players, through the tunnel
         from: any
     lan: none
+
+# The disk above, as this machine sees it; the worlds go on it.
+minecraft_data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1

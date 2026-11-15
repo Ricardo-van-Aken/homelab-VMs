@@ -13,8 +13,9 @@
 [![License](https://img.shields.io/github/license/Ricardo-van-Aken/homelab-VMs)](LICENSE)
 </div>
 
-Ansible for my homelab: a Proxmox host, the Virtual Machines (VMs) on it, and
-a Raspberry Pi beside it. Each machine runs one or more services:
+Ansible for my homelab: a Proxmox host, the Virtual Machines (VMs) on it, a
+Raspberry Pi beside it, and two rented servers made with OpenTofu. Each
+machine runs one or more services:
 
 * **arcade**: media and game streaming, with the host's graphics processing
 unit (GPU) passed through
@@ -43,14 +44,19 @@ unit (GPU) passed through
 * **torrent** and **torrent-egress**: torrent runs on an isolated network of
   its own and has nothing installed yet. torrent-egress is its only way in
   and out, through a VPN provider's WireGuard tunnel set in its host vars.
-* **minecraft-server1** and **minecraft-server1-egress**: minecraft-server1
-  runs on an isolated network of its own and has nothing installed yet.
+* **minecraft-server1**, **minecraft-server1-egress** and
+  **minecraft-server1-relay**: minecraft-server1 runs a modded Minecraft
+  server for Java and Bedrock players, on an isolated network of its own.
   minecraft-server1-egress is its only way in and out, through a WireGuard
-  tunnel to a rented server that players connect to, set in its host vars.
+  tunnel to minecraft-server1-relay, a rented server. Players connect to
+  the relay, so the home address stays hidden.
+* **minecraft-standby**: the same Minecraft server, rented, for when the
+  one at home is down. It loads the world from the backups both keep in
+  one bucket.
 
 Every web UI is served over HTTPS by a Caddy on its machine, with Let's
-Encrypt certificates obtained through the domain's DNS records, so nothing
-but the VPN is reachable from the internet.
+Encrypt certificates obtained through the domain's DNS records, so at home
+nothing but the VPN is reachable from the internet.
 
 <details open>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="prerequisites" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Prerequisites</h2></summary>
@@ -79,6 +85,10 @@ up certain VMs, follow the instructions at
 
 **Your machine**
 * ansible-core, or Docker.
+* [SOPS](https://github.com/getsops/sops) and
+  [age](https://github.com/FiloSottile/age), for the secrets.
+* [OpenTofu](https://opentofu.org/docs/intro/install/) 1.13.9,
+  only for the rented servers.
 
 </details>
 
@@ -101,8 +111,9 @@ docker build -t ansible-runtime:local --target runtime \
 ```
 
 The container uses your SSH agent; load the key first (`ssh-add -l` lists
-it). On macOS the agent is reached through a fixed path, on Linux through
-your own socket:
+it). It also takes the unlocked SOPS key from your terminal
+([docs/secrets.md](docs/secrets.md)). On macOS the agent is reached through
+a fixed path, on Linux through your own socket:
 
 ```sh
 agent=$SSH_AUTH_SOCK; [ "$(uname)" = Darwin ] && agent=/run/host-services/ssh-auth.sock
@@ -111,6 +122,7 @@ agent=$SSH_AUTH_SOCK; [ "$(uname)" = Darwin ] && agent=/run/host-services/ssh-au
 ```sh
 docker run --rm -it -v "$PWD/..:/work" -w /work/ansible \
   -v "$agent:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
+  -e SOPS_AGE_KEY \
   ansible-runtime:local
 ```
 
@@ -129,20 +141,14 @@ yours; every variable is explained where it is set. The sections under
 [Set up only select VMs](#set-up-only-select-vms) say what each machine
 needs.
 
-The encrypted values in `inventory/group_vars/` (`!vault` blocks) were made
-with my personal vault password, so replace them too. Pick a vault password,
-then per secret:
-
-```sh
-ansible-vault encrypt_string --ask-vault-pass --stdin-name forgejo_admin_password
-```
-
-Type the value, press Ctrl-D, and paste the output over the old block in the
-same file.
+**Secrets.** They are in the files ending in `.sops.yaml` and `.sops.json`,
+encrypted with [SOPS](https://github.com/getsops/sops) for my key. You
+cannot read them, so delete them and make your own:
+[docs/secrets.md](docs/secrets.md) says how, and which file holds what.
 
 > [!WARNING]
 > Every key in the `ssh_keys_authorized` list can log in to your Proxmox
-> host and VMs. Replace my public keys in `inventory/group_vars/all.yml` with
+> host and VMs. Replace my public keys in `inventory/group_vars/all/main.yml` with
 > your own, or I have access to your systems.
 >
 > You already need SSH access to the Proxmox host, so the public key you use
@@ -159,19 +165,19 @@ ssh-keygen -t ed25519 -C "homelab" -f ~/.ssh/homelab_ed25519
 ssh-add ~/.ssh/homelab_ed25519
 ```
 
-`ansible/homelab_ed25519.vault` is my own SSH private key, encrypted with my
-vault password so I can share it between my computers. You cannot decrypt it,
+`ansible/homelab_ed25519.sops.json` is my own SSH private key, encrypted with
+SOPS so I can share it between my computers. You cannot decrypt it,
 and Ansible never reads it, so delete it. To share yours between your own
-computers the same way, encrypt it with your vault password:
+computers the same way, encrypt it, from `ansible/`:
 
 ```sh
-ansible-vault encrypt --output homelab_ed25519.vault ~/.ssh/homelab_ed25519
+sops encrypt --input-type binary --output-type json --output homelab_ed25519.sops.json ~/.ssh/homelab_ed25519
 ```
 
 On another computer, restore it with:
 
 ```sh
-(umask 077; ansible-vault decrypt --output ~/.ssh/homelab_ed25519 homelab_ed25519.vault)
+(umask 077; sops decrypt --output-type binary --output ~/.ssh/homelab_ed25519 homelab_ed25519.sops.json)
 ```
 
 </details>
@@ -205,20 +211,24 @@ this step.
 The other VMs resolve names through the dns VM, so it goes first:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit dns
 ```
 
 ```sh
-ansible-playbook playbooks/site.yml --limit vms --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit vms
 ```
 
 Then make your router hand out `10.0.1.100` (the dns VM) as the DNS server
 in its DHCP settings.
 
+minecraft-server1-egress fails until its rented relay exists
+([minecraft-server1](#minecraft-server1)). Until then, leave it out with
+`--limit 'vms:!minecraft-server1-egress'`.
+
 > [!TIP]
-> The vault password is needed whenever a play touches an encrypted value
-> from the inventory. To avoid the prompt, keep the password in a file
-> outside the repo and export `ANSIBLE_VAULT_PASSWORD_FILE=<path>` instead.
+> Every run decrypts the secrets, so unlock the SOPS key in that terminal
+> first ([docs/secrets.md](docs/secrets.md)). A run that says it failed to
+> get the data key means the key is not unlocked.
 
 #### Step 6 (optional): set up the Raspberry Pi
 The Raspberry Pi adds a second DNS server and a second VPN, for when the
@@ -229,13 +239,13 @@ The first run gives the Pi its fixed IP address (`host_vars/pi1.yml`), so it
 needs the Pi's current address on the first run:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit pi1 -e static_address_current=<current address> --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit pi1 -e static_address_current=<current address>
 ```
 
 Any subsequent runs can use:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit pi1 --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit pi1
 ```
 
 Then, in your router:
@@ -247,15 +257,15 @@ Then, in your router:
 Every web UI gets a Let's Encrypt certificate, proven through your DNS
 provider's API, so nothing has to be reachable from the internet.
 
-* Set `caddy_https: true` in `group_vars/all.yml`.
+* Set `caddy_https: true` in `group_vars/all/main.yml`.
 * Set `caddy_dns_provider` and `caddy_dns_plugin` to your provider's
   [caddy-dns](https://github.com/caddy-dns) plugin, and replace the
-  encrypted `caddy_dns_token` with an API token of that provider (see
-  Secrets).
-* Replace the encrypted `caddy_acme_email` with yours.
+  encrypted `caddy_dns_token` in `group_vars/all/secrets.sops.yaml` with an
+  API token of that provider (see Secrets).
+* Replace the encrypted `caddy_acme_email` there with yours.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit vms:pis --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit vms:pis
 ```
 
 </details>
@@ -270,7 +280,8 @@ host in `inventory/hosts.yml`, with
 * `pve_vm`: cores, memory, GPU, shares
 
 Any configuration of the services within the VM have to be adjusted in
-`inventory/group_vars/<service>.yml`
+`inventory/group_vars/<service>.yml`, or `<service>/main.yml` for a service
+with secrets.
 
 <details>
 <summary><h3 id="proxmox-host" style="display:inline; margin:0; vertical-align:middle">Proxmox host</h3></summary>
@@ -290,7 +301,7 @@ Make sure the host runs Proxmox VE. Before the first run:
     * `pve_passthrough_devices`: only for a VM with a GPU (arcade); the
       GPU's Peripheral Component Interconnect (PCI) functions, from `lspci -D`. Leave empty to skip passthrough
   
-  `group_vars/all.yml`
+  `group_vars/all/main.yml`
     * `ssh_keys_authorized`: public keys that may log in to the Proxmox host
       and the VMs
     * `homelab_lan`: your LAN. Devices on it may SSH in and open the
@@ -306,7 +317,7 @@ ansible-playbook playbooks/site.yml --limit proxmox
 
 This also clones and starts every VM in the inventory. With passthrough
 devices listed, the first run reboots the host and needs one cold power cycle
-afterwards (see [Proxmox host roles](#proxmox-host-roles)).
+afterwards (see [Full Setup](#full-setup), Step 4).
 
 </details>
 
@@ -320,8 +331,8 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
   resets cleanly, set it to `true`.
 * Steam gets the games share as a second library. After the first start,
   make it the default under Settings, Storage, so installs go to the pool.
-* Replace the placeholder `jellyfin_admin_password` and the passwords in
-  `jellyfin_users` in `group_vars/jellyfin.yml` with `!vault` values (see
+* Replace the encrypted `jellyfin_admin_password` and `jellyfin_users` in
+  `group_vars/jellyfin/secrets.sops.yaml` with your own (see
   Secrets). The role runs Jellyfin's setup wizard with them: admin user,
   extra users, libraries from `jellyfin_libraries`, hardware transcoding.
   Leave the admin password empty to do the wizard in the browser instead.
@@ -329,7 +340,7 @@ afterwards (see [Proxmox host roles](#proxmox-host-roles)).
   finds the GPU driver not yet bound.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit arcade --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit arcade
 ```
 
 </details>
@@ -338,13 +349,13 @@ ansible-playbook playbooks/site.yml --limit arcade --ask-vault-pass
 <summary><h3 id="forgejo-git" style="display:inline; margin:0; vertical-align:middle">forgejo-git</h3></summary>
 
 * Replace the encrypted `forgejo_admin_email` and `forgejo_admin_password` in
-  `group_vars/forgejo.yml` with your own (see Secrets), or create the admin
+  `group_vars/forgejo/secrets.sops.yaml` with your own (see Secrets), or create the admin
   by hand afterwards.
 * Add your own accounts to `forgejo_users` in the same file, name, email and
   password each encrypted. Every account needs its own address.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit forgejo-git --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit forgejo-git
 ```
 
 </details>
@@ -352,12 +363,12 @@ ansible-playbook playbooks/site.yml --limit forgejo-git --ask-vault-pass
 <details>
 <summary><h3 id="nas" style="display:inline; margin:0; vertical-align:middle">nas</h3></summary>
 
-* Replace the encrypted `samba_password` in `group_vars/samba.yml` with your
+* Replace the encrypted `samba_password` in `group_vars/samba/secrets.sops.yaml` with your
   own (see Secrets). It is set once; change it later with `smbpasswd media`
   on the VM.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit nas --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit nas
 ```
 
 Then connect from a laptop with `smb://10.0.1.120/movies` (or `series`,
@@ -370,14 +381,14 @@ user ID (uid), so they show up in the library on the next scan.
 <summary><h3 id="recipes" style="display:inline; margin:0; vertical-align:middle">recipes</h3></summary>
 
 * Replace the encrypted `mealie_admin_password` and `mealie_proxy_secret` in
-  `group_vars/mealie.yml` with your own (see Secrets). The secret is any
+  `group_vars/mealie/secrets.sops.yaml` with your own (see Secrets). The secret is any
   long random string.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit recipes --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit recipes
 ```
 
-Then open `http://mealie.example.org`. Everyone on the LAN is signed in as the
+Then open `http://mealie.<domain>`. Everyone on the LAN is signed in as the
 shared `family` account and can add and edit recipes. To use the admin
 account, log out from the menu and sign in on the page that follows.
 
@@ -386,17 +397,18 @@ account, log out from the menu and sign in on the page that follows.
 <details>
 <summary><h3 id="dns" style="display:inline; margin:0; vertical-align:middle">dns</h3></summary>
 
-* Replace the encrypted `pihole_web_password` in `group_vars/pihole.yml` with
-  your own (see Secrets).
+* Replace the encrypted `pihole_web_password` in
+  `group_vars/pihole/secrets.sops.yaml` with your own (see Secrets).
 * Replace the encrypted `wireguard_admin_password` in
-  `group_vars/wireguard.yml` with your own (see Secrets), and set
+  `group_vars/wireguard/secrets.sops.yaml` with your own (see Secrets), and set
   `wireguard_public_host` to your public IP address, or a public DNS name
   pointing at it.
-* Set `homelab_domain` in `group_vars/all.yml` to your domain. Every machine
-  and service becomes a subdomain of it, `forgejo.<domain>` for example.
+* Put your domain in `group_vars/all/identity.sops.yaml` as
+  `homelab_domain` (see Secrets). Every machine and service becomes
+  a subdomain of it, `forgejo.<domain>` for example.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit dns --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit dns
 ```
 
 Then, in your router:
@@ -405,22 +417,23 @@ Then, in your router:
 * VPN: forward UDP port `51820` to `10.0.1.100`. Devices are added in the
   wg-easy UI.
 
-Some routers cannot hand out a DNS server on your own network. An Apple
-AirPort hands out itself and passes lookups on to the DNS servers you set,
-but only to ones on the internet, never to the Pi-hole. Let the Pi-holes
-hand out the addresses instead:
+Some routers cannot hand out a DNS server that is on your own network. An
+Apple AirPort always hands out itself, and only passes lookups on to DNS
+servers on the internet. Then let the Pi-holes hand out the addresses,
+which is how this repository is set; with a router that can hand out the
+Pi-holes itself, remove the two ranges instead.
 
 * Set `pihole_dhcp_start` and `pihole_dhcp_end` in `host_vars/dns.yml` and
-  `host_vars/pi1.yml` to two ranges that do not overlap, and
-  `pihole_dhcp_router` and `pihole_dhcp_dns` in `group_vars/pihole.yml` to
-  your router and your Pi-holes. Remove the ranges if your router can hand
-  out the DNS servers itself. `pi1` waits `pihole_dhcp_reply_delay` seconds
-  before it answers, so it only hands out addresses while `dns` is down.
-* Run the playbook for `dns` and `pi1`.
-* In the router, turn its own DHCP server off. An AirPort cannot do that
-  while it shares one address: shrink its DHCP range to a single address
-  outside the Pi-holes' ranges, and reserve that address for a hardware
-  address no device has.
+  `host_vars/pi1.yml` to two ranges that do not overlap.
+* Set `pihole_dhcp_router` and `pihole_dhcp_dns` in
+  `group_vars/pihole/main.yml` to your router and your Pi-holes.
+* Run the playbook for `dns` and `pi1`. `pi1` answers a few seconds late
+  (`pihole_dhcp_reply_delay`), so it only hands out addresses while `dns`
+  is down.
+* Turn the router's own DHCP server off. An AirPort cannot do that while
+  it shares one address: shrink its DHCP range to a single address outside
+  the Pi-holes' ranges, and reserve that address for a hardware address no
+  device has.
 
 </details>
 
@@ -439,13 +452,13 @@ The first run gives the Pi its fixed address, so it needs the Pi's current
 address:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit pi1 -e static_address_current=<current address> --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit pi1 -e static_address_current=<current address>
 ```
 
 After that:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit pi1 --ask-vault-pass
+ansible-playbook playbooks/site.yml --limit pi1
 ```
 
 Then, in your router:
@@ -453,12 +466,52 @@ Then, in your router:
 * VPN: forward UDP port `51821` to `10.0.1.101:51821`.
 
 New VPN clients get the two Pi-holes as DNS servers
-(`wireguard_client_dns` in `group_vars/wireguard.yml`), so homelab names
+(`wireguard_client_dns` in `group_vars/wireguard/main.yml`), so homelab names
 resolve through the tunnel. wg-easy takes this from Ansible on its first
 start only; on an instance that is already set up, change it in its web UI
 under the client defaults instead.
 
 </details>
+
+<details>
+<summary><h3 id="minecraft-server1" style="display:inline; margin:0; vertical-align:middle">minecraft-server1, with its egress, relay and standby</h3></summary>
+
+A Minecraft server for Java and Bedrock players on an isolated VM. Its
+egress VM tunnels to minecraft-server1-relay, a rented server players
+connect to at `mc.<domain>`, so your router forwards nothing and your home
+address shows up nowhere. minecraft-standby is the same server, rented,
+for when the one at home is down.
+
+* Make the rented servers ([Cloud resources](#cloud-resources)).
+* In `group_vars/minecraft/main.yml`, read Mojang's
+  [End User License Agreement (EULA)](https://aka.ms/MinecraftEULA) and set
+  `minecraft_eula` to `true` to agree, and set the seed and the world's
+  border.
+* Replace the encrypted backup secrets in
+  `group_vars/minecraft/secrets.sops.yaml` with your own (see Secrets).
+
+```sh
+ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-relay,minecraft-server1-egress,minecraft-server1
+```
+
+[docs/minecraft.md](docs/minecraft.md) has the rest: the whitelist and
+other commands for the running server, backups and going back to one, the
+standby, and running either end of the tunnel without the other.
+
+</details>
+
+</details>
+
+<details>
+<summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="cloud-resources" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Cloud resources</h2></summary>
+
+What is rented outside the house, at Hetzner, is made with OpenTofu under
+`terraform/`, one stack per purpose: `dns` for the domain's Domain Name
+System (DNS) zone, and `minecraft` for the backup bucket, the relay and
+the standby server. OpenTofu reads the domain, the SSH keys and the
+servers' names from the Ansible inventory, so nothing is kept twice.
+[docs/cloud-resources.md](docs/cloud-resources.md) says what to make in
+the Hetzner console first and how to run a stack.
 
 </details>
 
@@ -468,9 +521,8 @@ under the client defaults instead.
 Built from the inventory by the Pi-holes, under `homelab_domain`:
 `<machine>` for every machine and `<service>` for every service, or
 `<machine>.<service>` where a service runs on several machines. Every name
-points at one address.
-
-All subdomains of `example.org`.
+points at one address. These names only resolve on the LAN and through
+the VPN.
 
 **Machines**, for SSH:
 
@@ -508,12 +560,16 @@ All subdomains of `example.org`.
 | dns.pihole | 10.0.1.100 | DNS server                                  |
 | pi1.pihole | 10.0.1.101 | DNS server                                  |
 | forgejo    | 10.0.1.110 | git over SSH, port 2222                     |
-| samba      | 10.0.1.120 | SMB shares, `smb://samba.example.org`   |
+| samba      | 10.0.1.120 | SMB shares, `smb://samba.<domain>`          |
 | jellyfin   | 10.0.1.160 | the Jellyfin apps, port 8096                |
 | gaming     | 10.0.1.160 | Moonlight pairing                           |
 
 The VPNs themselves connect to your public address, not to a name here:
 the dns VM's on UDP port 51820, the Pi's on 51821.
+
+Three names are public, in the domain's zone at the DNS provider:
+`wg-easy` (your public address, for the VPN), `mc` (the Minecraft relay)
+and `minecraft-standby`.
 
 </details>
 
@@ -527,7 +583,9 @@ the dns VM's on UDP port 51820, the Pi's on 51821.
 │   ├── requirements.yml     Galaxy roles and collections
 │   ├── inventory/
 │   │   ├── hosts.yml        proxmox hosts, and VMs in one group per service
-│   │   ├── group_vars/      VM settings (ports, users, data paths, GPU pins)
+│   │   ├── group_vars/      VM settings (ports, users, data paths, GPU pins); a
+│   │   │                    group with secrets is a directory: main.yml, and
+│   │   │                    the secrets in *.sops.yaml
 │   │   └── host_vars/       per machine 'physical' settings: Internet Protocol (IP) address and 
 |   |                        hardware (PCI devices, disks, CPU cores, memory)
 |   |
@@ -539,6 +597,12 @@ the dns VM's on UDP port 51820, the Pi's on 51821.
 │   ├── molecule/            one test scenario per container-testable role
 │   └── docker/              images for code analysis, running ansible, and
 |                            a target for molecule
+├── terraform/
+│   ├── stacks/              one directory per purpose, each applied on its own:
+│   │                        dns, minecraft
+│   ├── modules/             building blocks the stacks share
+│   └── secrets/             what OpenTofu logs in with, encrypted with SOPS
+├── docs/                    guides: secrets, cloud resources, Minecraft
 ├── .config/molecule/        settings shared by every scenario (Molecule reads
 │                            this from the git root only)
 ├── .github/
@@ -556,13 +620,21 @@ In the order the playbook runs them. They live in three directories under
 
 | Role            | Purpose                                                      |
 |-----------------|--------------------------------------------------------------|
+| ssh_keys        | lets the public keys in `ssh_keys_authorized` log in         |
 | pve_passthrough | Proxmox host: IOMMU, vfio binding, driver blacklist, console |
 | pve_storage     | Proxmox host: ZFS pools, datasets, virtiofs mappings         |
+| pve_network     | Proxmox host: bridges for the isolated networks              |
 | pve_template    | Proxmox host: Ubuntu cloud-init template VMs are cloned from |
+| pve_firewall    | Proxmox host: its own firewall, and one rule file per VM     |
 | pve_vms         | Proxmox host: clones and reconciles the VMs in the inventory |
 | static_address  | Raspberry Pi: fixed address on its NetworkManager connection |
+| host_firewall   | Raspberry Pi: nftables firewall that drops what is not listed |
 | base            | guest agent (VMs only), unattended upgrades, timezone        |
 | shares          | mounts the VM's virtiofs shares from `pve_vm.shares`         |
+| tunnel_key      | makes a WireGuard key pair on a machine and reads its public half; used by both ends of a tunnel |
+| relay           | public end of an egress VM's tunnel, on a rented server: passes chosen ports down the tunnel and lets the tunnel's traffic out under its own address |
+| egress          | gateway of one isolated network: forwards it into a WireGuard tunnel and nowhere else, and passes chosen ports back in |
+| minecraft       | Minecraft compose stack: Fabric server with checksummed mods, Bedrock players through Geyser, whitelist only, backups |
 | gpu             | firmware, userspace and i386 packages for `gpu_vendors`      |
 | desktop         | Xorg + LightDM autologin + openbox session for `gamer`       |
 | steam           | Steam with i386 libraries, gamemode, mangohud; client installed up front, games share registered as a library |
@@ -620,6 +692,7 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | mealie   | a visit without credentials lands on the shared account through a reverse proxy(Caddy) |
 | pihole   | a local record and a public name resolve; the admin password logs in through Caddy |
 | wireguard | wg-easy runs with the tunnel published and the UI behind Caddy. Needs the WireGuard module on the host running the instance |
+| minecraft | the server starts with every mod loaded and Geyser listening; a player is whitelisted on the running server. Agrees to Mojang's EULA, and downloads about 1.5 GB |
 
 </details>
 
@@ -681,6 +754,16 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
   * 47984/tcp, 47989/tcp: Sunshine pairing and control (Moonlight)
   * 48010/tcp: Sunshine Real-Time Streaming Protocol (RTSP)
   * 47998-48000/udp: Sunshine video, control and audio streams
+* **minecraft-server1-relay** (rented, public)
+  * 22/tcp: SSH, from home only
+  * 51820/udp: WireGuard, from minecraft-server1-egress
+  * 25565/tcp, 19132/udp: Minecraft, passed down the tunnel
+* **minecraft-server1-egress** (10.0.1.226)
+  * 22/tcp: SSH
+* **minecraft-server1** (10.250.226.170), through the tunnel only
+  * 22/tcp: SSH, from minecraft-server1-egress
+  * 25565/tcp: Minecraft, Java players
+  * 19132/udp: Minecraft, Bedrock players (Geyser)
 * **srv1** (10.0.1.200), the Proxmox host
   * 22/tcp: SSH
   * 8006/tcp: Proxmox web UI and API (HTTPS, its own certificate)

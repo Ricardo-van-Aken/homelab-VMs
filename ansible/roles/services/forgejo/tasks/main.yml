@@ -1,8 +1,18 @@
 ---
+# The container and the Proxmox host own the data as forgejo_uid for user
+# and group alike, so the group needs that gid too or every run finds the
+# ownership changed.
+- name: Create Forgejo service group
+  ansible.builtin.group:
+    name: "{{ forgejo_user }}"
+    gid: "{{ forgejo_uid }}"
+    system: true
+
 - name: Create Forgejo service account
   ansible.builtin.user:
     name: "{{ forgejo_user }}"
     uid: "{{ forgejo_uid }}"
+    group: "{{ forgejo_user }}"
     system: true
     shell: /usr/sbin/nologin
     create_home: false
@@ -56,8 +66,8 @@
 - name: Create initial admin user
   when: forgejo_admin_password | length > 0
   block:
-    # Values are passed to Forgejo as they are. A vaulted string typed with
-    # a trailing Enter carries a newline, which Forgejo rejects.
+    # Values are passed to Forgejo as they are. A secret saved with a line
+    # break at its end carries that newline, which Forgejo rejects.
     - name: Check the admin values
       ansible.builtin.assert:
         that:
@@ -68,8 +78,8 @@
         quiet: true
         fail_msg: >-
           forgejo_admin_password or forgejo_admin_email is not usable: it has
-          leading or trailing whitespace (a newline from pressing Enter before
-          Ctrl-D in ansible-vault?), the password is shorter than 8
+          leading or trailing whitespace (a line break at the end of the value
+          in secrets.sops.yaml?), the password is shorter than 8
           characters, or the email address has no @.
 
     - name: List admin users
@@ -185,8 +195,8 @@
         fail_msg: >-
           forgejo_users entries {{ unusable | join(', ') }} are not usable: the
           name has characters other than letters, digits, dash, underscore and
-          dot, a value has leading or trailing whitespace (a newline from
-          pressing Enter before Ctrl-D in ansible-vault?), the password is
+          dot, a value has leading or trailing whitespace (a line break at the
+          end of the value in secrets.sops.yaml?), the password is
           shorter than 8 characters, or the email address has no @.
 
     # The list is a table: ID, Username, Email, ... Take the second column

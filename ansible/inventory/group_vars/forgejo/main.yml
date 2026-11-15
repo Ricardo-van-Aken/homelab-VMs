@@ -1,5 +1,5 @@
 ---
-# The service name the dns VM resolves (see group_vars/pihole.yml).
+# The service name the dns VM resolves (see group_vars/pihole/main.yml).
 forgejo_domain: "forgejo.{{ homelab_domain }}"
 # Repositories and database, on the host's forgejo dataset (pve_vm.shares).
 forgejo_data_dir: /srv/forgejo
@@ -9,13 +9,15 @@ forgejo_ssh_port: 2222  # keeps 22 for the VM's own ssh
 # First admin account, created on the first run.
 forgejo_admin_user: sysadmin
 
-forgejo_admin_email: ""
-
-forgejo_admin_password: ""
+# Address and password of forgejo_admin_user.
+# SECRET: in secrets.sops.yaml.
+# forgejo_admin_email: <email address>
+# forgejo_admin_password: <string, 8 characters or more>
 
 # Regular accounts, created once with the given password. Each needs its own
 # address.
-forgejo_users:
-  - name: ""
-    email: ""
-    password: ""
+# SECRET: in secrets.sops.yaml.
+# forgejo_users:
+#   - name: <string>
+#     email: <email address>
+#     password: <string, 8 characters or more>

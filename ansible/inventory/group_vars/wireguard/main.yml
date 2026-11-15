@@ -9,4 +9,6 @@ wireguard_client_dns: ["10.0.1.100", "10.0.1.101"]
 # public host is a public DNS record pointing at your public IP address.
 wireguard_admin_user: admin
 wireguard_public_host: "wg-easy.{{ homelab_domain }}"
-wireguard_admin_password: ""
+# Password of wireguard_admin_user.
+# SECRET: in secrets.sops.yaml.
+# wireguard_admin_password: <string>

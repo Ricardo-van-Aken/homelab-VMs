@@ -36,6 +36,9 @@ SKIPPED = ("ansible/docker/", "ansible/collections/", "ansible/galaxy_roles/", "
 
 
 def is_yaml(path: str) -> bool:
+    # *.sops.yaml is written by SOPS and skipped by both linters.
+    if path.endswith(".sops.yaml"):
+        return False
     return path.endswith((".yml", ".yaml")) or Path(path).name == ".yamllint"
 
 

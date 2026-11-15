@@ -12,12 +12,20 @@
 #   vm: 10.250.225.150
 egress_isolated: {}
 
-# The tunnel, from its WireGuard config. All empty: no tunnel, and no way
-# out for the isolated network.
+# The tunnel, from the other side's WireGuard config. All empty: no tunnel,
+# and no way out for the isolated network.
 egress_vpn_address: ""  # [Interface] Address, e.g. 10.64.12.34/32
-egress_vpn_private_key: ""  # [Interface] PrivateKey, as a !vault value
 egress_vpn_peer_public_key: ""  # [Peer] PublicKey
 egress_vpn_endpoint: ""  # [Peer] Endpoint, e.g. 198.51.100.7:51820
+# When the other side is one of our own machines (role relay): its inventory
+# name. Its public key is then read from it, and it reads this machine's.
+egress_relay: ""
+# [Interface] PrivateKey, in the host's secrets.sops.yaml, when the other
+# side made the key pair (a VPN provider). Empty: this machine makes its
+# own, and every run shows the public key the other side needs.
+egress_vpn_private_key: ""
+# Where the private key is kept on this machine, given or made here.
+egress_vpn_key_file: "/etc/wireguard/{{ egress_vpn_interface }}.key"
 egress_vpn_interface: vpn
 # Routing table for the isolated network's traffic: only a route into the
 # tunnel lives there.

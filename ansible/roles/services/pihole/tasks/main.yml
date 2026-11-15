@@ -2,7 +2,7 @@
 - name: Check the admin password is set
   ansible.builtin.assert:
     that: pihole_web_password | length > 0
-    fail_msg: pihole_web_password is empty; put a !vault value in group_vars.
+    fail_msg: pihole_web_password is empty; set it in group_vars/pihole/secrets.sops.yaml.
 
 - name: Check the DHCP settings
   ansible.builtin.assert:
