@@ -50,7 +50,7 @@ unit (GPU) passed through
   minecraft-server1-egress is its only way in and out, through a WireGuard
   tunnel to minecraft-server1-relay, a rented server. Players connect to
   the relay, so the home address stays hidden.
-* **minecraft-standby**: the same Minecraft server, rented, for when the
+* **minecraft-server1-standby**: the same Minecraft server, rented, for when the
   one at home is down. It loads the world from the backups both keep in
   one bucket.
 
@@ -478,8 +478,8 @@ under the client defaults instead.
 
 A Minecraft server for Java and Bedrock players on an isolated VM. Its
 egress VM tunnels to minecraft-server1-relay, a rented server players
-connect to at `mc.<domain>`, so your router forwards nothing and your home
-address shows up nowhere. minecraft-standby is the same server, rented,
+connect to at `ddg-craft.<domain>`, so your router forwards nothing and your home
+address shows up nowhere. minecraft-server1-standby is the same server, rented,
 for when the one at home is down.
 
 * Make the rented servers ([Cloud resources](#cloud-resources)).
@@ -568,8 +568,8 @@ The VPNs themselves connect to your public address, not to a name here:
 the dns VM's on UDP port 51820, the Pi's on 51821.
 
 Four names are public, in the domain's zone at the DNS provider:
-`wg-easy` (your public address, for the VPN), `mc` (the Minecraft relay),
-`map` (the Minecraft map, on the relay too) and `minecraft-standby`.
+`wg-easy` (your public address, for the VPN), `ddg-craft` (the Minecraft relay),
+`map.ddg-craft` (the Minecraft map, on the relay too) and `ddg-craft-standby` (the standby).
 
 </details>
 
@@ -757,14 +757,15 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
 * **minecraft-server1-relay** (rented, public)
   * 22/tcp: SSH, from home only
   * 51820/udp: WireGuard, from minecraft-server1-egress
-  * 25565/tcp, 19132/udp, 80/tcp, 443/tcp: Minecraft and its map, passed down the tunnel
+  * 25565/tcp, 19132/tcp+udp: Minecraft, passed down the tunnel
+  * 80/tcp, 443/tcp: the Minecraft map, through Caddy
 * **minecraft-server1-egress** (10.0.1.226)
   * 22/tcp: SSH
 * **minecraft-server1** (10.250.226.170), through the tunnel only
   * 22/tcp: SSH, from minecraft-server1-egress
   * 25565/tcp: Minecraft, Java players
-  * 19132/udp: Minecraft, Bedrock players (Geyser)
-  * 80/tcp, 443/tcp: BlueMap, a map of the world in a browser, through Caddy
+  * 19132/tcp+udp: Minecraft, Bedrock players (Geyser)
+  * 80/tcp: BlueMap, a map of the world in a browser; the relay adds HTTPS
 * **srv1** (10.0.1.200), the Proxmox host
   * 22/tcp: SSH
   * 8006/tcp: Proxmox web UI and API (HTTPS, its own certificate)

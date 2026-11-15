@@ -30,9 +30,17 @@ minecraft_memory: 4G
 minecraft_memory_limit: 5g
 
 minecraft_java_port: 25565  # TCP
-minecraft_bedrock_port: 19132  # UDP, Geyser
-# BlueMap's map of the world, on this machine only; Caddy serves it to
-# everyone under minecraft_map_domain. Empty: the map is not served.
+# Geyser. Bedrock clients from 26.60 on join over TCP (NetherNet's
+# signaling) and play over UDP, both on this port.
+minecraft_bedrock_port: 19132
+# The public host:port Bedrock players send their game traffic to. Empty:
+# Geyser finds this machine's public address itself (STUN), which is
+# wrong behind a relay.
+#   - mc.example.org:19132
+minecraft_bedrock_advertise: []
+# BlueMap's map of the world, on this machine only. Caddy serves it on
+# port 80 over plain HTTP under any name, for a server in front that adds
+# HTTPS, and over HTTPS itself under minecraft_map_domain when that is set.
 minecraft_map_port: 8100
 minecraft_map_domain: ""  # e.g. map.example.org
 
@@ -45,6 +53,10 @@ minecraft_seed: ""
 # every dimension; 0 leaves it unlimited. Set once: afterwards the border
 # is changed on the running server (`worldborder set`).
 minecraft_world_radius: 0
+# Another radius for a dimension (overworld, the_nether, the_end); one that
+# is not listed gets minecraft_world_radius.
+#   the_end: 5000
+minecraft_dimension_radius: {}
 # Game rules a new world starts with; changed on the running server
 # afterwards (`gamerule`).
 #   players_sleeping_percentage: 66
@@ -65,6 +77,11 @@ minecraft_ops: []
 #   - src: "{{ inventory_dir }}/files/minecraft/structurify.json"
 #     dest: structurify.json
 minecraft_config_files: []
+
+# Datapacks, each a zip file here, copied into the world at every start. One
+# that is no longer listed is removed from the world.
+#   - "{{ inventory_dir }}/files/minecraft/datapacks/elytra-vaults-1.0.0-mc26.3.zip"
+minecraft_datapacks: []
 
 # Backups of everything the server writes, encrypted and stored in an S3
 # bucket with restic; only what changed is uploaded. Off while the
@@ -187,6 +204,12 @@ minecraft_mods:
     url: >-
       https://cdn.modrinth.com/data/swbUV1cr/versions/SX74rxzP/bluemap-5.29-fabric.jar
     checksum: sha256:47aade220d75e307342176ca4abc83493a55276f2084835e7ca6880c640c0430
+  # Java players on a newer Minecraft than the server's. Bump it when a new
+  # Minecraft is released, or those players are refused.
+  - name: viafabric  # 0.4.22+188-26.x; ViaVersion 5.12.1 is inside it
+    url: >-
+      https://cdn.modrinth.com/data/YlKdE5VK/versions/z1FVDMnq/ViaFabric-0.4.22%2B188-26.x.jar
+    checksum: sha256:8d3d691199988b931d725b792aa6e0d4e24efe1fb15869e6b52f24b91a0b88e5
   # Bedrock players. Bump Geyser when Bedrock clients update, or they are
   # refused.
   - name: geyser  # 2.12.1-b1302

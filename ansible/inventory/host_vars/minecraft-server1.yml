@@ -41,19 +41,21 @@ pve_vm:
       - proto: tcp
         port: 25565  # Minecraft Java players, through the tunnel
         from: any
+      - proto: tcp
+        port: 19132  # Minecraft Bedrock players joining, through the tunnel
+        from: any
       - proto: udp
         port: 19132  # Minecraft Bedrock players, through the tunnel
         from: any
       - proto: tcp
-        port: 80  # the map, redirected to HTTPS by Caddy, through the tunnel
-        from: any
-      - proto: tcp
-        port: 443  # the map of the world (BlueMap), through the tunnel
+        port: 80  # the map of the world (BlueMap), through the tunnel
         from: any
     lan: none
 
-# Where the map is served; a name of the relay (its relay_aliases).
-minecraft_map_domain: "map.{{ homelab_domain }}"
+# Where Bedrock players send their game traffic: the relay, never the home
+# connection this machine falls back to.
+minecraft_bedrock_advertise:
+  - "ddg-craft.{{ homelab_domain }}:19132"
 
 # The disk above, as this machine sees it; the worlds go on it.
 minecraft_data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1

@@ -61,11 +61,13 @@
       failed_when: false
       when: isolated_egress is defined
 
+    # Unless its egress VM lets it out through its own connection.
     - name: Skip a machine whose tunnel is not up yet
       ansible.builtin.meta: end_host
       when:
         - isolated_egress is defined
         - site_tunnel.stdout | default('') is not search('\s[1-9][0-9]*$')
+        - not hostvars[isolated_egress].egress_outbound_lan | default(false) | bool
 
     - name: Gather facts
       ansible.builtin.setup:

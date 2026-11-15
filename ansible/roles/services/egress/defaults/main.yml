@@ -12,6 +12,8 @@
 #   vm: 10.250.225.150
 egress_isolated: {}
 
+# Switches the tunnel below off without removing its settings.
+egress_vpn: true
 # The tunnel, from the other side's WireGuard config. All empty: no tunnel,
 # and no way out for the isolated network.
 egress_vpn_address: ""  # [Interface] Address, e.g. 10.64.12.34/32
@@ -36,3 +38,27 @@ egress_vpn_table: 51820
 #   - proto: tcp
 #     port: 25565      # say why it is open, e.g. Minecraft players
 egress_inbound: []
+
+# With the tunnel off, or silent for three minutes, the isolated network
+# leaves through this machine's own connection: the sites it contacts see
+# that address. It never reaches a private network that way.
+egress_outbound_lan: false
+
+# A second way in: a NetBird network somebody else runs, in which a public
+# server passes ports to this machine. That server must masquerade, so
+# replies return to it. NetBird sets up no firewall, routes or DNS here.
+egress_netbird: false
+# The network's management server and a setup key from its operator, in the
+# host's secrets.sops.yaml.
+egress_netbird_management_url: ""  # https://netbird.example.org
+egress_netbird_setup_key: ""
+# The addresses of that network; NetBird's own default.
+egress_netbird_network: 100.64.0.0/10
+egress_netbird_interface: wt0
+# Ports passed from NetBird to the VM.
+#   - proto: tcp
+#     port: 25565      # say why it is open, e.g. Minecraft players
+egress_netbird_inbound: []
+# https://github.com/netbirdio/netbird/releases
+egress_netbird_version: 0.83.1
+egress_netbird_checksum: sha256:742d6572939f21b36379e8def58c3508de72b44200af2d12e245576aefa3b5a9

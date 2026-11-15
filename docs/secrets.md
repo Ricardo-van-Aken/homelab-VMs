@@ -56,6 +56,7 @@ The `main.yml` next to each file says what every value is, under a
 | `group_vars/mealie/secrets.sops.yaml` | `mealie_proxy_secret`, `mealie_admin_password` |
 | `group_vars/minecraft/secrets.sops.yaml` | `minecraft_backup_access_key_id`, `minecraft_backup_secret_access_key`, `minecraft_backup_password` |
 | `host_vars/torrent-egress/secrets.sops.yaml` | `egress_vpn_private_key`, when the VPN provider made the key pair |
+| `host_vars/minecraft-server1-egress/secrets.sops.yaml` | `egress_netbird_management_url`, `egress_netbird_setup_key`, from the NetBird network's operator |
 
 Only OpenTofu needs `terraform/secrets/credentials.sops.yaml`; the
 `.example.yaml` beside it shows what goes in.

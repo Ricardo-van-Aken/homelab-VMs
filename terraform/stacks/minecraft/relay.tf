@@ -9,8 +9,15 @@
 locals {
   relay_vars  = yamldecode(file("${path.root}/../../../ansible/inventory/host_vars/${var.relay_name}.yml"))
   relay_label = trimsuffix(local.relay_vars.ansible_host, ".{{ homelab_domain }}")
-  egress_vars = try(yamldecode(file("${path.root}/../../../ansible/inventory/host_vars/${local.relay_vars.relay_egress}.yml")), {})
+  # The home end's file, or its main.yml when it has a directory.
+  egress_vars = try(
+    yamldecode(file("${path.root}/../../../ansible/inventory/host_vars/${local.relay_vars.relay_egress}/main.yml")),
+    yamldecode(file("${path.root}/../../../ansible/inventory/host_vars/${local.relay_vars.relay_egress}.yml")),
+    {},
+  )
   relay_ports = try(local.relay_vars.relay_forwards, local.egress_vars.egress_inbound, [])
+  # With web sites of its own (relay_sites), the relay serves these itself.
+  relay_web = length(try(local.relay_vars.relay_sites, [])) > 0 ? [80, 443] : []
   # Other names under the domain that point at the relay.
   relay_aliases = try(local.relay_vars.relay_aliases, [])
 }
@@ -51,6 +58,18 @@ resource "hcloud_firewall" "relay" {
       direction   = "in"
       protocol    = rule.value.proto
       port        = tostring(rule.value.port)
+      source_ips  = ["0.0.0.0/0", "::/0"]
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.relay_web
+
+    content {
+      description = "web sites the relay serves, and Let's Encrypt"
+      direction   = "in"
+      protocol    = "tcp"
+      port        = tostring(rule.value)
       source_ips  = ["0.0.0.0/0", "::/0"]
     }
   }

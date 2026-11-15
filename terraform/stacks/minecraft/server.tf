@@ -56,6 +56,14 @@ resource "hcloud_firewall" "standby" {
   }
 
   rule {
+    description = "Minecraft, Bedrock players joining (Geyser, NetherNet)"
+    direction   = "in"
+    protocol    = "tcp"
+    port        = "19132"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+  }
+
+  rule {
     description = "Minecraft, Bedrock players (Geyser)"
     direction   = "in"
     protocol    = "udp"

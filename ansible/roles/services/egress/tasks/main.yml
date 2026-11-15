@@ -16,11 +16,25 @@
       - not egress_relay or egress_vpn_private_key | length == 0
       - egress_inbound | rejectattr('proto', 'defined') | list | length == 0
       - egress_inbound | rejectattr('port', 'defined') | list | length == 0
+      - egress_netbird_inbound | rejectattr('proto', 'defined') | list | length == 0
+      - egress_netbird_inbound | rejectattr('port', 'defined') | list | length == 0
     fail_msg: >-
       set egress_isolated with address, network and vm; egress_vpn_address,
       _peer_public_key and _endpoint all set or all empty (with egress_relay,
       the inventory name of a relay, its public key is read from it and no
-      private key is given); egress_inbound with proto and port
+      private key is given); egress_inbound and egress_netbird_inbound with
+      proto and port
+
+- name: Check the NetBird settings
+  ansible.builtin.assert:
+    that:
+      - egress_netbird_management_url is match('^https://[A-Za-z0-9.:/_-]+$')
+      - egress_netbird_setup_key is match('^[A-Za-z0-9-]+$')
+    fail_msg: >-
+      egress_netbird is on: put egress_netbird_management_url (https://...)
+      and egress_netbird_setup_key in this host's secrets.sops.yaml, or set
+      egress_netbird to false.
+  when: egress_netbird | bool
 
 # Cloud-init names the cards; find the one on the isolated network.
 - name: Find the isolated network's interface
@@ -39,6 +53,16 @@
   ansible.builtin.assert:
     that: egress_isolated_interface | length > 0
     fail_msg: no interface has {{ egress_isolated.address }}; is the VM's second card on the isolated bridge?
+
+- name: Find this machine's own way out
+  ansible.builtin.set_fact:
+    egress_lan_interface: "{{ ansible_facts.default_ipv4.interface | default('') }}"
+
+- name: Check its own way out was found
+  ansible.builtin.assert:
+    that: egress_lan_interface | length > 0
+    fail_msg: egress_outbound_lan is on, and this machine has no default route.
+  when: egress_outbound_lan | bool
 
 - name: Install WireGuard and nftables
   ansible.builtin.apt:
@@ -98,7 +122,9 @@
 # The other side is one of our own machines: read its public key there. It
 # makes its key now if it has none yet.
 - name: Read the relay's public key
-  when: egress_relay | length > 0
+  when:
+    - egress_vpn | bool
+    - egress_relay | length > 0
   block:
     - name: Read the public key on the relay
       ansible.builtin.include_role:
@@ -112,8 +138,111 @@
       ansible.builtin.set_fact:
         egress_vpn_peer_public_key: "{{ tunnel_key_public.stdout }}"
 
+- name: Look for a tunnel set up earlier
+  ansible.builtin.stat:
+    path: "/etc/wireguard/{{ egress_vpn_interface }}.conf"
+  register: egress_vpn_conf
+
+- name: Stop a tunnel that is switched off
+  ansible.builtin.systemd_service:
+    name: "wg-quick@{{ egress_vpn_interface }}"
+    enabled: false
+    state: stopped
+  when:
+    - not egress_vpn_on
+    - egress_vpn_conf.stat.exists
+
+- name: Set up NetBird
+  when: egress_netbird | bool
+  block:
+    - name: Download NetBird
+      ansible.builtin.get_url:
+        url: >-
+          https://github.com/netbirdio/netbird/releases/download/v{{ egress_netbird_version }}/netbird_{{ egress_netbird_version }}_linux_amd64.deb
+        dest: "/var/cache/netbird_{{ egress_netbird_version }}_linux_amd64.deb"
+        checksum: "{{ egress_netbird_checksum }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    # The package installs and starts NetBird's service.
+    - name: Install NetBird
+      ansible.builtin.apt:
+        deb: "/var/cache/netbird_{{ egress_netbird_version }}_linux_amd64.deb"
+
+    - name: Look whether this machine has joined the network
+      ansible.builtin.command: netbird status
+      register: egress_netbird_status
+      changed_when: false
+      failed_when: false
+
+    - name: Join the NetBird network
+      when: "egress_netbird_status.stdout is not search('Management: Connected')"
+      block:
+        # In a file, so the key is not on a command line.
+        - name: Write the setup key
+          ansible.builtin.copy:
+            content: "{{ egress_netbird_setup_key }}\n"
+            dest: /run/netbird-setup-key
+            owner: root
+            group: root
+            mode: "0600"
+          no_log: true
+
+        - name: Join the network
+          ansible.builtin.command: >-
+            netbird up
+            --management-url {{ egress_netbird_management_url }}
+            --setup-key-file /run/netbird-setup-key
+            --interface-name {{ egress_netbird_interface }}
+            --disable-firewall --disable-dns
+            --disable-client-routes --disable-server-routes
+          changed_when: true
+          no_log: true
+      always:
+        - name: Remove the setup key
+          ansible.builtin.file:
+            path: /run/netbird-setup-key
+            state: absent
+
+- name: Look for NetBird when it is switched off
+  ansible.builtin.stat:
+    path: /usr/bin/netbird
+  register: egress_netbird_binary
+  when: not egress_netbird | bool
+
+- name: Remove NetBird when it is switched off
+  ansible.builtin.apt:
+    name: netbird
+    state: absent
+    purge: true
+  when:
+    - not egress_netbird | bool
+    - egress_netbird_binary.stat.exists
+
+- name: Install the routing rules check
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - {src: egress-routes.j2, dest: /usr/local/sbin/egress-routes, mode: "0755"}
+    - {src: egress-routes.service.j2, dest: /etc/systemd/system/egress-routes.service, mode: "0644"}
+    - {src: egress-routes.timer.j2, dest: /etc/systemd/system/egress-routes.timer, mode: "0644"}
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: Start the routing rules check
+  ansible.builtin.systemd_service:
+    name: egress-routes.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
 - name: Set up the VPN tunnel
-  when: egress_vpn_endpoint | length > 0
+  when: egress_vpn_on
   block:
     - name: Write the private key the other side made
       ansible.builtin.copy:

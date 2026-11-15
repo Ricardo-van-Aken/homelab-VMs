@@ -5,7 +5,7 @@
 # TODO: read it and set to true to agree; the role stops while it is false.
 minecraft_eula: true
 
-minecraft_motd: L.A.N party
+minecraft_motd: DDG-Craft
 # Sized for 20 to 30 players. The VM's memory is 2 GB above the limit, for
 # Ubuntu, the backups and Caddy.
 minecraft_max_players: 30
@@ -16,11 +16,15 @@ minecraft_memory_limit: 8g
 minecraft_extra_env:
   SIMULATION_DISTANCE: "6"
 # A new name starts a new world; the old one stays on the disk.
-minecraft_world: world2
+minecraft_world: DDGCraft-LAN-Party-20-12-2026
 minecraft_seed: "-8028949898700072581"
-# A new world's border: 1500 blocks from 0,0 in every direction. Changed on
+# A new world's border: 2500 blocks from 0,0 in every direction. Changed on
 # the running server afterwards (docs/minecraft.md).
-minecraft_world_radius: 1500
+minecraft_world_radius: 2500
+# Further out where the fortresses and the End cities are.
+minecraft_dimension_radius:
+  the_nether: 5000
+  the_end: 5000
 # A new world's game rules; changed on the running server afterwards.
 minecraft_gamerules:
   players_sleeping_percentage: 66  # of the players asleep skips the night
@@ -35,6 +39,12 @@ minecraft_ops: []
 minecraft_config_files:
   - src: "{{ inventory_dir }}/files/minecraft/structurify.json"
     dest: structurify.json
+
+# Elytra Vaults: an End ship's elytra is in a vault, opened with a shulker
+# shell, so every player can take one. Changed from the original, which
+# was made for 1.21, to load on 26.3.
+minecraft_datapacks:
+  - "{{ inventory_dir }}/files/minecraft/datapacks/elytra-vaults-1.0.0-mc26.3.zip"
 
 # The map's certificate: Let's Encrypt connects to the machine itself, so
 # the DNS provider's token stays off a machine the internet reaches.
