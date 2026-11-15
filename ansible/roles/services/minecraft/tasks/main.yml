@@ -128,25 +128,27 @@
     label: "{{ item.dest }}"
   when: item.dest | dirname | length > 0
 
-# force: false, so a file changed on the server is never overwritten.
-- name: Copy the mods' settings files that are not there yet
+- name: Look for the world
+  ansible.builtin.stat:
+    path: "{{ minecraft_data_dir }}/data/{{ minecraft_world }}/level.dat"
+  register: minecraft_world_file
+
+# A new world is created with the files as they are here. Once it exists,
+# a file on the server is never overwritten.
+- name: Copy the mods' settings files
   ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ minecraft_data_dir }}/data/config/{{ item.dest }}"
     owner: "{{ minecraft_user }}"
     group: "{{ minecraft_user }}"
     mode: "0644"
-    force: false
+    force: "{{ not minecraft_world_file.stat.exists }}"
   loop: "{{ minecraft_config_files }}"
   loop_control:
     label: "{{ item.dest }}"
 
 # The server only reads the seed when it creates a world. Remember the one
 # each world was made with, and refuse a different one.
-- name: Look for the world
-  ansible.builtin.stat:
-    path: "{{ minecraft_data_dir }}/data/{{ minecraft_world }}/level.dat"
-  register: minecraft_world_file
 
 - name: Read the seed the world was made with
   ansible.builtin.slurp:
@@ -278,6 +280,23 @@
         - minecraft_backups.rc == 0
         - minecraft_backups.stdout_lines | last | default('[]') | from_json | length > 0
 
+- name: Render the map's Caddy site
+  ansible.builtin.template:
+    src: map.caddy.j2
+    dest: "{{ caddy_sites_dir }}/minecraft-map.caddy"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Caddy
+  when: minecraft_map_domain | length > 0
+
+- name: Remove the map's Caddy site when it has no name
+  ansible.builtin.file:
+    path: "{{ caddy_sites_dir }}/minecraft-map.caddy"
+    state: absent
+  notify: Restart Caddy
+  when: minecraft_map_domain | length == 0
+
 # The image's health check pings the server. A first start downloads the
 # server and creates the world, which takes minutes.
 - name: Deploy Minecraft stack
@@ -313,7 +332,19 @@
     # A loaded world brings the border it had.
     - minecraft_backup_loaded is not defined or minecraft_backup_loaded is skipped
 
-- name: Remember the world was given its border
+- name: Give a new world its game rules
+  ansible.builtin.command: >-
+    docker exec minecraft rcon-cli gamerule {{ item.key }} {{ item.value }}
+  loop: "{{ minecraft_gamerules | dict2items }}"
+  register: minecraft_gamerule
+  changed_when: true
+  failed_when: minecraft_gamerule.rc != 0 or minecraft_gamerule.stdout is not search('now set to')
+  when:
+    - not minecraft_border_file.stat.exists
+    # A loaded world brings the rules it had.
+    - minecraft_backup_loaded is not defined or minecraft_backup_loaded is skipped
+
+- name: Remember the world was given its border and game rules
   ansible.builtin.copy:
     content: "{{ minecraft_world_radius }}\n"
     dest: "{{ minecraft_dir }}/{{ minecraft_world }}.border"
@@ -321,10 +352,22 @@
     group: root
     mode: "0644"
     force: false
-  when: minecraft_world_radius | int > 0
+  when: minecraft_world_radius | int > 0 or minecraft_gamerules | length > 0
 
-# Geyser writes its settings on the first start. Its default makes Bedrock
-# players log in with a Java account; Floodgate lets in their Xbox account.
+# A running server only loads its mods when it starts.
+- name: Restart Minecraft to load the changed mods
+  community.docker.docker_compose_v2:
+    project_src: "{{ minecraft_dir }}"
+    state: restarted
+    wait: true
+    wait_timeout: 900
+  when:
+    - not minecraft_deploy.changed
+    - minecraft_mods_downloaded.changed or minecraft_mods_removed.changed
+
+# A mod writes its settings on its first start, so these come after it.
+# Geyser's default makes Bedrock players log in with a Java account;
+# Floodgate lets in their Xbox account.
 - name: Let Bedrock players in with their Xbox account
   ansible.builtin.lineinfile:
     path: "{{ minecraft_data_dir }}/data/config/Geyser-Fabric/config.yml"
@@ -333,14 +376,27 @@
     backrefs: true
   register: minecraft_geyser_auth
 
-# A running server only loads its mods and their settings when it starts.
-- name: Restart Minecraft to load the changed mods
+# BlueMap draws nothing until its settings agree to downloading the game's
+# textures from Mojang, which the EULA above covers.
+- name: Let BlueMap draw the map
+  when: minecraft_mods | selectattr('name', 'equalto', 'bluemap') | list | length > 0
+  block:
+    - name: Wait for BlueMap's settings
+      ansible.builtin.wait_for:
+        path: "{{ minecraft_data_dir }}/data/config/bluemap/core.conf"
+        timeout: 120
+
+    - name: Agree to BlueMap's download
+      ansible.builtin.lineinfile:
+        path: "{{ minecraft_data_dir }}/data/config/bluemap/core.conf"
+        regexp: '^accept-download:'
+        line: 'accept-download: true'
+      register: minecraft_map_accept
+
+- name: Restart Minecraft to load the changed settings
   community.docker.docker_compose_v2:
     project_src: "{{ minecraft_dir }}"
     state: restarted
     wait: true
     wait_timeout: 900
-  when: >-
-    minecraft_geyser_auth.changed
-    or (not minecraft_deploy.changed
-        and (minecraft_mods_downloaded.changed or minecraft_mods_removed.changed))
+  when: minecraft_geyser_auth.changed or minecraft_map_accept.changed

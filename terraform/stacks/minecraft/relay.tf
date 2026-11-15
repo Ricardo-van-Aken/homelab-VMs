@@ -11,6 +11,8 @@ locals {
   relay_label = trimsuffix(local.relay_vars.ansible_host, ".{{ homelab_domain }}")
   egress_vars = try(yamldecode(file("${path.root}/../../../ansible/inventory/host_vars/${local.relay_vars.relay_egress}.yml")), {})
   relay_ports = try(local.relay_vars.relay_forwards, local.egress_vars.egress_inbound, [])
+  # Other names under the domain that point at the relay.
+  relay_aliases = try(local.relay_vars.relay_aliases, [])
 }
 
 resource "hcloud_firewall" "relay" {
@@ -86,6 +88,19 @@ resource "hcloud_zone_rrset" "relay" {
   # Short, so players and the home end follow quickly when the server is
   # made anew.
   ttl = 300
+
+  records = [
+    { value = hcloud_server.relay[0].ipv4_address },
+  ]
+}
+
+resource "hcloud_zone_rrset" "relay_alias" {
+  for_each = toset(var.relay_server ? local.relay_aliases : [])
+
+  zone = data.hcloud_zone.main.name
+  name = each.value
+  type = "A"
+  ttl  = 300
 
   records = [
     { value = hcloud_server.relay[0].ipv4_address },

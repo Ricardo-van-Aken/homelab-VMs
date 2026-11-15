@@ -15,6 +15,10 @@ The two rented servers are made by the `minecraft` stack of
 [cloud resources](cloud-resources.md), and may exist at the same time.
 Every command at a glance: [cheatsheet](#cheatsheet).
 
+A map of the world (BlueMap) is at `https://map.<domain>`
+(`minecraft_map_domain`), for anyone who knows the address, without a
+login.
+
 ## Settings
 
 In `ansible/inventory/group_vars/minecraft/main.yml`:
@@ -26,8 +30,9 @@ In `ansible/inventory/group_vars/minecraft/main.yml`:
   seed, give `minecraft_world` a new name.
 * Structure settings shape the world as it is created. Save your
   `structurify.json` (and other mod settings) under
-  `inventory/files/minecraft/` and list them in `minecraft_config_files`
-  before the first run.
+  `inventory/files/minecraft/` and list them in `minecraft_config_files`.
+  A new world is created with them; once it exists, the files on the
+  server are kept.
 * For backups, set `minecraft_backup_repository` to the bucket,
   `s3:https://<endpoint>/<bucket>`, and `minecraft_backup_region` to its
   region. The OpenTofu stack makes one at Hetzner.
@@ -85,7 +90,7 @@ First agree on the tunnel's addresses and ports, for example:
 |---|---|
 | relay's address in the tunnel | `10.99.226.1/24` |
 | home end's address in the tunnel | `10.99.226.2` |
-| ports passed on to players | `25565` TCP (Java), `19132` UDP (Bedrock) |
+| ports passed on to players | `25565` TCP (Java), `19132` UDP (Bedrock), `80` and `443` TCP (the map) |
 
 **1. Home end: make a key.** In `host_vars/minecraft-server1-egress.yml`,
 remove `egress_relay`, `egress_vpn_address` and `egress_vpn_endpoint`, and
@@ -111,10 +116,15 @@ relay_forwards:
     port: 25565  # Minecraft Java players
   - proto: udp
     port: 19132  # Minecraft Bedrock players
+  - proto: tcp
+    port: 80  # the map, redirected to HTTPS
+  - proto: tcp
+    port: 443  # the map of the world (BlueMap)
 ```
 
-Its provider's firewall lets in `51820` UDP and the two ports from
-everyone, and `22` TCP for whoever runs Ansible. Then:
+Its provider's firewall lets in `51820` UDP and the four ports from
+everyone, and `22` TCP for whoever runs Ansible. The map's name
+(`minecraft_map_domain` at the home end) points at this server. Then:
 
 ```sh
 ansible-playbook playbooks/site.yml --limit relay
@@ -161,7 +171,10 @@ ssh -J ubuntu@10.0.1.226 ubuntu@10.250.226.170 sudo docker exec minecraft rcon-c
 | `op <name>` | lets a player run these commands in the game |
 | `worldborder set <width>` | moves the border of the Overworld; the width is twice the distance from the middle |
 | `execute in minecraft:the_nether run worldborder set <width>` | the same for the Nether; `minecraft:the_end` for the End |
-| `chunky radius 1250`, then `chunky start` | creates the whole world up front, so nobody waits for it |
+| `chunky radius 1500`, then `chunky start` | creates the whole world up front, so nobody waits for it |
+| `gamerule players_sleeping_percentage 66` | how many of the players have to sleep to skip the night, in percent |
+| `ledger inspect` | hit a block to see who changed it; `ledger rollback` undoes changes |
+| `spark profiler start`, then `spark profiler stop` | measures where the server's time goes, and gives a link to the result |
 
 The mods' settings are files in `/srv/minecraft/data/config` on the VM;
 restart the server after changing one:
@@ -177,7 +190,9 @@ pinning).
 ## Backups
 
 The world and the server's settings are backed up to a Simple Storage
-Service (S3) bucket every hour while somebody is playing. Backups are
+Service (S3) bucket every 15 minutes while somebody is playing
+(`minecraft_backup_interval`). The bucket shows no file per backup: each
+one is stored as the pieces that changed, and restic lists them. Backups are
 encrypted before they leave the machine, and only what changed is
 uploaded ([settings](#settings)).
 
@@ -216,11 +231,11 @@ in the OpenTofu stack:
 ansible-playbook playbooks/site.yml --limit minecraft-standby
 ```
 
-A new server loads the newest backup, which is up to an hour old. A
+A new server loads the newest backup, which is up to 15 minutes old. A
 standby you kept from last time still has its old world. Run
 `sudo minecraft-restore latest with-settings` on it right after it starts:
-an hour later it makes its first backup, and the old world would then be
-the newest one.
+15 minutes later it makes its first backup, and the old world would then
+be the newest one.
 
 **Going back home.** On the standby, take a last backup and stop the
 server:
@@ -252,9 +267,11 @@ without a tunnel:
   only to that group.
 * Give it a `host_vars/<name>.yml` with `ansible_host` and `ansible_user`,
   and `minecraft_data_device` if the worlds go on a disk of their own.
-* In the provider's firewall, open `25565` TCP and `19132` UDP to everyone,
-  and `22` TCP to your own address only. Nothing in this repository
-  firewalls that machine.
+* In the provider's firewall, open `25565` TCP, `19132` UDP, and `80` and
+  `443` TCP (the map) to everyone, and `22` TCP to your own address only.
+  Nothing in this repository firewalls that machine.
+* For the map, set `minecraft_map_domain` to a name that points at the
+  machine.
 * Run the playbook with `--limit <name>`.
 
 ## Cheatsheet

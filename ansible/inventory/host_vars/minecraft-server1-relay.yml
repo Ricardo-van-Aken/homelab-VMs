@@ -4,6 +4,9 @@
 # Players of minecraft-server1 connect to it. OpenTofu reads this file for
 # the name under the domain and the tunnel's port.
 ansible_host: "mc.{{ homelab_domain }}"
+# Other names under the domain for this server; OpenTofu makes their
+# records. map: minecraft-server1's minecraft_map_domain.
+relay_aliases: [map]
 ansible_user: root  # what Hetzner's images log in as
 # A server made anew has new host keys. Accept a key on first contact, but
 # still refuse a changed one; remove the stale entry with `ssh-keygen -R`.
