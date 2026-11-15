@@ -97,8 +97,9 @@ ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-egress
 
 It shows the egress VM's public key. **Send it to the relay's operator.**
 
-**2. Relay: set up.** Any Ubuntu server with a public address, in the
-`relay` group of `inventory/hosts.yml`, with in its host_vars:
+**2. Relay: set up.** Any Ubuntu server with a public address, in place
+of minecraft-server1-relay in the `relay` group of `inventory/hosts.yml`,
+with in its host_vars:
 
 ```yaml
 relay_address: 10.99.226.1/24
@@ -116,7 +117,7 @@ Its provider's firewall lets in `51820` UDP and the two ports from
 everyone, and `22` TCP for whoever runs Ansible. Then:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit <relay>
+ansible-playbook playbooks/site.yml --limit relay
 ```
 
 It shows the relay's public key. **Send it to the home end's operator,

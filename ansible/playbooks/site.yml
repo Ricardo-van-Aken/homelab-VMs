@@ -30,11 +30,12 @@
   roles:
     - shares
 
-# Before the gateways at home, which check that their tunnel answers.
+# Before the gateways at home, which check that their tunnel answers. No
+# ssh_keys: OpenTofu puts the keys on a relay it rents, and a relay run by
+# somebody else gets none of ours.
 - name: Public ends of the tunnels
   hosts: relay
   roles:
-    - ssh_keys
     - base
     - relay
 
