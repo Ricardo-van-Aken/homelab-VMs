@@ -13,35 +13,7 @@ A Fabric server for Java players, which Bedrock players can join too
 
 The two rented servers are made by the `minecraft` stack of
 [cloud resources](cloud-resources.md), and may exist at the same time.
-
-## Cheatsheet
-
-Commands on a server go after one of these:
-
-| Server | Put in front |
-|---|---|
-| minecraft-server1 | `ssh -J ubuntu@10.0.1.226 ubuntu@10.250.226.170 sudo` |
-| minecraft-standby | `ssh root@minecraft-standby.<domain>` |
-
-| To | Command on the server |
-|---|---|
-| see who is online | `docker exec minecraft rcon-cli list` |
-| run a game command ([list](#on-the-running-server)) | `docker exec minecraft rcon-cli "<command>"` |
-| let a player in | `docker exec minecraft rcon-cli "whitelist add <name>"` |
-| follow the log | `docker logs -f --tail 100 minecraft` |
-| restart | `docker restart minecraft` |
-| stop, or `start` | `docker compose --project-directory /opt/stacks/minecraft stop` |
-| back up now | `docker exec minecraft-backup backup now` |
-| list the backups | `minecraft-restore` |
-| load a backup, with whitelist and settings | `minecraft-restore <ID> with-settings` |
-
-| To | Command on your machine |
-|---|---|
-| set up the server at home, from `ansible/` | `ansible-playbook playbooks/site.yml --limit 'all:!minecraft-standby'` |
-| rent or remove the standby: set `standby_server` in `terraform.tfvars`, then | `tofu -chdir=terraform/stacks/minecraft apply` |
-| set up the standby, from `ansible/`; a new one loads the newest backup | `ansible-playbook playbooks/site.yml --limit minecraft-standby` |
-
-Moving play to the standby and back: [The standby](#the-standby).
+Every command at a glance: [cheatsheet](#cheatsheet).
 
 ## Settings
 
@@ -56,43 +28,83 @@ In `ansible/inventory/group_vars/minecraft/main.yml`:
   `structurify.json` (and other mod settings) under
   `inventory/files/minecraft/` and list them in `minecraft_config_files`
   before the first run.
+* For backups, set `minecraft_backup_repository` to the bucket,
+  `s3:https://<endpoint>/<bucket>`, and `minecraft_backup_region` to its
+  region. The OpenTofu stack makes one at Hetzner.
+
+In `secrets.sops.yaml` beside it, put a key pair that may read and write
+that bucket, and a long random `minecraft_backup_password`
+([secrets](secrets.md)). Keep that password somewhere else too: without it
+no backup can be read.
 
 ## The tunnel
 
 Each end makes its own key pair and never gives away the private half.
-With both ends in this repository, as they are, they read each other's
-public key, so there is nothing to copy. Apply the OpenTofu stack, then
-from `ansible/`:
+The server at home is installed through the tunnel, so it is skipped
+until the tunnel is up.
+
+### With our own relay
+
+Both ends are in this repository and read each other's public key. From
+the repository's root, with the SOPS key unlocked ([secrets](secrets.md)):
+
+1. In `terraform/stacks/minecraft/terraform.tfvars`, set
+   `relay_server = true`, then rent the relay:
+
+   ```sh
+   tofu -chdir=terraform/stacks/minecraft apply
+   ```
+
+2. A relay made anew has a new SSH host key; forget the old one:
+
+   ```sh
+   ssh-keygen -R mc.<domain>
+   ```
+
+3. Set up the relay, the egress VM and the server:
+
+   ```sh
+   cd ansible
+   ```
+
+   ```sh
+   ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-relay,minecraft-server1-egress,minecraft-server1
+   ```
+
+Players connect to `mc.<domain>`.
+
+### With each end run by somebody else
+
+Two people, each with a clone of this repository and an inventory of
+their own. Only public keys are exchanged; the relay's operator does see
+the home's public address, players never do.
+
+First agree on the tunnel's addresses and ports, for example:
+
+| Setting | Value |
+|---|---|
+| relay's address in the tunnel | `10.99.226.1/24` |
+| home end's address in the tunnel | `10.99.226.2` |
+| ports passed on to players | `25565` TCP (Java), `19132` UDP (Bedrock) |
+
+**1. Home end: make a key.** In `host_vars/minecraft-server1-egress.yml`,
+remove `egress_relay`, `egress_vpn_address` and `egress_vpn_endpoint`, and
+run:
 
 ```sh
-ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-relay,minecraft-server1-egress,minecraft-server1
+ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-egress
 ```
 
-The playbook sets up the relay first. The egress VM's part fails while the
-relay does not answer, and the server itself is skipped until the tunnel
-is up, because it is installed through it.
+It shows the egress VM's public key. **Send it to the relay's operator.**
 
-### With the other end run by somebody else
-
-Either end also works alone, from plain settings.
-
-**Your home end, their relay.** In `host_vars/minecraft-server1-egress.yml`,
-remove `egress_relay`, and set `egress_vpn_address` to the address they
-give this VM in the tunnel. Run its playbook: it shows the VM's public key.
-Give the relay's operator that key, the address, and the ports to pass on
-(`egress_inbound`). From what they send back, set
-`egress_vpn_peer_public_key` and `egress_vpn_endpoint`, and run it again.
-
-**Their home end, a relay from this repository.** The role needs nothing
-else from here: any Ubuntu server with a public address, the roles
-`tunnel_key` and `relay`, and these settings instead of `relay_egress`:
+**2. Relay: set up.** Any Ubuntu server with a public address, in the
+`relay` group of `inventory/hosts.yml`, with in its host_vars:
 
 ```yaml
-relay_address: 10.99.226.1/24  # this end's address in the tunnel
+relay_address: 10.99.226.1/24
 relay_port: 51820
-# From the home end's operator:
-relay_peer_public_key: <WireGuard public key>
-relay_peer_address: 10.99.226.2  # the home end's address in the tunnel
+relay_peer_public_key: <public key from step 1>
+relay_peer_address: 10.99.226.2
 relay_forwards:
   - proto: tcp
     port: 25565  # Minecraft Java players
@@ -100,10 +112,35 @@ relay_forwards:
     port: 19132  # Minecraft Bedrock players
 ```
 
-The run shows the relay's public key. The home end's operator needs that,
-the server's public address with `relay_port`, and `relay_address` without
-its prefix. The server's own firewall has to let in `relay_port` on UDP,
-the forwarded ports, and SSH for whoever runs Ansible.
+Its provider's firewall lets in `51820` UDP and the two ports from
+everyone, and `22` TCP for whoever runs Ansible. Then:
+
+```sh
+ansible-playbook playbooks/site.yml --limit <relay>
+```
+
+It shows the relay's public key. **Send it to the home end's operator,
+with the relay's public address or name and the port, `51820`.**
+
+**3. Home end: connect.** In `host_vars/minecraft-server1-egress.yml`:
+
+```yaml
+egress_vpn_address: 10.99.226.2/32
+egress_vpn_peer_public_key: <public key from step 2>
+egress_vpn_endpoint: <relay's address or name>:51820
+```
+
+```sh
+ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-egress,minecraft-server1
+```
+
+Players connect to the relay's address or name.
+
+| Sent | From | To | Goes in |
+|---|---|---|---|
+| egress VM's public key | home end | relay | `relay_peer_public_key` |
+| relay's public key | relay | home end | `egress_vpn_peer_public_key` |
+| relay's address or name, and port | relay | home end | `egress_vpn_endpoint` |
 
 ## On the running server
 
@@ -141,15 +178,7 @@ pinning).
 The world and the server's settings are backed up to a Simple Storage
 Service (S3) bucket every hour while somebody is playing. Backups are
 encrypted before they leave the machine, and only what changed is
-uploaded. In `group_vars/minecraft/`:
-
-* In `main.yml`, set `minecraft_backup_repository` to the bucket,
-  `s3:https://<endpoint>/<bucket>`, and `minecraft_backup_region` to its
-  region. The OpenTofu stack makes one at Hetzner.
-* In `secrets.sops.yaml`, put a key pair that may read and write that
-  bucket, and a long random `minecraft_backup_password`
-  ([secrets](secrets.md)). Keep that password somewhere else too: without
-  it no backup can be read.
+uploaded ([settings](#settings)).
 
 On the server, this lists the backups:
 
@@ -226,3 +255,33 @@ without a tunnel:
   and `22` TCP to your own address only. Nothing in this repository
   firewalls that machine.
 * Run the playbook with `--limit <name>`.
+
+## Cheatsheet
+
+Commands on a server go after one of these:
+
+| Server | Put in front |
+|---|---|
+| minecraft-server1 | `ssh -J ubuntu@10.0.1.226 ubuntu@10.250.226.170 sudo` |
+| minecraft-standby | `ssh root@minecraft-standby.<domain>` |
+
+| To | Command on the server |
+|---|---|
+| see who is online | `docker exec minecraft rcon-cli list` |
+| run a game command ([list](#on-the-running-server)) | `docker exec minecraft rcon-cli "<command>"` |
+| let a Java player in, by Java name | `docker exec minecraft rcon-cli "whitelist add <name>"` |
+| let a Bedrock player in, by Xbox gamertag | `docker exec minecraft rcon-cli "fwhitelist add <gamertag>"` |
+| follow the log | `docker logs -f --tail 100 minecraft` |
+| restart | `docker restart minecraft` |
+| stop, or `start` | `docker compose --project-directory /opt/stacks/minecraft stop` |
+| back up now | `docker exec minecraft-backup backup now` |
+| list the backups | `minecraft-restore` |
+| load a backup, with whitelist and settings | `minecraft-restore <ID> with-settings` |
+
+| To | Command on your machine |
+|---|---|
+| set up the server at home, its egress VM and the relay, from `ansible/` | `ansible-playbook playbooks/site.yml --limit srv1,minecraft-server1-relay,minecraft-server1-egress,minecraft-server1` |
+| rent or remove the standby: set `standby_server` in `terraform.tfvars`, then | `tofu -chdir=terraform/stacks/minecraft apply` |
+| set up the standby, from `ansible/`; a new one loads the newest backup | `ansible-playbook playbooks/site.yml --limit minecraft-standby` |
+
+Moving play to the standby and back: [The standby](#the-standby).
