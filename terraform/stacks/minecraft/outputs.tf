@@ -3,7 +3,7 @@ output "backup_repository" {
   value       = "s3:https://${var.location}.your-objectstorage.com/${module.backups.name}"
 }
 
-# Shown with `terraform output -raw <name>`; the names contain the domain.
+# Shown with `tofu output -raw <name>`; the names contain the domain.
 output "relay_name" {
   description = "Where players of the server at home connect, and Ansible reaches the relay."
   value       = var.relay_server ? "${local.relay_label}.${local.domain}" : null

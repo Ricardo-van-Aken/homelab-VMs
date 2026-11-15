@@ -3,9 +3,17 @@
 
 # Mojang's End User License Agreement, https://aka.ms/MinecraftEULA.
 # TODO: read it and set to true to agree; the role stops while it is false.
-minecraft_eula: false
+minecraft_eula: true
 
 minecraft_motd: L.A.N party
+# Sized for 20 to 30 players; the VM's memory is 2 GB above the heap.
+minecraft_max_players: 30
+minecraft_memory: 8G
+minecraft_memory_limit: 9g
+# How far around each player mobs and crops move; the default is 10. The
+# main game loop runs on one core, and this is its biggest cost.
+minecraft_extra_env:
+  SIMULATION_DISTANCE: "6"
 minecraft_seed: "-8028949898700072581"
 # A new world's border: 1250 blocks from 0,0 in every direction. Changed on
 # the running server afterwards (docs/minecraft.md).
@@ -27,7 +35,7 @@ minecraft_config_files:
 # world loads the newest backup from it.
 minecraft_backup_repository: s3:https://fsn1.your-objectstorage.com/minecraft-backups-24de02e1
 minecraft_backup_region: fsn1
-# The bucket's S3 credentials; Terraform makes the bucket with them.
+# The bucket's S3 credentials; OpenTofu makes the bucket with them.
 # SECRET: in secrets.sops.yaml.
 # minecraft_backup_access_key_id: <string>
 # minecraft_backup_secret_access_key: <string>

@@ -9,7 +9,9 @@
         not egress_vpn_endpoint
         or (egress_vpn_address | length > 0
             and (egress_vpn_peer_public_key | length > 0 or egress_relay | length > 0))
-      - egress_vpn_endpoint or not (egress_vpn_address or egress_vpn_peer_public_key)
+      - >-
+        egress_vpn_endpoint | length > 0
+        or (egress_vpn_address | length == 0 and egress_vpn_peer_public_key | length == 0)
       - not egress_relay or egress_relay in groups['all']
       - not egress_relay or egress_vpn_private_key | length == 0
       - egress_inbound | rejectattr('proto', 'defined') | list | length == 0

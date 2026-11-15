@@ -22,9 +22,9 @@ variable "standby_name" {
 }
 
 variable "standby_server_type" {
-  description = "Hetzner server type. The Minecraft role wants 6 GB of memory or more."
+  description = "Hetzner server type. The Minecraft settings want 10 GB of memory or more."
   type        = string
-  default     = "cx33"
+  default     = "cx43"
 }
 
 variable "relay_server" {

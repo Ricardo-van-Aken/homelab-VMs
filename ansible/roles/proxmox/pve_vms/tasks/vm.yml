@@ -66,6 +66,8 @@
          | combine(networks)
          | combine({'nameserver': nameservers | join(' ')} if nameservers | length > 0 else {})
          | combine({'balloon': pve_vms_spec.balloon | string} if pve_vms_spec.balloon is defined else {})
+         | combine({'affinity': pve_vms_core_sets.get(pve_vms_spec.affinity, pve_vms_spec.affinity | string)}
+                   if pve_vms_spec.affinity is defined else {})
          | combine({'balloon': '0', 'agent': '0', 'tablet': '0'} if pve_vms_spec.untrusted | bool else {})
          | combine(disks)
          | combine(dict(range(pve_vms_spec.hostpci | length)

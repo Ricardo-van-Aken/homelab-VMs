@@ -1,7 +1,8 @@
 # Instructions for AI agents
 
 All Ansible lives under `ansible/`; run `ansible-*` and `molecule` commands
-from that directory. Terraform lives under `terraform/`.
+from that directory. OpenTofu (`tofu`, never `terraform`) lives under
+`terraform/`.
 
 Guidance for automated changes to this repository. Humans are welcome to read
 it, but the README is written for them.
@@ -21,7 +22,7 @@ and when touching a pin, update the pin and its comment in the same change.
 | Python package | exact `==` version, transitives included | grouped and annotated as in `ansible/docker/*/requirements*.txt` |
 | Downloaded file | `checksum: sha256:…` on the download task, or checked with `sha256sum -c` in a Dockerfile | the release it came from |
 | GitHub runner | `ubuntu-XX.04`, never `ubuntu-latest` | none |
-| Terraform and its providers | exact `required_version` and `version`, no `~>` or `>=`; commit `.terraform.lock.hcl` | none; the lock file holds the checksums |
+| OpenTofu and its providers | exact `required_version` and `version`, no `~>` or `>=`; commit `.terraform.lock.hcl` | none; the lock file holds the checksums |
 
 A tag next to a digest is documentation only: Docker ignores it and applies
 no check. It is written anyway, in the `name:tag@sha256:…` form, because
@@ -47,11 +48,11 @@ git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag> 'refs/tags/<tag>
 A peeled `^{}` line means the tag is annotated; use that SHA. No peeled line
 means the tag is lightweight and the first SHA is the commit.
 
-Terraform provider checksums, after changing a version in `versions.tf`,
+OpenTofu provider checksums, after changing a version in `versions.tf`,
 for every platform the configuration is run on:
 
 ```sh
-terraform providers lock -platform=darwin_arm64 -platform=linux_amd64 -platform=linux_arm64
+tofu providers lock -platform=darwin_arm64 -platform=linux_amd64 -platform=linux_arm64
 ```
 
 Downloaded file checksum, after confirming the response is the real file and
@@ -78,7 +79,7 @@ group. Resolve the new digest or commit as above, update the version
 comment where there is one, and let CI rebuild the images; their tags are
 content hashes so nothing else changes.
 
-## Terraform
+## OpenTofu
 
 * One stack per purpose under `terraform/stacks/`, each with its own state
   and lock file. Name a stack after what it is for, never after a provider.
@@ -92,8 +93,8 @@ content hashes so nothing else changes.
   only for `identity.sops.yaml`.
 * `terraform.tfvars` holds settings only and is committed. State files are
   never committed.
-* There is no Terraform lint in CI yet: run `terraform fmt -check
-  -recursive` and `terraform validate` in each stack.
+* There is no OpenTofu lint in CI yet: run `tofu fmt -check
+  -recursive` and `tofu validate` in each stack.
 
 ## Replies
 
@@ -111,7 +112,7 @@ writing it to the maintainer (`sops edit <file>`).
 |---|---|
 | of a group or host | `secrets.sops.yaml` in its directory under `ansible/inventory/group_vars/` or `host_vars/` |
 | the domain and the home's public address | `group_vars/all/identity.sops.yaml`, which holds nothing else |
-| only Terraform needs | `terraform/secrets/*.sops.yaml`, with its keys in the `.example.yaml` beside it |
+| only OpenTofu needs | `terraform/secrets/*.sops.yaml`, with its keys in the `.example.yaml` beside it |
 
 * A group or host gets a directory with its first secret: `<name>.yml`
   becomes `<name>/main.yml`.

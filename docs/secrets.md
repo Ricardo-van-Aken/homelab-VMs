@@ -2,7 +2,7 @@
 
 Every secret is in a file ending in `.sops.yaml` or `.sops.json`, encrypted
 with [SOPS](https://github.com/getsops/sops). Ansible decrypts them on its
-own, and Terraform ([cloud resources](cloud-resources.md)) reads the same
+own, and OpenTofu ([cloud resources](cloud-resources.md)) reads the same
 files. The ones in the repository are encrypted for my key: you cannot read
 them, so delete them and make your own.
 
@@ -57,5 +57,5 @@ The `main.yml` next to each file says what every value is, under a
 | `group_vars/minecraft/secrets.sops.yaml` | `minecraft_backup_access_key_id`, `minecraft_backup_secret_access_key`, `minecraft_backup_password` |
 | `host_vars/torrent-egress/secrets.sops.yaml` | `egress_vpn_private_key`, when the VPN provider made the key pair |
 
-Only Terraform needs `terraform/secrets/credentials.sops.yaml`; the
+Only OpenTofu needs `terraform/secrets/credentials.sops.yaml`; the
 `.example.yaml` beside it shows what goes in.

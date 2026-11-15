@@ -323,13 +323,24 @@
     force: false
   when: minecraft_world_radius | int > 0
 
-# A running server only loads its mods when it starts.
+# Geyser writes its settings on the first start. Its default makes Bedrock
+# players log in with a Java account; Floodgate lets in their Xbox account.
+- name: Let Bedrock players in with their Xbox account
+  ansible.builtin.lineinfile:
+    path: "{{ minecraft_data_dir }}/data/config/Geyser-Fabric/config.yml"
+    regexp: '^(\s*)auth-type:'
+    line: '\1auth-type: floodgate'
+    backrefs: true
+  register: minecraft_geyser_auth
+
+# A running server only loads its mods and their settings when it starts.
 - name: Restart Minecraft to load the changed mods
   community.docker.docker_compose_v2:
     project_src: "{{ minecraft_dir }}"
     state: restarted
     wait: true
     wait_timeout: 900
-  when:
-    - not minecraft_deploy.changed
-    - minecraft_mods_downloaded.changed or minecraft_mods_removed.changed
+  when: >-
+    minecraft_geyser_auth.changed
+    or (not minecraft_deploy.changed
+        and (minecraft_mods_downloaded.changed or minecraft_mods_removed.changed))

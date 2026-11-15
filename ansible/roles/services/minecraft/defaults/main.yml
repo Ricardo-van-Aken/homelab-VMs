@@ -138,6 +138,10 @@ minecraft_mods:
     url: >-
       https://cdn.modrinth.com/data/uXXizFIs/versions/d5ddUdiB/ferritecore-9.0.0-fabric.jar
     checksum: sha256:213966c72ed967acc7392beb28a866fba301ff56b9976c2e7801c2db7de6bf22
+  - name: lithium  # mc26.3-0.26.3-fabric; a faster game loop, same gameplay
+    url: >-
+      https://cdn.modrinth.com/data/gvQqBUqZ/versions/fWv5bnZk/lithium-fabric-0.26.3%2Bmc26.3.jar
+    checksum: sha256:103b6aab3932f119155565254a3f33b1be0da26b9bf7a5eec24851542144fc78
   # Bedrock players. Bump Geyser when Bedrock clients update, or they are
   # refused.
   - name: geyser  # 2.12.1-b1302

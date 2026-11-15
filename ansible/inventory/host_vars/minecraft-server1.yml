@@ -12,7 +12,9 @@ isolated_egress: minecraft-server1-egress
 # Its VMID is the 8 bits of its IP on the isolated network (= 170).
 pve_vm:
   cores: 4
-  memory: 6144  # 4G of Java heap (minecraft_memory), and room on top
+  memory: 10240  # 8G of Java heap (minecraft_memory), and room on top
+  # The game loop runs on one core; keep every core it may get a fast one.
+  affinity: performance
   untrusted: true
   # Worlds, on its own disk on the tank pool; nothing shared with the host.
   disks:

@@ -14,7 +14,7 @@
 </div>
 
 Ansible for my homelab: a Proxmox host, the Virtual Machines (VMs) on it, a
-Raspberry Pi beside it, and two rented servers made with Terraform. Each
+Raspberry Pi beside it, and two rented servers made with OpenTofu. Each
 machine runs one or more services:
 
 * **arcade**: media and game streaming, with the host's graphics processing
@@ -87,7 +87,7 @@ up certain VMs, follow the instructions at
 * ansible-core, or Docker.
 * [SOPS](https://github.com/getsops/sops) and
   [age](https://github.com/FiloSottile/age), for the secrets.
-* [Terraform](https://developer.hashicorp.com/terraform/install) 1.17.2,
+* [OpenTofu](https://opentofu.org/docs/intro/install/) 1.13.9,
   only for the rented servers.
 
 </details>
@@ -505,10 +505,10 @@ standby, and running either end of the tunnel without the other.
 <details>
 <summary style="margin-top:2.5em; border-bottom:1px solid rgba(128,128,128,.4); padding-bottom:.3em"><h2 id="cloud-resources" style="display:inline; border-bottom:none; margin:0; vertical-align:middle">Cloud resources</h2></summary>
 
-What is rented outside the house, at Hetzner, is made with Terraform under
+What is rented outside the house, at Hetzner, is made with OpenTofu under
 `terraform/`, one stack per purpose: `dns` for the domain's Domain Name
 System (DNS) zone, and `minecraft` for the backup bucket, the relay and
-the standby server. Terraform reads the domain, the SSH keys and the
+the standby server. OpenTofu reads the domain, the SSH keys and the
 servers' names from the Ansible inventory, so nothing is kept twice.
 [docs/cloud-resources.md](docs/cloud-resources.md) says what to make in
 the Hetzner console first and how to run a stack.
@@ -601,7 +601,7 @@ and `minecraft-standby`.
 │   ├── stacks/              one directory per purpose, each applied on its own:
 │   │                        dns, minecraft
 │   ├── modules/             building blocks the stacks share
-│   └── secrets/             what Terraform logs in with, encrypted with SOPS
+│   └── secrets/             what OpenTofu logs in with, encrypted with SOPS
 ├── docs/                    guides: secrets, cloud resources, Minecraft
 ├── .config/molecule/        settings shared by every scenario (Molecule reads
 │                            this from the git root only)

@@ -1,5 +1,5 @@
 # A private bucket for backups, on any server that speaks the S3 protocol.
-# Backups are the point of it, so Terraform never empties or removes one.
+# Backups are the point of it, so OpenTofu never empties or removes one.
 
 variable "name" {
   description = "Name of the bucket. At Hetzner, names are shared by all customers, so pick one nobody else has."

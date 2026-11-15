@@ -35,6 +35,35 @@
     fail_msg: "{{ item }} is not a valid VM name; use letters, digits and hyphens"
   loop: "{{ groups['vms'] }}"
 
+# On a CPU with performance and efficiency cores the kernel lists each kind
+# here; on any other CPU these files do not exist.
+- name: Read the performance cores
+  ansible.builtin.command: cat /sys/devices/cpu_core/cpus
+  register: pve_vms_performance_cores
+  failed_when: false
+  changed_when: false
+
+- name: Read the efficiency cores
+  ansible.builtin.command: cat /sys/devices/cpu_atom/cpus
+  register: pve_vms_efficiency_cores
+  failed_when: false
+  changed_when: false
+
+- name: Remember the kinds of cores
+  ansible.builtin.set_fact:
+    pve_vms_core_sets:
+      performance: "{{ pve_vms_performance_cores.stdout | default('') | trim }}"
+      efficiency: "{{ pve_vms_efficiency_cores.stdout | default('') | trim }}"
+
+- name: Require that kind of core for VMs pinned to one
+  ansible.builtin.assert:
+    that: pve_vms_core_sets[hostvars[item].pve_vm.affinity] | length > 0
+    fail_msg: >-
+      {{ item }} wants affinity {{ hostvars[item].pve_vm.affinity }}, but
+      {{ inventory_hostname }}'s CPU has no such cores; give core numbers instead
+  loop: "{{ groups['vms'] }}"
+  when: hostvars[item].pve_vm.affinity | default('') in ['performance', 'efficiency']
+
 - name: Manage each VM on this node
   ansible.builtin.include_tasks: vm.yml
   loop: "{{ groups['vms'] }}"
