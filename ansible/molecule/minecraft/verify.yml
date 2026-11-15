@@ -91,9 +91,17 @@
           - minecraft_ports.stdout is search('19132/tcp')
           - minecraft_ports.stdout is search('19132/udp')
 
-    - name: Assert Geyser listens for Bedrock players
+    - name: Assert Geyser started
       ansible.builtin.assert:
-        that: minecraft_log.stdout is search('Started Geyser on')
+        that: minecraft_log.stdout is search('Run /geyser help for help')
+
+    # Bedrock clients start a join over HTTP on this port (NetherNet); any
+    # answer shows Geyser is behind it, not only Docker's port.
+    - name: Ask Geyser for a Bedrock join
+      ansible.builtin.uri:
+        url: http://127.0.0.1:19132/v1/join
+        status_code: "{{ range(200, 600) | list }}"
+        timeout: 10
 
     # What makes the whitelist adjustable without Ansible.
     - name: Add a player to the whitelist on the running server
