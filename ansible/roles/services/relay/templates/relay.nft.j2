@@ -37,16 +37,17 @@ table inet relay {
 		ip saddr {{ relay_peer_address }} oifname "{{ public }}" masquerade
 	}
 
-	# This machine itself serves the tunnel and SSH, nothing else. Which
-	# addresses reach SSH is the provider's firewall's to say.
+	# This machine itself serves the tunnel and SSH, nothing else, and only
+	# to the internet: nothing in the tunnel reaches it. Which addresses
+	# reach SSH is the provider's firewall's to say.
 	chain input {
 		type filter hook input priority filter; policy drop;
 
 		ct state established,related accept
 		ct state invalid drop
 		iifname "lo" accept
-		meta l4proto { icmp, ipv6-icmp } accept
-		tcp dport 22 accept  # SSH, for you and Ansible
-		udp dport {{ relay_port }} accept  # the tunnel, from the home end
+		iifname "{{ public }}" meta l4proto { icmp, ipv6-icmp } accept
+		iifname "{{ public }}" tcp dport 22 accept  # SSH, for you and Ansible
+		iifname "{{ public }}" udp dport {{ relay_port }} accept  # the tunnel, from the home end
 	}
 }

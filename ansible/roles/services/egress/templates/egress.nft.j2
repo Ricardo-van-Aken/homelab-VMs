@@ -37,11 +37,12 @@ table inet egress {
 		oifname "{{ egress_vpn_interface }}" masquerade
 	}
 
-	# Nothing from the isolated network reaches this machine but replies.
+	# Nothing from the isolated network or the tunnel reaches this machine
+	# but replies.
 	chain input {
 		type filter hook input priority filter; policy accept;
 
-		iifname "{{ egress_isolated_interface }}" ct state established,related accept
-		iifname "{{ egress_isolated_interface }}" drop
+		iifname { "{{ egress_isolated_interface }}", "{{ egress_vpn_interface }}" } ct state established,related accept
+		iifname { "{{ egress_isolated_interface }}", "{{ egress_vpn_interface }}" } drop
 	}
 }
