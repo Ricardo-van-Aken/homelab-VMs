@@ -7,7 +7,9 @@ ansible_host: 10.0.1.160
 # is no hard requirement to do this, it is just personal preference.
 pve_vm:
   cores: 8
-  memory: 16384
+  # Enough for Jellyfin; 16384 to play games. srv1 has no room for both
+  # that and minecraft-server1.
+  memory: 8192
   balloon: 4096  # reserved; the rest is given back when idle
   bios: ovmf   # the passed-through card is the guest's display; it wants UEFI
   vga: none

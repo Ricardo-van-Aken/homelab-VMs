@@ -7,4 +7,4 @@ backup_bucket = "minecraft-backups-24de02e1"
 # Which of the two servers exist. The relay is needed while the server at
 # home is in use; the standby only while it is down.
 relay_server   = true
-standby_server = true
+standby_server = false

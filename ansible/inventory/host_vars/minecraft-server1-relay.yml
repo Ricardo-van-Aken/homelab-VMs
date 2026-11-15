@@ -1,7 +1,7 @@
 ---
 # Facts about this machine. Service settings live in group_vars/<service>.yml.
 # A server at Hetzner, made by terraform/stacks/minecraft with its firewall.
-# Players of minecraft-server1 connect to it. Terraform reads this file for
+# Players of minecraft-server1 connect to it. OpenTofu reads this file for
 # the name under the domain and the tunnel's port.
 ansible_host: "mc.{{ homelab_domain }}"
 ansible_user: root  # what Hetzner's images log in as

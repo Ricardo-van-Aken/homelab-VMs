@@ -14,6 +14,35 @@ A Fabric server for Java players, which Bedrock players can join too
 The two rented servers are made by the `minecraft` stack of
 [cloud resources](cloud-resources.md), and may exist at the same time.
 
+## Cheatsheet
+
+Commands on a server go after one of these:
+
+| Server | Put in front |
+|---|---|
+| minecraft-server1 | `ssh -J ubuntu@10.0.1.226 ubuntu@10.250.226.170 sudo` |
+| minecraft-standby | `ssh root@minecraft-standby.<domain>` |
+
+| To | Command on the server |
+|---|---|
+| see who is online | `docker exec minecraft rcon-cli list` |
+| run a game command ([list](#on-the-running-server)) | `docker exec minecraft rcon-cli "<command>"` |
+| let a player in | `docker exec minecraft rcon-cli "whitelist add <name>"` |
+| follow the log | `docker logs -f --tail 100 minecraft` |
+| restart | `docker restart minecraft` |
+| stop, or `start` | `docker compose --project-directory /opt/stacks/minecraft stop` |
+| back up now | `docker exec minecraft-backup backup now` |
+| list the backups | `minecraft-restore` |
+| load a backup, with whitelist and settings | `minecraft-restore <ID> with-settings` |
+
+| To | Command on your machine |
+|---|---|
+| set up the server at home, from `ansible/` | `ansible-playbook playbooks/site.yml --limit 'all:!minecraft-standby'` |
+| rent or remove the standby: set `standby_server` in `terraform.tfvars`, then | `tofu -chdir=terraform/stacks/minecraft apply` |
+| set up the standby, from `ansible/`; a new one loads the newest backup | `ansible-playbook playbooks/site.yml --limit minecraft-standby` |
+
+Moving play to the standby and back: [The standby](#the-standby).
+
 ## Settings
 
 In `ansible/inventory/group_vars/minecraft/main.yml`:
@@ -32,7 +61,7 @@ In `ansible/inventory/group_vars/minecraft/main.yml`:
 
 Each end makes its own key pair and never gives away the private half.
 With both ends in this repository, as they are, they read each other's
-public key, so there is nothing to copy. Apply the Terraform stack, then
+public key, so there is nothing to copy. Apply the OpenTofu stack, then
 from `ansible/`:
 
 ```sh
@@ -116,7 +145,7 @@ uploaded. In `group_vars/minecraft/`:
 
 * In `main.yml`, set `minecraft_backup_repository` to the bucket,
   `s3:https://<endpoint>/<bucket>`, and `minecraft_backup_region` to its
-  region. The Terraform stack makes one at Hetzner.
+  region. The OpenTofu stack makes one at Hetzner.
 * In `secrets.sops.yaml`, put a key pair that may read and write that
   bucket, and a long random `minecraft_backup_password`
   ([secrets](secrets.md)). Keep that password somewhere else too: without
@@ -151,7 +180,7 @@ the two made it, with the whitelist and the mods' settings. Play on only
 one of them at a time: each would carry on with its own copy of the world.
 
 **When minecraft-server1 is down.** With `standby_server = true` applied
-in the Terraform stack:
+in the OpenTofu stack:
 
 ```sh
 ansible-playbook playbooks/site.yml --limit minecraft-standby
@@ -186,7 +215,7 @@ once you are back home.
 
 ## On another rented machine
 
-The role also runs on any Ubuntu machine with 6 GB of memory or more,
+The role also runs on any Ubuntu machine with 10 GB of memory or more,
 without a tunnel:
 
 * Add the machine to the `minecraft` group in `inventory/hosts.yml`, and

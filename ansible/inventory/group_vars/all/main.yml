@@ -4,7 +4,7 @@ base_timezone: Europe/Amsterdam
 
 # Public keys that may log in as `ansible_user` on every machine (role
 # ssh_keys). group_vars/proxmox.yml hands the same list to cloud-init, and
-# Terraform puts them on a rented server, named after the comment at the end
+# OpenTofu puts them on a rented server, named after the comment at the end
 # of each key, so every key needs one.
 ssh_keys_authorized:
   - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAmSIvhk/L829v6onj9pQRYkas44rx8GAtt+b+UGdL3y homelab
