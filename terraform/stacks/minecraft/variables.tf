@@ -24,7 +24,7 @@ variable "standby_name" {
 variable "standby_server_type" {
   description = "Hetzner server type. 8 GB of memory: the standby gives the game less than the server at home (host_vars/minecraft-server1-standby.yml)."
   type        = string
-  default     = "cx33"
+  default     = "cpx32"
 }
 
 variable "relay_server" {
