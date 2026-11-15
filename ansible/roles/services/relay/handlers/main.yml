@@ -8,3 +8,9 @@
   ansible.builtin.systemd_service:
     name: "wg-quick@{{ relay_interface }}"
     state: restarted
+
+# Without its admin API, Caddy reads its configuration only at start.
+- name: Restart relay Caddy
+  ansible.builtin.systemd_service:
+    name: caddy
+    state: restarted

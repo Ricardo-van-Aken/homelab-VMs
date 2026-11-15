@@ -72,9 +72,9 @@
         - minecraft:the_nether
         - minecraft:the_end
 
-    - name: Assert the new world got a border of 1250 blocks each way
+    - name: Assert the new world got a border of 1250 blocks each way, the End 2000
       ansible.builtin.assert:
-        that: item.stdout is search('2500')
+        that: item.stdout is search('4000' if item.item == 'minecraft:the_end' else '2500')
       loop: "{{ minecraft_border.results }}"
       loop_control:
         label: "{{ item.item }}"
@@ -88,6 +88,7 @@
       ansible.builtin.assert:
         that:
           - minecraft_ports.stdout is search('25565/tcp')
+          - minecraft_ports.stdout is search('19132/tcp')
           - minecraft_ports.stdout is search('19132/udp')
 
     - name: Assert Geyser listens for Bedrock players

@@ -1,48 +1,67 @@
 #!/usr/sbin/nft -f
 # {{ ansible_managed }}
+{% set egress_ways_in = [egress_vpn_interface] + ([egress_netbird_interface] if egress_netbird | bool else []) %}
 
 # Replace only this table.
 table inet egress {}
 delete table inet egress
 
 table inet egress {
-	# Ports passed from the tunnel to the VM.
+	# Ports passed from the tunnel and from NetBird to the VM.
 	chain prerouting {
 		type nat hook prerouting priority dstnat; policy accept;
 
 {% for rule in egress_inbound %}
 		iifname "{{ egress_vpn_interface }}" {{ rule.proto }} dport { {{ rule.port }} } dnat ip to {{ egress_isolated.vm }}
 {% endfor %}
+{% if egress_netbird | bool %}
+{% for rule in egress_netbird_inbound %}
+		iifname "{{ egress_netbird_interface }}" {{ rule.proto }} dport { {{ rule.port }} } dnat ip to {{ egress_isolated.vm }}
+{% endfor %}
+{% endif %}
 	}
 
 	# The isolated network may only leave through the tunnel, and only the
-	# passed ports may come in from it.
+	# passed ports may come in to it.
 	chain forward {
 		type filter hook forward priority filter; policy drop;
 
-		# The tunnel carries smaller packets than the network cards do.
-		oifname "{{ egress_vpn_interface }}" tcp flags syn tcp option maxseg size set rt mtu
+		# The tunnels carry smaller packets than the network cards do.
+		oifname { "{{ egress_ways_in | join('", "') }}" } tcp flags syn tcp option maxseg size set rt mtu
 		ct state established,related accept
-{% if egress_vpn_endpoint %}
+{% if egress_vpn_on %}
 		iifname "{{ egress_isolated_interface }}" oifname "{{ egress_vpn_interface }}" accept
+{% endif %}
+{% if egress_outbound_lan | bool %}
+		# Without the tunnel: out through this machine's own connection, and
+		# never to a private network.
+		iifname "{{ egress_isolated_interface }}" oifname "{{ egress_lan_interface }}" ip daddr != { 10.0.0.0/8, 100.64.0.0/10, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16 } accept
 {% endif %}
 {% for rule in egress_inbound %}
 		iifname "{{ egress_vpn_interface }}" oifname "{{ egress_isolated_interface }}" ip daddr {{ egress_isolated.vm }} {{ rule.proto }} dport { {{ rule.port }} } accept
 {% endfor %}
+{% if egress_netbird | bool %}
+{% for rule in egress_netbird_inbound %}
+		iifname "{{ egress_netbird_interface }}" oifname "{{ egress_isolated_interface }}" ip daddr {{ egress_isolated.vm }} {{ rule.proto }} dport { {{ rule.port }} } accept
+{% endfor %}
+{% endif %}
 	}
 
 	chain postrouting {
 		type nat hook postrouting priority srcnat; policy accept;
 
 		oifname "{{ egress_vpn_interface }}" masquerade
+{% if egress_outbound_lan | bool %}
+		ip saddr {{ egress_isolated.network }} oifname "{{ egress_lan_interface }}" masquerade
+{% endif %}
 	}
 
-	# Nothing from the isolated network or the tunnel reaches this machine
-	# but replies.
+	# Nothing from the isolated network, the tunnel or NetBird reaches this
+	# machine but replies.
 	chain input {
 		type filter hook input priority filter; policy accept;
 
-		iifname { "{{ egress_isolated_interface }}", "{{ egress_vpn_interface }}" } ct state established,related accept
-		iifname { "{{ egress_isolated_interface }}", "{{ egress_vpn_interface }}" } drop
+		iifname { "{{ egress_isolated_interface }}", "{{ egress_ways_in | join('", "') }}" } ct state established,related accept
+		iifname { "{{ egress_isolated_interface }}", "{{ egress_ways_in | join('", "') }}" } drop
 	}
 }

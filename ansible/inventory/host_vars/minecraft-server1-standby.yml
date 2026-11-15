@@ -2,8 +2,11 @@
 # Facts about this machine. Service settings live in group_vars/<service>.yml.
 # A server at Hetzner, made by terraform/stacks/minecraft with its firewall.
 # OpenTofu reads this file for the name under the domain.
-ansible_host: "minecraft-standby.{{ homelab_domain }}"
+ansible_host: "ddg-craft-standby.{{ homelab_domain }}"
 ansible_user: root  # what Hetzner's images log in as
+# A machine with 8 GB: 2 GB for Ubuntu, the backups and Caddy.
+minecraft_memory: 5G
+minecraft_memory_limit: 6g
 # Where the map is served: this server's own name.
 minecraft_map_domain: "{{ ansible_host }}"
 # A server made anew has new host keys. Accept a key on first contact, but

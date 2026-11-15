@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Routing rules of the isolated network
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/egress-routes

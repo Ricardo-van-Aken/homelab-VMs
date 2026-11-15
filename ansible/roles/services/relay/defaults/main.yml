@@ -30,6 +30,13 @@ relay_peer_address: >-
 #   - proto: tcp
 #     port: 25565      # say why it is open, e.g. Minecraft players
 relay_forwards: "{{ (hostvars[relay_egress].egress_inbound | default([])) if relay_egress else [] }}"
+# Web sites this machine serves over HTTPS itself (Caddy, with Let's
+# Encrypt certificates), asking port 80 of the home end for them over plain
+# HTTP. Leave port 80 out of relay_forwards then.
+#   - map.example.org
+relay_sites: []
+# Let's Encrypt's contact for those certificates.
+relay_acme_email: "{{ caddy_acme_email | default('') }}"
 # Where the home end keeps its private key (its egress_vpn_key_file).
 relay_peer_key_file: >-
   {{ (hostvars[relay_egress].egress_vpn_key_file | default('/etc/wireguard/vpn.key'))
