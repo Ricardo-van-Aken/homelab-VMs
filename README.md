@@ -567,9 +567,9 @@ the VPN.
 The VPNs themselves connect to your public address, not to a name here:
 the dns VM's on UDP port 51820, the Pi's on 51821.
 
-Three names are public, in the domain's zone at the DNS provider:
-`wg-easy` (your public address, for the VPN), `mc` (the Minecraft relay)
-and `minecraft-standby`.
+Four names are public, in the domain's zone at the DNS provider:
+`wg-easy` (your public address, for the VPN), `mc` (the Minecraft relay),
+`map` (the Minecraft map, on the relay too) and `minecraft-standby`.
 
 </details>
 
@@ -757,13 +757,14 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
 * **minecraft-server1-relay** (rented, public)
   * 22/tcp: SSH, from home only
   * 51820/udp: WireGuard, from minecraft-server1-egress
-  * 25565/tcp, 19132/udp: Minecraft, passed down the tunnel
+  * 25565/tcp, 19132/udp, 80/tcp, 443/tcp: Minecraft and its map, passed down the tunnel
 * **minecraft-server1-egress** (10.0.1.226)
   * 22/tcp: SSH
 * **minecraft-server1** (10.250.226.170), through the tunnel only
   * 22/tcp: SSH, from minecraft-server1-egress
   * 25565/tcp: Minecraft, Java players
   * 19132/udp: Minecraft, Bedrock players (Geyser)
+  * 80/tcp, 443/tcp: BlueMap, a map of the world in a browser, through Caddy
 * **srv1** (10.0.1.200), the Proxmox host
   * 22/tcp: SSH
   * 8006/tcp: Proxmox web UI and API (HTTPS, its own certificate)

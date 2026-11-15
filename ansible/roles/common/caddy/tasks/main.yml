@@ -2,13 +2,16 @@
 - name: Check the HTTPS settings
   ansible.builtin.assert:
     that:
+      - caddy_challenge in ['dns', 'direct']
       - caddy_acme_email | length > 0
-      - caddy_dns_provider | length > 0
-      - caddy_dns_plugin | length > 0
-      - caddy_dns_token | length > 0
+      - >-
+        caddy_challenge == 'direct'
+        or (caddy_dns_provider | length > 0 and caddy_dns_plugin | length > 0
+            and caddy_dns_token | length > 0)
     fail_msg: >-
-      caddy_https needs caddy_acme_email, caddy_dns_provider, caddy_dns_plugin
-      and caddy_dns_token (in group_vars/all/secrets.sops.yaml)
+      caddy_https needs caddy_acme_email and caddy_challenge dns or direct;
+      dns also needs caddy_dns_provider, caddy_dns_plugin and
+      caddy_dns_token (in group_vars/all/secrets.sops.yaml)
   when: caddy_https | bool
 
 - name: Create stacks directory
@@ -58,10 +61,11 @@
     group: root
     mode: "0644"
 
-# Kept out of compose.yml so that file stays readable.
+# Kept out of compose.yml so that file stays readable. Only a machine that
+# uses the DNS challenge gets the token.
 - name: Write the DNS token
   ansible.builtin.copy:
-    content: "CADDY_DNS_TOKEN={{ caddy_dns_token }}\n"
+    content: "CADDY_DNS_TOKEN={{ caddy_dns_token if caddy_challenge == 'dns' else '' }}\n"
     dest: "{{ caddy_dir }}/caddy.env"
     owner: root
     group: root

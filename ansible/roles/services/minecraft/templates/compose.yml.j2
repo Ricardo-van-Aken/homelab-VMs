@@ -50,6 +50,8 @@ services:
     ports:
       - "{{ minecraft_java_port }}:25565/tcp"
       - "{{ minecraft_bedrock_port }}:19132/udp"
+      # BlueMap, for Caddy on this machine only.
+      - "127.0.0.1:{{ minecraft_map_port }}:8100/tcp"
     volumes:
       - {{ minecraft_data_dir }}/data:/data
       - {{ minecraft_data_dir }}/mods:/mods:ro
@@ -94,6 +96,7 @@ services:
       BACKUP_ON_STARTUP: "false"
       PAUSE_IF_NO_PLAYERS: "{{ minecraft_backup_only_with_players | bool | string | lower }}"
       PRUNE_RESTIC_RETENTION: "{{ minecraft_backup_retention }}"
+      EXCLUDES: "{{ minecraft_backup_excludes | join(',') }}"
       RESTIC_CACHE_DIR: /tmp/restic-cache
       RCON_HOST: minecraft
       RCON_PASSWORD_FILE: /run/secrets/rcon-password

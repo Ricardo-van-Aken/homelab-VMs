@@ -1,7 +1,7 @@
 # {{ ansible_managed }}
 services:
   caddy:
-{% if caddy_https | bool %}
+{% if caddy_https | bool and caddy_challenge == 'dns' %}
     build:
       context: ./image
       args:

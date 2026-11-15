@@ -41,3 +41,7 @@ egress_inbound:
     port: 25565  # Minecraft Java players
   - proto: udp
     port: 19132  # Minecraft Bedrock players
+  - proto: tcp
+    port: 80  # the map, redirected to HTTPS
+  - proto: tcp
+    port: 443  # the map of the world (BlueMap)
