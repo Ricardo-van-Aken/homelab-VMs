@@ -1,0 +1,100 @@
+---
+- name: Check the relay settings
+  ansible.builtin.assert:
+    that:
+      - relay_address is match('^[0-9.]+/[0-9]+$')
+      - relay_peer_address is match('^[0-9.]+$')
+      - relay_egress | length > 0 or relay_peer_public_key | length > 0
+      - not relay_egress or relay_egress in groups['all']
+      - relay_forwards | rejectattr('proto', 'defined') | list | length == 0
+      - relay_forwards | rejectattr('port', 'defined') | list | length == 0
+    fail_msg: >-
+      set relay_address to this end's tunnel address with its prefix, and
+      either relay_egress to the inventory name of the home end, or
+      relay_peer_public_key and relay_peer_address (without prefix) to the
+      home end's; every port in relay_forwards needs proto and port
+
+- name: Check the public network card is known
+  ansible.builtin.assert:
+    that: ansible_facts.default_ipv4.interface is defined
+    fail_msg: this machine has no default route, so no card to receive players on
+
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+
+- name: Forward packets
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_file: /etc/sysctl.d/90-relay.conf
+
+- name: Make this machine's key pair
+  ansible.builtin.include_role:
+    name: tunnel_key
+  vars:
+    tunnel_key_file: "{{ relay_key_file }}"
+
+- name: Show the public key
+  ansible.builtin.debug:
+    msg: >-
+      Public key of {{ inventory_hostname }}, for the home end of the
+      tunnel: {{ tunnel_key_public.stdout }}
+
+# The home end is one of our own machines: read its public key there. It
+# makes its key now if it has none yet.
+- name: Read the home end's public key
+  when: relay_egress | length > 0
+  block:
+    - name: Read the public key on the home end
+      ansible.builtin.include_role:
+        name: tunnel_key
+        apply:
+          delegate_to: "{{ relay_egress }}"
+      vars:
+        tunnel_key_file: "{{ relay_peer_key_file }}"
+
+    - name: Remember the home end's public key
+      ansible.builtin.set_fact:
+        relay_peer_public_key: "{{ tunnel_key_public.stdout }}"
+
+- name: Write the relay firewall
+  ansible.builtin.template:
+    src: relay.nft.j2
+    dest: /etc/relay.nft
+    owner: root
+    group: root
+    mode: "0644"
+    validate: nft -c -f %s
+  notify: Reload relay firewall
+
+- name: Install the relay firewall unit
+  ansible.builtin.template:
+    src: relay.service.j2
+    dest: /etc/systemd/system/relay.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start the relay firewall
+  ansible.builtin.systemd_service:
+    name: relay
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Write the tunnel config
+  ansible.builtin.template:
+    src: relay.conf.j2
+    dest: "/etc/wireguard/{{ relay_interface }}.conf"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart relay tunnel
+
+- name: Start the tunnel
+  ansible.builtin.systemd_service:
+    name: "wg-quick@{{ relay_interface }}"
+    enabled: true
+    state: started

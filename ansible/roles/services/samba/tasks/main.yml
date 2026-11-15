@@ -2,7 +2,7 @@
 - name: Require a share password
   ansible.builtin.assert:
     that: samba_password | length > 0
-    fail_msg: set samba_password to a !vault value in group_vars/samba.yml
+    fail_msg: set samba_password in group_vars/samba/secrets.sops.yaml
 
 - name: Install Samba
   ansible.builtin.apt:

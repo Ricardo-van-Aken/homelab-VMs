@@ -1,0 +1,9 @@
+---
+# Facts about this machine. Service settings live in group_vars/<service>.yml.
+# A server at Hetzner, made by terraform/stacks/minecraft with its firewall.
+# OpenTofu reads this file for the name under the domain.
+ansible_host: "minecraft-standby.{{ homelab_domain }}"
+ansible_user: root  # what Hetzner's images log in as
+# A server made anew has new host keys. Accept a key on first contact, but
+# still refuse a changed one; remove the stale entry with `ssh-keygen -R`.
+ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new

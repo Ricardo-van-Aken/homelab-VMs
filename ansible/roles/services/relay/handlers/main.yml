@@ -1,0 +1,10 @@
+---
+- name: Reload relay firewall
+  ansible.builtin.systemd_service:
+    name: relay
+    state: reloaded
+
+- name: Restart relay tunnel
+  ansible.builtin.systemd_service:
+    name: "wg-quick@{{ relay_interface }}"
+    state: restarted

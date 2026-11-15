@@ -4,7 +4,7 @@
 # to the service that reads them without a chown.
 samba_user: media
 samba_uid: 2000
-samba_password: ""  # a !vault value in group_vars; the role refuses to run without one
+samba_password: ""  # in the group's secrets.sops.yaml; the role refuses to run without one
 # Shares: the name clients see, and the path on the VM (a mounted share from
 # pve_vm.shares).
 samba_shares: []

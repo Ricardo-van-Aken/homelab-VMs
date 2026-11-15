@@ -27,7 +27,7 @@ pve_storage_root_properties:
   compression: zstd
   atime: "off"
   xattr: sa
-  acltype: posixacl
+  acltype: posix  # as ZFS reports it; posixacl is the same and never compares equal
 
 # Defaults for the optional dataset keys.
 pve_storage_dataset_defaults:

@@ -1,0 +1,6 @@
+---
+# Makes a WireGuard key pair on a machine, once, and reads its public half
+# into tunnel_key_public. The private key never leaves the machine. A role
+# includes this for its own machine, and (delegated) for the machine at the
+# other end of its tunnel, so the two exchange public keys by themselves.
+tunnel_key_file: /etc/wireguard/tunnel.key

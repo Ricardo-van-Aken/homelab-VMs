@@ -16,6 +16,8 @@ rules:
     forbid-implicit-octal: true
     forbid-explicit-octal: true
 ignore:
+  # Written by SOPS: long encrypted lines, and its own layout.
+  - "*.sops.yaml"
   - collections/
   - galaxy_roles/
   - .ansible/

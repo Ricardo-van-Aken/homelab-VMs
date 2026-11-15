@@ -18,7 +18,7 @@ pihole_upstreams:
   - 1.0.0.1
 
 # Local records in hosts-file form, "<address> <name> [<name> ...]". The
-# inventory builds them in group_vars/pihole.yml.
+# inventory builds them in group_vars/pihole/main.yml.
 pihole_records: []
 
 # DHCP, for a router that cannot hand out the Pi-hole as DNS server. Off
@@ -36,4 +36,4 @@ pihole_dhcp_reply_delay: 0
 
 # Password for the admin UI and API. Required: without one Pi-hole picks a
 # random password at every start.
-pihole_web_password: ""  # put a !vault value in group_vars
+pihole_web_password: ""  # put it in the group's secrets.sops.yaml

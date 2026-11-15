@@ -1,0 +1,36 @@
+---
+# The public end of a tunnel to an egress machine at home (role egress): a
+# rented server with an address of its own. Players connect to it; it passes
+# the chosen ports down the tunnel, and what the isolated machine at home
+# sends out leaves from here. The home address shows up nowhere.
+#
+# It runs on its own: give it the home end's public key, tunnel address and
+# ports below. When the home end is in the same inventory, name it in
+# relay_egress instead, and those three are taken from it.
+
+# This end's address in the tunnel, with its prefix. Required.
+relay_address: ""  # e.g. 10.99.226.1/24
+relay_port: 51820  # UDP; the home end connects to it
+relay_interface: relay
+# Where this machine's private key is kept; made here, never elsewhere. The
+# play shows the public key, for the home end.
+relay_key_file: "/etc/wireguard/{{ relay_interface }}.key"
+
+# Inventory name of the home end, when it is in this inventory.
+relay_egress: ""
+
+# The home end's public key. With relay_egress it is read on that machine.
+relay_peer_public_key: ""
+# The home end's address in the tunnel, without prefix: its
+# egress_vpn_address.
+relay_peer_address: >-
+  {{ (hostvars[relay_egress].egress_vpn_address | default('') | regex_replace('/.*$', ''))
+     if relay_egress else '' }}
+# Ports passed on to the home end: its egress_inbound.
+#   - proto: tcp
+#     port: 25565      # say why it is open, e.g. Minecraft players
+relay_forwards: "{{ (hostvars[relay_egress].egress_inbound | default([])) if relay_egress else [] }}"
+# Where the home end keeps its private key (its egress_vpn_key_file).
+relay_peer_key_file: >-
+  {{ (hostvars[relay_egress].egress_vpn_key_file | default('/etc/wireguard/vpn.key'))
+     if relay_egress else '' }}

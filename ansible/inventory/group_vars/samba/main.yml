@@ -1,0 +1,19 @@
+---
+# SMB shares of the media datasets, for filling the media libraries from a laptop.
+# The share user's uid is the datasets' owßner (Jellyfin's), so uploads belong
+# to Jellyfin without a chown. Connect with smb://<nas address>/<share>.
+samba_user: media
+samba_uid: 2000
+# Password of samba_user.
+# SECRET: in secrets.sops.yaml.
+# samba_password: <string>
+# Shares, one per media dataset, at the paths pve_vm.shares mounts them.
+samba_shares:
+  - name: movies
+    path: /srv/media/movies
+  - name: series
+    path: /srv/media/series
+  - name: music
+    path: /srv/media/music
+samba_allowed_networks:
+  - 10.0.1.0/24

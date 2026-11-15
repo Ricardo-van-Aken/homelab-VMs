@@ -26,7 +26,7 @@ jellyfin_nvidia_devices: all
 # libraries and transcoding settings are reconciled on every run. Empty
 # password: the setup is skipped and the wizard stays for the browser.
 jellyfin_admin_user: sysadmin
-jellyfin_admin_password: ""  # put a !vault value in group_vars
+jellyfin_admin_password: ""  # put it in the group's secrets.sops.yaml
 jellyfin_server_name: "{{ inventory_hostname }}"
 jellyfin_ui_culture: en-GB
 jellyfin_metadata_language: en
@@ -40,13 +40,12 @@ jellyfin_libraries: []
 #  - name: Movies
 #    type: movies
 #    paths: [/media/movies/action, /media/movies/comedy]
-# Extra (non-admin) users, created once with the given password. Vault both
-# fields so the repository does not list who uses the server.
+# Extra (non-admin) users, created once with the given password. Keep the
+# list in the group's secrets.sops.yaml, so the repository does not list
+# who uses the server.
 jellyfin_users: []
-#  - name: !vault |
-#      ...
-#    password: !vault |
-#      ...
+#  - name: ...
+#    password: ...
 # Hardware transcoding, derived from jellyfin_gpu_vendor. Codecs the GPU can
 # decode; trim for older cards (the R9 380X has no HEVC or VP9 decoder).
 jellyfin_hw_decoding_codecs: [h264, hevc, mpeg2video, vc1, vp8, vp9, av1]

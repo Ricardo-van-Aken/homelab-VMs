@@ -19,6 +19,9 @@ pve_vms_nameservers: []
 #     memory: 8192         # MiB, the maximum
 #     balloon: 2048        # MiB kept at least; the balloon driver gives the rest
 #                          # back to the host. Omit to leave ballooning alone.
+#     affinity: performance  # host cores it runs on: performance or
+#                          # efficiency on a hybrid CPU, or numbers as
+#                          # in `qm set --affinity` (0-3,8); kept when removed
 #     bios: seabios        # or ovmf, which gets an EFI disk
 #     vga: serial0         # none when a passed-through GPU is the display
 #     nameservers:         # instead of pve_vms_nameservers

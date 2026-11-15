@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[Interface]
+Address = {{ relay_address }}
+ListenPort = {{ relay_port }}
+# The private key stays in its own file, out of this one.
+PostUp = wg set %i private-key {{ relay_key_file }}
+
+# The home end{{ ' (' ~ relay_egress ~ ')' if relay_egress else '' }}. It connects from wherever it is.
+[Peer]
+PublicKey = {{ relay_peer_public_key }}
+AllowedIPs = {{ relay_peer_address }}/32

@@ -1,0 +1,52 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+{% set public = ansible_facts.default_ipv4.interface %}
+
+# Replace only this table.
+table inet relay {}
+delete table inet relay
+
+table inet relay {
+	# Ports passed from the internet down the tunnel.
+	chain prerouting {
+		type nat hook prerouting priority dstnat; policy accept;
+
+{% for rule in relay_forwards %}
+		iifname "{{ public }}" {{ rule.proto }} dport { {{ rule.port }} } dnat ip to {{ relay_peer_address }}
+{% endfor %}
+	}
+
+	# Only the passed ports go in, and only the tunnel's own traffic goes out.
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+
+		# The tunnel carries smaller packets than the network card does.
+		oifname "{{ relay_interface }}" tcp flags syn tcp option maxseg size set rt mtu
+		ct state established,related accept
+		iifname "{{ relay_interface }}" oifname "{{ public }}" accept
+{% for rule in relay_forwards %}
+		iifname "{{ public }}" oifname "{{ relay_interface }}" ip daddr {{ relay_peer_address }} {{ rule.proto }} dport { {{ rule.port }} } accept
+{% endfor %}
+	}
+
+	# What comes out of the tunnel leaves under this machine's address. Players
+	# on their way in keep their own, so the server at home sees who connects.
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+
+		ip saddr {{ relay_peer_address }} oifname "{{ public }}" masquerade
+	}
+
+	# This machine itself serves the tunnel and SSH, nothing else. Which
+	# addresses reach SSH is the provider's firewall's to say.
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		ct state established,related accept
+		ct state invalid drop
+		iifname "lo" accept
+		meta l4proto { icmp, ipv6-icmp } accept
+		tcp dport 22 accept  # SSH, for you and Ansible
+		udp dport {{ relay_port }} accept  # the tunnel, from the home end
+	}
+}
