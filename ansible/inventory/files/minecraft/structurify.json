@@ -5,7 +5,8 @@
     { "name": "terralith:rare_village", "spacing": 20, "separation": 10 },
     { "name": "terralith:regular", "spacing": 10, "separation": 5 },
     { "name": "terralith:rubble", "spacing": 21, "separation": 5 },
-    { "name": "terralith:underground", "spacing": 10 },
+    { "name": "terralith:underground", "spacing": 10, "separation": 3 },
+    { "name": "terralith:underground_dungeon", "spacing": 9, "separation": 6 },
     { "name": "towns_and_towers:other", "spacing": 10, "separation": 5 },
     { "name": "towns_and_towers:towers", "spacing": 10, "separation": 5 },
     { "name": "towns_and_towers:towns", "spacing": 20, "separation": 10 }

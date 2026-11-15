@@ -1,7 +1,7 @@
 ---
 # Reverse proxy in front of the web services on a machine. With caddy_https
-# the image is built from files/Dockerfile, Caddy with a DNS provider
-# plugin; without, this stock image is used.
+# and the dns challenge the image is built from files/Dockerfile, Caddy
+# with a DNS provider plugin; otherwise this stock image is used.
 caddy_image: >-
   caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
 caddy_dir: /opt/stacks/caddy
@@ -17,12 +17,17 @@ caddy_https_port: 443
 caddy_https: false
 # Scheme the sites and the services' own URLs are written with.
 caddy_scheme: "{{ 'https://' if caddy_https | bool else 'http://' }}"
+# How a name is proved to Let's Encrypt. dns: with a temporary DNS record,
+# for names only the LAN reaches; needs the provider settings below, and
+# puts the token on the machine. direct: Let's Encrypt connects to ports 80
+# and 443 of this machine, for one the internet reaches; needs no token.
+caddy_challenge: dns
 # Required with caddy_https.
 caddy_acme_email: ""
 # The provider hosting the domain's DNS records: its Caddy module name, the
 # Go module providing it (see github.com/caddy-dns), and an API token that
-# may change the records. Required with caddy_https; the token goes in
-# group_vars/all/secrets.sops.yaml.
+# may change the records. Required with the dns challenge; the token goes
+# in group_vars/all/secrets.sops.yaml.
 caddy_dns_provider: ""  # e.g. hetzner
 caddy_dns_plugin: ""  # e.g. github.com/caddy-dns/hetzner/v2@v2.0.0
 caddy_dns_token: ""

@@ -8,11 +8,16 @@
       - not relay_egress or relay_egress in groups['all']
       - relay_forwards | rejectattr('proto', 'defined') | list | length == 0
       - relay_forwards | rejectattr('port', 'defined') | list | length == 0
+      - relay_sites | reject('match', '^[A-Za-z0-9.-]+$') | list | length == 0
+      - relay_sites | length == 0 or relay_acme_email | length > 0
+      - relay_sites | length == 0 or relay_forwards | selectattr('port', 'in', [80, 443]) | list | length == 0
     fail_msg: >-
       set relay_address to this end's tunnel address with its prefix, and
       either relay_egress to the inventory name of the home end, or
       relay_peer_public_key and relay_peer_address (without prefix) to the
-      home end's; every port in relay_forwards needs proto and port
+      home end's; every port in relay_forwards needs proto and port; with
+      relay_sites (host names), set relay_acme_email and keep ports 80 and
+      443 out of relay_forwards
 
 - name: Check the public network card is known
   ansible.builtin.assert:
@@ -98,3 +103,33 @@
     name: "wg-quick@{{ relay_interface }}"
     enabled: true
     state: started
+
+- name: Serve the web sites over HTTPS
+  when: relay_sites | length > 0
+  block:
+    - name: Install Caddy
+      ansible.builtin.apt:
+        name: caddy
+        state: present
+
+    - name: Write the Caddyfile
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: /etc/caddy/Caddyfile
+        owner: root
+        group: root
+        mode: "0644"
+        validate: caddy adapt --adapter caddyfile --config %s
+      notify: Restart relay Caddy
+
+    - name: Start Caddy
+      ansible.builtin.systemd_service:
+        name: caddy
+        enabled: true
+        state: started
+
+- name: Remove Caddy when there are no web sites
+  ansible.builtin.apt:
+    name: caddy
+    state: absent
+  when: relay_sites | length == 0

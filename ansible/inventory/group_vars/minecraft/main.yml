@@ -5,19 +5,29 @@
 # TODO: read it and set to true to agree; the role stops while it is false.
 minecraft_eula: true
 
-minecraft_motd: L.A.N party
-# Sized for 20 to 30 players; the VM's memory is 2 GB above the heap.
+minecraft_motd: DDG-Craft
+# Sized for 20 to 30 players. The VM's memory is 2 GB above the limit, for
+# Ubuntu, the backups and Caddy.
 minecraft_max_players: 30
-minecraft_memory: 8G
-minecraft_memory_limit: 9g
+minecraft_memory: 7G
+minecraft_memory_limit: 8g
 # How far around each player mobs and crops move; the default is 10. The
 # main game loop runs on one core, and this is its biggest cost.
 minecraft_extra_env:
   SIMULATION_DISTANCE: "6"
+# A new name starts a new world; the old one stays on the disk.
+minecraft_world: DDGCraft-LAN-Party-20-12-2026
 minecraft_seed: "-8028949898700072581"
-# A new world's border: 1250 blocks from 0,0 in every direction. Changed on
+# A new world's border: 2500 blocks from 0,0 in every direction. Changed on
 # the running server afterwards (docs/minecraft.md).
-minecraft_world_radius: 1250
+minecraft_world_radius: 2500
+# Further out where the fortresses and the End cities are.
+minecraft_dimension_radius:
+  the_nether: 5000
+  the_end: 5000
+# A new world's game rules; changed on the running server afterwards.
+minecraft_gamerules:
+  players_sleeping_percentage: 66  # of the players asleep skips the night
 
 # Java players who may join and who may run commands from the first start.
 # Everyone else is added on the running server (docs/minecraft.md).
@@ -30,11 +40,24 @@ minecraft_config_files:
   - src: "{{ inventory_dir }}/files/minecraft/structurify.json"
     dest: structurify.json
 
-# Hourly backups to the bucket terraform/stacks/minecraft makes (its output
+# Elytra Vaults: an End ship's elytra is in a vault, opened with a shulker
+# shell, so every player can take one. Changed from the original, which
+# was made for 1.21, to load on 26.3.
+minecraft_datapacks:
+  - "{{ inventory_dir }}/files/minecraft/datapacks/elytra-vaults-1.0.0-mc26.3.zip"
+
+# The map's certificate: Let's Encrypt connects to the machine itself, so
+# the DNS provider's token stays off a machine the internet reaches.
+caddy_challenge: direct
+
+# Backups to the bucket terraform/stacks/minecraft makes (its output
 # backup_repository). Every server here backs up to it, and one without a
 # world loads the newest backup from it.
 minecraft_backup_repository: s3:https://fsn1.your-objectstorage.com/minecraft-backups-24de02e1
 minecraft_backup_region: fsn1
+minecraft_backup_interval: 15m
+# Kept: the last 96 (a day of play), then one an hour, a day and a week.
+minecraft_backup_retention: --keep-last 96 --keep-hourly 48 --keep-daily 14 --keep-weekly 8
 # The bucket's S3 credentials; OpenTofu makes the bucket with them.
 # SECRET: in secrets.sops.yaml.
 # minecraft_backup_access_key_id: <string>

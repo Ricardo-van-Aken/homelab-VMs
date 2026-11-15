@@ -8,11 +8,12 @@ Table = {{ egress_vpn_table }}
 PostUp = wg set %i private-key {{ egress_vpn_key_file }}
 # Only what arrives from the isolated network: this machine's own traffic
 # to it, SSH to the VM among it, stays off the tunnel.
+PostUp = ip rule del priority 100 2>/dev/null || true
 PostUp = ip rule add from {{ egress_isolated.network }} iif {{ egress_isolated_interface }} lookup {{ egress_vpn_table }} priority 100
 # Players arrive through the tunnel from addresses this machine would
 # itself reach over the LAN; do not drop them for that.
 PostUp = sysctl -q -w net.ipv4.conf.%i.rp_filter=2
-PostDown = ip rule del priority 100
+PostDown = ip rule del priority 100 2>/dev/null || true
 
 [Peer]
 PublicKey = {{ egress_vpn_peer_public_key }}

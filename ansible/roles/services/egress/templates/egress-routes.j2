@@ -1,0 +1,27 @@
+#!/bin/sh
+# {{ ansible_managed }}
+# Keeps the isolated network's routing rules right; a timer runs it every
+# half minute.
+have() { ip rule show | grep -q "^$1:"; }
+
+{% if egress_netbird | bool %}
+# Replies to players who came in over NetBird go back over NetBird.
+have 90 || ip rule add iif {{ egress_isolated_interface }} to {{ egress_netbird_network }} lookup main priority 90
+{% else %}
+have 90 && ip rule del priority 90
+{% endif %}
+{% if egress_vpn_on %}
+
+# The isolated network leaves through the tunnel.
+last=$(wg show {{ egress_vpn_interface }} latest-handshakes 2>/dev/null | awk '{print $2}')
+{% if egress_outbound_lan | bool %}
+# A tunnel silent for three minutes is down: leave through this machine's
+# own connection until it answers again.
+if [ $(( $(date +%s) - ${last:-0} )) -gt 180 ]; then
+	have 100 && ip rule del priority 100
+	exit 0
+fi
+{% endif %}
+[ -n "$last" ] && ! have 100 && ip rule add from {{ egress_isolated.network }} iif {{ egress_isolated_interface }} lookup {{ egress_vpn_table }} priority 100
+{% endif %}
+exit 0

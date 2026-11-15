@@ -10,13 +10,20 @@
   ansible.builtin.assert:
     that:
       - minecraft_world_radius | int >= 0
+      - minecraft_dimension_radius.keys() | difference(['overworld', 'the_nether', 'the_end']) | length == 0
+      - minecraft_dimension_radius.values() | map('int') | select('lt', 0) | list | length == 0
       - minecraft_world is match('^[A-Za-z0-9_-]+$')
       - minecraft_mods | rejectattr('checksum', 'match', '^sha256:[0-9a-f]{64}$') | list | length == 0
       - minecraft_mods | map(attribute='url') | map('basename') | unique | length == minecraft_mods | length
+      - minecraft_datapacks | map('basename') | reject('match', '^[A-Za-z0-9._-]+[.]zip$') | list | length == 0
+      - minecraft_datapacks | map('basename') | unique | length == minecraft_datapacks | length
     fail_msg: >-
-      minecraft_world_radius must be 0 or more, minecraft_world a plain
-      directory name, and every mod needs its own file name and a
-      sha256:<64 hex digits> checksum.
+      minecraft_world_radius must be 0 or more, like every radius in
+      minecraft_dimension_radius (of overworld, the_nether or the_end),
+      minecraft_world a plain
+      directory name, every mod needs its own file name and a
+      sha256:<64 hex digits> checksum, and every datapack its own file
+      name of letters, digits, dots and dashes, ending in .zip.
 
 - name: Put the data on its own disk
   when: minecraft_data_device | length > 0
@@ -70,8 +77,8 @@
     group: root
     mode: "0755"
 
-# The mods are root's and mounted read-only: the server cannot change the
-# code it runs.
+# The mods and datapacks are root's and mounted read-only: the server cannot
+# change the code it runs.
 - name: Create Minecraft directories
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -83,6 +90,7 @@
     - {path: "{{ minecraft_dir }}", owner: root, mode: "0755"}
     - {path: "{{ minecraft_data_dir }}", owner: root, mode: "0755"}
     - {path: "{{ minecraft_data_dir }}/mods", owner: root, mode: "0755"}
+    - {path: "{{ minecraft_data_dir }}/datapacks", owner: root, mode: "0755"}
     - {path: "{{ minecraft_data_dir }}/data", owner: "{{ minecraft_user }}", mode: "0750"}
     - {path: "{{ minecraft_data_dir }}/data/config", owner: "{{ minecraft_user }}", mode: "0755"}
   loop_control:
@@ -116,6 +124,33 @@
        | map('regex_replace', '^', minecraft_data_dir ~ '/mods/') | list }}
   register: minecraft_mods_removed
 
+- name: Copy the datapacks
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ minecraft_data_dir }}/datapacks/{{ item | basename }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ minecraft_datapacks }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  register: minecraft_datapacks_copied
+
+- name: List the datapacks on disk
+  ansible.builtin.find:
+    paths: "{{ minecraft_data_dir }}/datapacks"
+  register: minecraft_datapacks_found
+
+- name: Remove datapacks that are no longer listed
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: >-
+    {{ minecraft_datapacks_found.files | map(attribute='path') | map('basename')
+       | difference(minecraft_datapacks | map('basename'))
+       | map('regex_replace', '^', minecraft_data_dir ~ '/datapacks/') | list }}
+  register: minecraft_datapacks_removed
+
 - name: Create directories for the mods' settings files
   ansible.builtin.file:
     path: "{{ minecraft_data_dir }}/data/config/{{ item.dest | dirname }}"
@@ -128,25 +163,27 @@
     label: "{{ item.dest }}"
   when: item.dest | dirname | length > 0
 
-# force: false, so a file changed on the server is never overwritten.
-- name: Copy the mods' settings files that are not there yet
+- name: Look for the world
+  ansible.builtin.stat:
+    path: "{{ minecraft_data_dir }}/data/{{ minecraft_world }}/level.dat"
+  register: minecraft_world_file
+
+# A new world is created with the files as they are here. Once it exists,
+# a file on the server is never overwritten.
+- name: Copy the mods' settings files
   ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ minecraft_data_dir }}/data/config/{{ item.dest }}"
     owner: "{{ minecraft_user }}"
     group: "{{ minecraft_user }}"
     mode: "0644"
-    force: false
+    force: "{{ not minecraft_world_file.stat.exists }}"
   loop: "{{ minecraft_config_files }}"
   loop_control:
     label: "{{ item.dest }}"
 
 # The server only reads the seed when it creates a world. Remember the one
 # each world was made with, and refuse a different one.
-- name: Look for the world
-  ansible.builtin.stat:
-    path: "{{ minecraft_data_dir }}/data/{{ minecraft_world }}/level.dat"
-  register: minecraft_world_file
 
 - name: Read the seed the world was made with
   ansible.builtin.slurp:
@@ -278,6 +315,15 @@
         - minecraft_backups.rc == 0
         - minecraft_backups.stdout_lines | last | default('[]') | from_json | length > 0
 
+- name: Render the map's Caddy site
+  ansible.builtin.template:
+    src: map.caddy.j2
+    dest: "{{ caddy_sites_dir }}/minecraft-map.caddy"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Caddy
+
 # The image's health check pings the server. A first start downloads the
 # server and creates the world, which takes minutes.
 - name: Deploy Minecraft stack
@@ -298,22 +344,34 @@
 
 - name: Give a new world its border
   ansible.builtin.command: >-
-    docker exec minecraft rcon-cli execute in {{ item }} run
-    worldborder set {{ minecraft_world_radius | int * 2 }}
+    docker exec minecraft rcon-cli execute in minecraft:{{ item }} run
+    worldborder set {{ minecraft_dimension_radius[item] | default(minecraft_world_radius) | int * 2 }}
   loop:
-    - minecraft:overworld
-    - minecraft:the_nether
-    - minecraft:the_end
+    - overworld
+    - the_nether
+    - the_end
   register: minecraft_border
   changed_when: true
   failed_when: minecraft_border.rc != 0 or minecraft_border.stdout is not search('world border')
   when:
-    - minecraft_world_radius | int > 0
+    - minecraft_dimension_radius[item] | default(minecraft_world_radius) | int > 0
     - not minecraft_border_file.stat.exists
     # A loaded world brings the border it had.
     - minecraft_backup_loaded is not defined or minecraft_backup_loaded is skipped
 
-- name: Remember the world was given its border
+- name: Give a new world its game rules
+  ansible.builtin.command: >-
+    docker exec minecraft rcon-cli gamerule {{ item.key }} {{ item.value }}
+  loop: "{{ minecraft_gamerules | dict2items }}"
+  register: minecraft_gamerule
+  changed_when: true
+  failed_when: minecraft_gamerule.rc != 0 or minecraft_gamerule.stdout is not search('now set to')
+  when:
+    - not minecraft_border_file.stat.exists
+    # A loaded world brings the rules it had.
+    - minecraft_backup_loaded is not defined or minecraft_backup_loaded is skipped
+
+- name: Remember the world was given its border and game rules
   ansible.builtin.copy:
     content: "{{ minecraft_world_radius }}\n"
     dest: "{{ minecraft_dir }}/{{ minecraft_world }}.border"
@@ -321,10 +379,26 @@
     group: root
     mode: "0644"
     force: false
-  when: minecraft_world_radius | int > 0
+  when: >-
+    minecraft_world_radius | int > 0 or minecraft_gamerules | length > 0
+    or minecraft_dimension_radius.values() | map('int') | select('gt', 0) | list | length > 0
 
-# Geyser writes its settings on the first start. Its default makes Bedrock
-# players log in with a Java account; Floodgate lets in their Xbox account.
+# A running server only loads its mods and datapacks when it starts.
+- name: Restart Minecraft to load the changed mods and datapacks
+  community.docker.docker_compose_v2:
+    project_src: "{{ minecraft_dir }}"
+    state: restarted
+    wait: true
+    wait_timeout: 900
+  when:
+    - not minecraft_deploy.changed
+    - >-
+      minecraft_mods_downloaded.changed or minecraft_mods_removed.changed
+      or minecraft_datapacks_copied.changed or minecraft_datapacks_removed.changed
+
+# A mod writes its settings on its first start, so these come after it.
+# Geyser's default makes Bedrock players log in with a Java account;
+# Floodgate lets in their Xbox account.
 - name: Let Bedrock players in with their Xbox account
   ansible.builtin.lineinfile:
     path: "{{ minecraft_data_dir }}/data/config/Geyser-Fabric/config.yml"
@@ -333,14 +407,64 @@
     backrefs: true
   register: minecraft_geyser_auth
 
-# A running server only loads its mods and their settings when it starts.
-- name: Restart Minecraft to load the changed mods
+# BlueMap draws nothing until its settings agree to downloading the game's
+# textures from Mojang, which the EULA above covers.
+- name: Let BlueMap draw the map
+  when: minecraft_mods | selectattr('name', 'equalto', 'bluemap') | list | length > 0
+  block:
+    - name: Wait for BlueMap's settings
+      ansible.builtin.wait_for:
+        path: "{{ minecraft_data_dir }}/data/config/bluemap/core.conf"
+        timeout: 120
+
+    - name: Agree to BlueMap's download
+      ansible.builtin.lineinfile:
+        path: "{{ minecraft_data_dir }}/data/config/bluemap/core.conf"
+        regexp: '^accept-download:'
+        line: 'accept-download: true'
+      register: minecraft_map_accept
+
+    # BlueMap writes its maps' settings once, for the world of that moment,
+    # and writes new ones only when it finds none.
+    - name: List the maps' settings
+      ansible.builtin.find:
+        paths: "{{ minecraft_data_dir }}/data/config/bluemap/maps"
+        patterns: "*.conf"
+      register: minecraft_maps
+
+    - name: List the maps of this world
+      ansible.builtin.find:
+        paths: "{{ minecraft_data_dir }}/data/config/bluemap/maps"
+        patterns: "*.conf"
+        contains: '^world: "{{ minecraft_world }}"\s*$'
+      register: minecraft_maps_current
+
+    - name: Remove the maps of another world, settings and drawing
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: >-
+        {{ (minecraft_maps.files | map(attribute='path')
+            | difference(minecraft_maps_current.files | map(attribute='path')) | list)
+           | map('regex_replace', '^.*/([^/]+)[.]conf$',
+                 minecraft_data_dir ~ '/data/bluemap/web/maps/\\1') | list
+           + (minecraft_maps.files | map(attribute='path')
+              | difference(minecraft_maps_current.files | map(attribute='path')) | list) }}
+      register: minecraft_maps_removed
+
+    - name: Let BlueMap write the settings of this world's maps
+      ansible.builtin.file:
+        path: "{{ minecraft_data_dir }}/data/config/bluemap/maps"
+        state: absent
+      register: minecraft_maps_reset
+      when: minecraft_maps_current.matched == 0
+
+- name: Restart Minecraft to load the changed settings
   community.docker.docker_compose_v2:
     project_src: "{{ minecraft_dir }}"
     state: restarted
     wait: true
     wait_timeout: 900
   when: >-
-    minecraft_geyser_auth.changed
-    or (not minecraft_deploy.changed
-        and (minecraft_mods_downloaded.changed or minecraft_mods_removed.changed))
+    minecraft_geyser_auth.changed or minecraft_map_accept.changed
+    or minecraft_maps_removed.changed or minecraft_maps_reset.changed

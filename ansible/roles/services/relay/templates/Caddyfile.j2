@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+{
+	admin off
+	email {{ relay_acme_email }}
+}
+
+# The certificates are kept here; the home end gets plain HTTP, with the
+# name it was asked under.
+{{ relay_sites | join(', ') }} {
+	reverse_proxy {{ relay_peer_address }}:80
+}
