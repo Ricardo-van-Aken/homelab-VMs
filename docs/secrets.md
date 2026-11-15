@@ -46,7 +46,7 @@ The `main.yml` next to each file says what every value is, under a
 
 | File, under `ansible/inventory/` | Holds |
 |---|---|
-| `group_vars/all/identity.sops.yaml` | `homelab_domain`, `homelab_public_address`. Nothing else, and nowhere else: they say whose homelab this is |
+| `group_vars/all/identity.sops.yaml` | `homelab_domain`, `homelab_public_address`, `ssh_keys_authorized`. Nothing else, and nowhere else: they say whose homelab this is |
 | `group_vars/all/secrets.sops.yaml` | `caddy_acme_email`, `caddy_dns_token` |
 | `group_vars/pihole/secrets.sops.yaml` | `pihole_web_password` |
 | `group_vars/wireguard/secrets.sops.yaml` | `wireguard_admin_password` |

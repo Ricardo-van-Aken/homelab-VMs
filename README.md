@@ -148,8 +148,8 @@ cannot read them, so delete them and make your own:
 
 > [!WARNING]
 > Every key in the `ssh_keys_authorized` list can log in to your Proxmox
-> host and VMs. Replace my public keys in `inventory/group_vars/all/main.yml` with
-> your own, or I have access to your systems.
+> host and VMs. Put your own public keys in it, in
+> `inventory/group_vars/all/identity.sops.yaml` (see Secrets).
 >
 > You already need SSH access to the Proxmox host, so the public key you use
 > for that works here too.
@@ -301,9 +301,11 @@ Make sure the host runs Proxmox VE. Before the first run:
     * `pve_passthrough_devices`: only for a VM with a GPU (arcade); the
       GPU's Peripheral Component Interconnect (PCI) functions, from `lspci -D`. Leave empty to skip passthrough
   
-  `group_vars/all/main.yml`
+  `group_vars/all/identity.sops.yaml` (see Secrets)
     * `ssh_keys_authorized`: public keys that may log in to the Proxmox host
       and the VMs
+
+  `group_vars/all/main.yml`
     * `homelab_lan`: your LAN. Devices on it may SSH in and open the
       Proxmox web UI; anything else is firewalled off.
   
