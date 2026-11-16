@@ -4,7 +4,7 @@
 # builder: resolve the tools and Galaxy dependencies into a self-contained
 # virtualenv
 # ---------------------------------------------------------------------------
-FROM python:3.13-alpine3.24@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca AS builder
+FROM python:3.13-alpine3.24@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -28,7 +28,7 @@ RUN apk add --no-cache git \
 # ---------------------------------------------------------------------------
 # runtime: only copies tools needed at runtime. No buildtime dependencies
 # ---------------------------------------------------------------------------
-FROM python:3.13-alpine3.24@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca AS runtime
+FROM python:3.13-alpine3.24@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e AS runtime
 
 RUN apk add --no-cache \
     # ansible-lint discovers files with `git ls-files`
