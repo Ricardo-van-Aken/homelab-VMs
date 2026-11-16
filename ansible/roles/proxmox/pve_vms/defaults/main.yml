@@ -17,10 +17,12 @@ pve_vms_nameservers: []
 #     node: srv1           # Proxmox host it runs on; default: the only one
 #     cores: 4
 #     memory: 8192         # MiB, the maximum
-#     balloon: 2048        # MiB kept at least; the balloon driver gives the rest
-#                          # back to the host. Equal to memory: fixed, and
-#                          # Proxmox still shows the guest's own usage. 0:
-#                          # no balloon device. Omit to leave it alone.
+#     balloon: 2048        # MiB the VM keeps at least; Proxmox may take the
+#                          # rest back when the host is short of memory.
+#                          # Equal to memory: nothing is taken back, and
+#                          # Proxmox shows what the guest really uses.
+#                          # 0: no balloon device, so Proxmox cannot see
+#                          # that. Left out: the VM's setting is not touched.
 #     affinity: performance  # host cores it runs on: performance or
 #                          # efficiency on a hybrid CPU, or numbers as
 #                          # in `qm set --affinity` (0-3,8); kept when removed

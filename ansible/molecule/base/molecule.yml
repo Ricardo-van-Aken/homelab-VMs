@@ -7,3 +7,4 @@ provisioner:
     group_vars:
       all:
         base_reboot_time: "04:00"
+        base_unused_packages: [networkd-dispatcher]

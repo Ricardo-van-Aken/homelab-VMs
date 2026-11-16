@@ -5,6 +5,8 @@ ansible_host: 10.250.225.150
 ansible_ssh_common_args: >-
   -o StrictHostKeyChecking=accept-new
   -o ProxyJump=ubuntu@{{ hostvars['torrent-egress'].ansible_host }}
+# Its way out; nothing is installed here while that tunnel is not set up.
+isolated_egress: torrent-egress
 
 # The VM as the Proxmox host builds it.
 # Its VMID is the 8 bits of its IP on the isolated network (= 150).
@@ -33,3 +35,6 @@ pve_vm:
         port: 22  # SSH, for you and Ansible, through torrent-egress
         from: 10.250.225.1
     lan: none
+    # The monitoring VM reads its metrics and gets its logs, both through
+    # torrent-egress.
+    monitoring: true

@@ -5,3 +5,14 @@ ansible_user: ubuntu  # the cloud image default
 # keys. Accept a key on first contact, but still refuse a changed one;
 # remove the stale entry with `ssh-keygen -R <address>`.
 ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new
+
+# Programs role base removes from every VM. Ubuntu's cloud image starts
+# them, and together they hold 70 MB of memory or more. A VM that uses one
+# of them sets this list in its own host_vars, without that program.
+base_unused_packages:
+  - snapd  # snap packages; everything here comes from apt or Docker
+  - fwupd  # firmware updates; a VM has no firmware
+  - modemmanager  # mobile broadband modems
+  - multipath-tools  # disks on storage networks
+  - networkd-dispatcher  # scripts on network changes; none are installed
+  - udisks2  # mounts removable disks for desktop users

@@ -9,8 +9,8 @@ services:
       options:
         max-size: 10m  # per file
         max-file: "3"
-    # Started as the service account; the image then skips its own switch
-    # from root, which PUID must match.
+    # Runs as the service account, never as root. The image only switches
+    # user itself when it is started as root.
     user: "{{ mealie_uid }}:{{ mealie_uid }}"
     environment:
       PUID: "{{ mealie_uid }}"

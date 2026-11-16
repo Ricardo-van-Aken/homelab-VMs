@@ -7,7 +7,7 @@ ansible_host: 10.0.1.225
 # Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 225).
 pve_vm:
   cores: 1
-  memory: 512
+  memory: 768  # the agent (role alloy) alone holds about 270 MB
   start_order: 2  # before torrent, whose only way out it is
   untrusted: true
   # The LAN, and the gateway address of torrent's isolated network.
@@ -21,6 +21,9 @@ pve_vm:
     in:
       - iface: net1  # all traffic from torrent, to forward into the VPN tunnel
         from: 10.250.225.0/24
+      - proto: tcp
+        port: 9101  # torrent's metrics, passed on to it (egress_monitoring_port)
+        from: "{{ homelab_monitoring | first }}"
 
 # Role egress.
 egress_isolated:
@@ -36,5 +39,7 @@ egress_vpn_endpoint: ""  # [Peer] Endpoint
 # this machine makes its own and the play shows the public key.
 # SECRET: in secrets.sops.yaml.
 # egress_vpn_private_key: <WireGuard private key>
+# The monitoring VM reads torrent's metrics and gets its logs.
+egress_monitoring: "{{ homelab_monitoring | first }}"
 
 egress_inbound: []

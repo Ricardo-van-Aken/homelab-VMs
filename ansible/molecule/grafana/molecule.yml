@@ -1,0 +1,14 @@
+---
+# Inherits .config/molecule/config.yml. Docker runs inside the instance, so
+# the compose stack really starts; the instance is the monitoring machine
+# and the machines it watches at once.
+scenario:
+  name: grafana
+provisioner:
+  inventory:
+    group_vars:
+      all:
+        grafana_domain: localhost
+        grafana_admin_password: molecule-test-only
+        alloy_logs_url: http://127.0.0.1:3100/loki/api/v1/push
+        alloy_monitoring_host: instance

@@ -7,7 +7,7 @@ ansible_host: 10.0.1.226
 # Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 226).
 pve_vm:
   cores: 1
-  memory: 512
+  memory: 768  # the agent (role alloy) alone holds about 270 MB
   start_order: 2  # before minecraft-server1, whose only way out it is
   untrusted: true
   # The LAN, and the gateway address of minecraft-server1's isolated network.
@@ -21,6 +21,9 @@ pve_vm:
     in:
       - iface: net1  # all traffic from minecraft-server1, to forward into the VPN tunnel
         from: 10.250.226.0/24
+      - proto: tcp
+        port: 9101  # minecraft-server1's metrics, passed on to it (egress_monitoring_port)
+        from: "{{ homelab_monitoring | first }}"
 
 # Role egress.
 egress_isolated:
@@ -31,8 +34,8 @@ egress_isolated:
 # their own keys and read each other's public half. For a relay that is not
 # in this inventory, remove egress_relay and set egress_vpn_endpoint and
 # egress_vpn_peer_public_key to what its operator gives you.
-# TODO: uncomment these three with the relay in hosts.yml; they name a
-# machine that is not in the inventory now.
+# TODO: uncomment these three settings together with the relay in
+# hosts.yml. They refer to it, and fail without it in the inventory.
 # egress_relay: minecraft-server1-relay
 # This end's address in the tunnel; the relay's relay_address is in the
 # same network.
@@ -51,9 +54,11 @@ egress_inbound:
 # Set to false to run without the relay, with NetBird below as the only way
 # in.
 egress_vpn: false
-# With the relay gone, minecraft-server1 still reaches Mojang to check
-# logins, through the home connection.
+# Without the tunnel, minecraft-server1 reaches Mojang through the home
+# connection, to check logins.
 egress_outbound_lan: true
+# The monitoring VM reads minecraft-server1's metrics and gets its logs.
+egress_monitoring: "{{ homelab_monitoring | first }}"
 
 # A second way in: a friend's NetBird network, whose public server passes
 # the two game ports on.

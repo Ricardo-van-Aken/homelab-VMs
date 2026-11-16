@@ -4,6 +4,14 @@
 # half minute.
 have() { ip rule show | grep -q "^$1:"; }
 
+{% if egress_monitoring %}
+# Traffic from the VM to the monitoring machine takes the LAN, not the
+# tunnel: its logs, and its replies when its metrics are read.
+have 80 || ip rule add iif {{ egress_isolated_interface }} to {{ egress_monitoring }} lookup main priority 80
+{% else %}
+have 80 && ip rule del priority 80
+{% endif %}
+
 {% if egress_netbird | bool %}
 # Replies to players who came in over NetBird go back over NetBird.
 have 90 || ip rule add iif {{ egress_isolated_interface }} to {{ egress_netbird_network }} lookup main priority 90

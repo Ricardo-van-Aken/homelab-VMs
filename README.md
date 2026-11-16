@@ -40,7 +40,8 @@ unit (GPU) passed through
   is down
   * Pi-hole: second resolver with the same records
   * WireGuard: second tunnel, with its own clients
-* **monitoring**: for Grafana, Prometheus and Loki; nothing installed yet
+* **monitoring**: Grafana, with the metrics and logs of every machine
+  (Prometheus and Loki)
 * **torrent** and **torrent-egress**: torrent runs on an isolated network of
   its own and has nothing installed yet. torrent-egress is its only way in
   and out, through a VPN provider's WireGuard tunnel set in its host vars.
@@ -380,6 +381,33 @@ user ID (uid), so they show up in the library on the next scan.
 </details>
 
 <details>
+<summary><h3 id="monitoring" style="display:inline; margin:0; vertical-align:middle">monitoring</h3></summary>
+
+* Replace the encrypted `grafana_admin_password` in
+  `group_vars/grafana/secrets.sops.yaml` with your own (see Secrets). Grafana
+  takes it at its first start only; change it later in Grafana.
+
+```sh
+ansible-playbook playbooks/site.yml --limit monitoring
+```
+
+Then put the agent on the other machines. This VM reads their metrics from
+it, and it sends their logs here:
+
+```sh
+ansible-playbook playbooks/site.yml
+```
+
+Open `https://grafana.<domain>` and sign in as `admin`. The Machines
+dashboard shows, per machine, CPU, the memory programs really hold, whether
+the file cache is large enough, the programs that use the most, and the
+logs. No machine can pass for another: this VM names the metrics by the
+address it reads them from, and files the logs under the machine whose token
+came with them.
+
+</details>
+
+<details>
 <summary><h3 id="recipes" style="display:inline; margin:0; vertical-align:middle">recipes</h3></summary>
 
 * Replace the encrypted `mealie_admin_password` and `mealie_proxy_secret` in
@@ -552,6 +580,7 @@ the VPN.
 | pi1.wireguard | 10.0.1.101 | wg-easy              |
 | forgejo    | 10.0.1.110 | Forgejo                 |
 | mealie     | 10.0.1.130 | Mealie                  |
+| grafana    | 10.0.1.140 | Grafana                 |
 | jellyfin   | 10.0.1.160 | Jellyfin                |
 | gaming     | 10.0.1.160 | Sunshine, for pairing   |
 
@@ -648,6 +677,9 @@ In the order the playbook runs them. They live in three directories under
 | mealie          | Mealie behind a Caddy proxy that signs the LAN in as one shared account; admin takeover, accounts and public access via API |
 | pihole          | Pi-hole compose stack with local records from the inventory, admin UI behind Caddy; frees port 53 from systemd-resolved |
 | wireguard       | wg-easy compose stack: WireGuard with a web UI behind Caddy |
+| grafana         | Grafana compose stack with Prometheus, which reads every machine's metrics, and Loki, which takes their logs with a token per machine; dashboards from the role's files, web UI behind Caddy |
+| alloy           | Grafana Alloy: offers a machine's metrics and per-program CPU and memory to the monitoring VM, and sends it the logs |
+| exporters       | machine with little memory (pi1): two small exporters the monitoring VM collects from, in place of the agent |
 
 </details>
 
@@ -695,6 +727,7 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | pihole   | a local record and a public name resolve; the admin password logs in through Caddy |
 | wireguard | wg-easy runs with the tunnel published and the UI behind Caddy. Needs the WireGuard module on the host running the instance |
 | minecraft | the server starts with every mod loaded and Geyser listening; a player is whitelisted on the running server. Agrees to Mojang's EULA, and downloads about 1.5 GB |
+| grafana  | the agent's and the exporters' metrics and the logs of the same instance are read back through Grafana |
 
 </details>
 
@@ -723,6 +756,8 @@ Listed as port/protocol: Transmission Control Protocol (TCP) or User Datagram
 Protocol (UDP).
 
 On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
+On every VM and the Proxmox host, 9100/tcp is open to the monitoring VM
+only: the agent's metrics.
 
 * **dns** (10.0.1.100)
   * 22/tcp: SSH
@@ -736,6 +771,7 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
   * 67/udp: DHCP
   * 443/tcp: Pi-hole admin UI and API, and the wg-easy UI, through Caddy
   * 51821/udp: WireGuard, forwarded by the router
+  * 9100/tcp, 9256/tcp: metrics, for the monitoring VM only
 * **forgejo-git** (10.0.1.110)
   * 22/tcp: SSH to the VM
   * 443/tcp: Forgejo web UI and Hypertext Transfer Protocol (HTTP) clone, through Caddy
@@ -746,6 +782,10 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
 * **recipes** (10.0.1.130)
   * 22/tcp: SSH
   * 443/tcp: Mealie web UI and API, through Caddy
+* **monitoring** (10.0.1.140)
+  * 22/tcp: SSH
+  * 443/tcp: Grafana web UI, through Caddy
+  * 3100/tcp: logs, sent by every machine's agent with its token (Loki, through Caddy)
 * **arcade** (10.0.1.160)
   * 22/tcp: SSH
   * 443/tcp: Jellyfin web UI, through Caddy
@@ -763,6 +803,7 @@ On every machine with a web UI, 80/tcp redirects to 443/tcp (Caddy).
   * 80/tcp, 443/tcp: the Minecraft map, through Caddy
 * **minecraft-server1-egress** (10.0.1.226)
   * 22/tcp: SSH
+  * 9101/tcp: minecraft-server1's metrics, for the monitoring VM only
 * **minecraft-server1** (10.250.226.170), through the tunnel only
   * 22/tcp: SSH, from minecraft-server1-egress
   * 25565/tcp: Minecraft, Java players

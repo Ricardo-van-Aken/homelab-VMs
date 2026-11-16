@@ -1,0 +1,65 @@
+---
+# Grafana with its two stores: Prometheus for metrics and Loki for logs.
+# No machine can pass for another: Prometheus collects the metrics itself,
+# from the addresses below, and logs are filed under the machine whose token
+# came with them.
+grafana_image: >-
+  grafana/grafana:13.3.1@sha256:0615ec4fbd4072004b7d86b46ded63013a74b7d6eb1119273dd89e8fa25c13cf
+grafana_prometheus_image: >-
+  prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06
+grafana_loki_image: >-
+  grafana/loki:3.7.10@sha256:b43c257ccfc925d4a50b8717cac61a3b51df8c48d01847936057e5c4075a24a7
+grafana_dir: /opt/stacks/grafana
+# Metrics, logs and Grafana's own database; put it on a disk of its own.
+grafana_data_dir: "{{ grafana_dir }}/data"
+# The disk mounted there, formatted when it is still empty. Empty: the
+# directory stays on the root disk.
+grafana_data_device: ""  # e.g. /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
+
+# Service account owning the data; the three containers run as it.
+grafana_user: grafana
+grafana_uid: 2004
+
+# The machines that are watched.
+#   - name: recipes        # the name the machine has in Grafana
+#     address: 10.0.1.130  # where Prometheus reads its metrics
+#     agent: alloy         # alloy (role alloy), which also sends logs, or
+#                          # exporters (role exporters), which does not
+#     port: 9100           # optional: where the agent answers
+grafana_machines: []
+grafana_alloy_port: 9100
+grafana_exporters_ports: [9100, 9256]
+
+# One token per machine with an agent, made here on the first run; the
+# agent sends it with its logs. Root only.
+grafana_token_dir: "{{ grafana_dir }}/tokens"
+
+# How long metrics and logs are kept, and the most disk the metrics take.
+grafana_metrics_retention: 30d
+grafana_metrics_size: 20GB
+grafana_logs_retention: 14d
+
+# Limits per watched machine, so that none can fill this machine's disk or
+# memory: the number of series in one reading of its metrics, the megabytes
+# of logs it may send per second, and the size of one request with logs.
+grafana_metrics_limit: 20000
+grafana_logs_rate_mb: 0.25
+grafana_logs_request: 8MB
+
+# Where the agents send their logs. Caddy answers on this port and passes on
+# the one request that writes logs, when a machine's token comes with it.
+grafana_logs_port: 3100
+# Loki itself, on 127.0.0.1 only.
+grafana_loki_port: 3101
+
+# Name Caddy (role caddy) answers, forwarding to Grafana, which itself
+# listens on 127.0.0.1 only.
+grafana_domain: "{{ inventory_hostname }}"
+grafana_url: "{{ caddy_scheme }}{{ grafana_domain }}"
+grafana_http_port: 3000
+
+# The admin account. Grafana takes the password at its first start only;
+# afterwards change it in Grafana. Required: put it in the group's
+# secrets.sops.yaml.
+grafana_admin_user: admin
+grafana_admin_password: ""

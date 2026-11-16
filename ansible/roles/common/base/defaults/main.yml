@@ -7,6 +7,9 @@ base_packages:
   - htop
   - vim
 
+# Packages this role removes from the machine. Empty: it removes none.
+base_unused_packages: []
+
 # Package sources unattended upgrades install from, beside Ubuntu's security
 # updates. Docker's own: without it Docker Engine stays as first installed.
 # An upgrade of Docker restarts the machine's containers.

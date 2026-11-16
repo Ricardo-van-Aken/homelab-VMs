@@ -8,7 +8,7 @@ ansible_host: 10.0.1.120
 pve_vm:
   cores: 2
   memory: 1024
-  balloon: 512  # kept at least; the rest is given back when idle
+  balloon: 768  # the least it keeps; Proxmox may take the rest back when the host is short of memory
   # Host datasets (pve_storage on srv1) mounted with virtiofs; the samba role
   # exports them (group_vars/samba/main.yml).
   shares:

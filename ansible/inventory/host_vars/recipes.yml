@@ -7,8 +7,8 @@ ansible_host: 10.0.1.130
 # is no hard requirement to do this, it is just personal preference.
 pve_vm:
   cores: 2
-  memory: 1024
-  balloon: 1024  # = memory: fixed; Mealie is capped at mealie_memory_limit
+  memory: 1280  # Mealie may hold up to mealie_memory_limit, the agent (role alloy) about 270 MB
+  balloon: 1280  # equal to memory: Proxmox never takes memory back from this VM
   # Host dataset (pve_storage on srv1) mounted with virtiofs; mealie_data_dir
   # in group_vars/mealie/main.yml points at it.
   shares:

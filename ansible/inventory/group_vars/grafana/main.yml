@@ -1,0 +1,28 @@
+---
+# Grafana settings.
+# The service name the dns VM resolves (see group_vars/pihole/main.yml).
+grafana_domain: "grafana.{{ homelab_domain }}"
+
+# Every machine runs the agent, except pi1, which runs the exporters. A VM
+# on an isolated network is read through a port on its egress VM.
+grafana_machines: >-
+  {%- set machines = [] -%}
+  {%- set pis = groups['pis'] | default([]) -%}
+  {%- for host in (groups['vms'] + groups['proxmox'] + pis) | difference(['pi1']) -%}
+    {%- set egress = hostvars[host].isolated_egress | default('') -%}
+    {%- if egress -%}
+      {%- set _ = machines.append({'name': host, 'agent': 'alloy',
+                                   'address': hostvars[egress].ansible_host,
+                                   'port': hostvars[egress].egress_monitoring_port | default(9101)}) -%}
+    {%- else -%}
+      {%- set _ = machines.append({'name': host, 'agent': 'alloy', 'address': hostvars[host].ansible_host}) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- for host in pis | intersect(['pi1']) -%}
+    {%- set _ = machines.append({'name': host, 'agent': 'exporters', 'address': hostvars[host].ansible_host}) -%}
+  {%- endfor -%}
+  {{ machines }}
+
+# Password of the `admin` account. Grafana takes it at its first start only.
+# SECRET: in secrets.sops.yaml.
+# grafana_admin_password: <string, 8 characters or more>

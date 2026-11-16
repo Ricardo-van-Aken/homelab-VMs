@@ -97,7 +97,8 @@
       {%- endfor -%}
       {{ ns.out }}
 
-# When the VM starts with the host is not hardware: it applies at once.
+# onboot and startup take effect on a running VM; every other setting needs
+# the VM to be shut down and started.
 - name: "Pick the changes that need a restart of {{ pve_vms_name }}"
   ansible.builtin.set_fact:
     pve_vms_restart_changes: "{{ pve_vms_changes.keys() | difference(['onboot', 'startup']) }}"

@@ -1,0 +1,7 @@
+---
+# Two exporters from the distribution's own packages, for a machine with too
+# little memory for Alloy (role alloy). Together they hold about 40 MB. The
+# monitoring machine reads their metrics (grafana_machines). They collect
+# no logs.
+exporters_node_port: 9100  # the machine: CPU, memory, disks, network
+exporters_process_port: 9256  # CPU and memory per program

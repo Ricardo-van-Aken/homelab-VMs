@@ -19,6 +19,10 @@ table inet egress {
 		iifname "{{ egress_netbird_interface }}" {{ rule.proto }} dport { {{ rule.port }} } dnat ip to {{ egress_isolated.vm }}
 {% endfor %}
 {% endif %}
+{% if egress_monitoring %}
+		# The monitoring machine reads the VM's metrics.
+		iifname "{{ egress_lan_interface }}" ip saddr {{ egress_monitoring }} tcp dport {{ egress_monitoring_port }} dnat ip to {{ egress_isolated.vm }}:{{ egress_monitoring_vm_port }}
+{% endif %}
 	}
 
 	# The isolated network may only leave through the tunnel, and only the
@@ -37,6 +41,12 @@ table inet egress {
 		# never to a private network.
 		iifname "{{ egress_isolated_interface }}" oifname "{{ egress_lan_interface }}" ip daddr != { 10.0.0.0/8, 100.64.0.0/10, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16 } accept
 {% endif %}
+{% if egress_monitoring %}
+		# The VM's logs, to the monitoring machine and nothing else on the LAN.
+		iifname "{{ egress_isolated_interface }}" oifname "{{ egress_lan_interface }}" ip daddr {{ egress_monitoring }} tcp dport {{ egress_monitoring_logs_port }} accept
+		# The monitoring machine, and nothing else on the LAN, reads the VM's metrics.
+		iifname "{{ egress_lan_interface }}" oifname "{{ egress_isolated_interface }}" ip saddr {{ egress_monitoring }} ip daddr {{ egress_isolated.vm }} tcp dport {{ egress_monitoring_vm_port }} accept
+{% endif %}
 {% for rule in egress_inbound %}
 		iifname "{{ egress_vpn_interface }}" oifname "{{ egress_isolated_interface }}" ip daddr {{ egress_isolated.vm }} {{ rule.proto }} dport { {{ rule.port }} } accept
 {% endfor %}
@@ -53,6 +63,11 @@ table inet egress {
 		oifname "{{ egress_vpn_interface }}" masquerade
 {% if egress_outbound_lan | bool %}
 		ip saddr {{ egress_isolated.network }} oifname "{{ egress_lan_interface }}" masquerade
+{% endif %}
+{% if egress_monitoring %}
+		# The VM's logs leave under this machine's address, so the monitoring
+		# machine's replies come back here.
+		ip saddr {{ egress_isolated.network }} oifname "{{ egress_lan_interface }}" ip daddr {{ egress_monitoring }} masquerade
 {% endif %}
 	}
 

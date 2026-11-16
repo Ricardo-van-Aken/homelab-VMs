@@ -53,6 +53,7 @@ The `main.yml` next to each file says what every value is, under a
 | `group_vars/forgejo/secrets.sops.yaml` | `forgejo_admin_email`, `forgejo_admin_password`, `forgejo_users` |
 | `group_vars/jellyfin/secrets.sops.yaml` | `jellyfin_admin_password`, `jellyfin_users` |
 | `group_vars/samba/secrets.sops.yaml` | `samba_password` |
+| `group_vars/grafana/secrets.sops.yaml` | `grafana_admin_password` |
 | `group_vars/mealie/secrets.sops.yaml` | `mealie_proxy_secret`, `mealie_admin_password` |
 | `group_vars/minecraft/secrets.sops.yaml` | `minecraft_backup_access_key_id`, `minecraft_backup_secret_access_key`, `minecraft_backup_password` |
 | `host_vars/torrent-egress/secrets.sops.yaml` | `egress_vpn_private_key`, when the VPN provider made the key pair |

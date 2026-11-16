@@ -12,7 +12,8 @@ ansible_user: root  # what Hetzner's images log in as
 # still refuse a changed one; remove the stale entry with `ssh-keygen -R`.
 ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new
 
-# With its egress VM, so the tunnel is down once.
+# The same time as minecraft-server1-egress: both ends of the tunnel
+# restart together.
 base_reboot_time: "04:00"
 
 # Role relay.

@@ -1,0 +1,24 @@
+---
+# Grafana Alloy: one agent per machine. The monitoring machine (role
+# grafana) reads the machine's metrics and its programs' CPU and memory from
+# it, and it sends the machine's logs there.
+
+# https://github.com/grafana/alloy/releases
+# TODO: with a new version, replace both checksums (the release lists them).
+alloy_version: 1.22.0
+alloy_checksum_amd64: sha256:29ca37327c02e30ff7cc3a1e0ff3779217f26092a1adc29ff4738f6a9e4370e3
+alloy_checksum_arm64: sha256:860933dcdf9535b7b4503e92ae15722668e45c252be8f095a7ad1ae61fff5b8a
+
+# Where the monitoring machine reads the metrics. Alloy's own page is on
+# this port too, so the firewall lets only that machine in.
+alloy_port: 9100
+
+# Where the logs go: Loki's push address on the monitoring machine. Required.
+alloy_logs_url: ""  # e.g. http://10.0.1.140:3100/loki/api/v1/push
+# The monitoring machine's inventory name. It made a token for this machine
+# (grafana_machines), which is read from it and sent with the logs. Required.
+alloy_monitoring_host: ""
+alloy_token_dir: /opt/stacks/grafana/tokens
+
+# The name this machine has on the monitoring machine.
+alloy_host: "{{ inventory_hostname }}"

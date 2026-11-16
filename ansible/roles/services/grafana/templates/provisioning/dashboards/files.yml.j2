@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+# Dashboards from this role's files/dashboards; changes made in Grafana are
+# lost at the next run.
+apiVersion: 1
+providers:
+  - name: homelab
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

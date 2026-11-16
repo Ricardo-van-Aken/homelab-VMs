@@ -1,0 +1,9 @@
+---
+# The stores read their configuration at start; compose restarts a container
+# only when compose.yml itself changed.
+- name: Restart the Grafana stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ grafana_dir }}"
+    state: restarted
+    wait: true
+    wait_timeout: 180

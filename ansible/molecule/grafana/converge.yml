@@ -1,0 +1,34 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  pre_tasks:
+    # The instance's facts have no network interfaces.
+    - name: Read this machine's address
+      ansible.builtin.command: hostname -I
+      changed_when: false
+      register: converge_addresses
+
+    # This same machine three times: with the agent, with the exporters,
+    # and as a machine with a token that sends nothing.
+    - name: Watch this machine
+      vars:
+        address: "{{ converge_addresses.stdout.split() | first }}"
+      ansible.builtin.set_fact:
+        grafana_machines:
+          - name: instance
+            address: "{{ address }}"
+            agent: alloy
+          - name: other
+            address: "{{ address }}"
+            agent: alloy
+          - name: scraped
+            address: "{{ address }}"
+            agent: exporters
+        # Alloy listens on 9100 in this instance, so the node exporter gets 9101.
+        grafana_exporters_ports: [9101, 9256]
+        exporters_node_port: 9101
+  roles:
+    - exporters
+    - grafana
+    - alloy

@@ -1,0 +1,189 @@
+---
+- name: Check the admin password is set
+  ansible.builtin.assert:
+    that: grafana_admin_password | length >= 8
+    fail_msg: grafana_admin_password is empty or shorter than 8 characters; put it in the group's secrets.sops.yaml.
+
+- name: Put the data on its own disk
+  when: grafana_data_device | length > 0
+  block:
+    - name: Look for the data disk
+      ansible.builtin.stat:
+        path: "{{ grafana_data_device }}"
+      register: grafana_data_disk
+
+    - name: Check the data disk is there
+      ansible.builtin.assert:
+        that: grafana_data_disk.stat.exists
+        fail_msg: >-
+          {{ grafana_data_device }} does not exist; does the VM have the
+          disk (pve_vm.disks), and has it been restarted since it got it?
+
+    # Only an empty disk is formatted; one with a filesystem is left as it is.
+    - name: Format the data disk
+      community.general.filesystem:
+        dev: "{{ grafana_data_device }}"
+        fstype: ext4
+
+    - name: Mount the data disk
+      ansible.posix.mount:
+        path: "{{ grafana_data_dir }}"
+        src: "{{ grafana_data_device }}"
+        fstype: ext4
+        opts: defaults,noatime
+        state: mounted
+
+- name: Create Grafana service group
+  ansible.builtin.group:
+    name: "{{ grafana_user }}"
+    gid: "{{ grafana_uid }}"
+    system: true
+
+- name: Create Grafana service account
+  ansible.builtin.user:
+    name: "{{ grafana_user }}"
+    uid: "{{ grafana_uid }}"
+    group: "{{ grafana_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create stacks directory
+  ansible.builtin.file:
+    path: "{{ grafana_dir | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create Grafana directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_user }}"
+    mode: "0750"
+  loop:
+    - "{{ grafana_dir }}"
+    - "{{ grafana_data_dir }}"
+    - "{{ grafana_data_dir }}/prometheus"
+    - "{{ grafana_data_dir }}/loki"
+    - "{{ grafana_data_dir }}/grafana"
+    - "{{ grafana_dir }}/provisioning"
+    - "{{ grafana_dir }}/provisioning/datasources"
+    - "{{ grafana_dir }}/provisioning/dashboards"
+    - "{{ grafana_dir }}/dashboards"
+
+- name: Check the machines that are watched
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[A-Za-z0-9-]+$')
+      - item.address | default('') | length > 0
+      - item.agent | default('') in ['alloy', 'exporters']
+    fail_msg: >-
+      every machine in grafana_machines needs a name of letters, digits and
+      hyphens, an address, and agent: alloy or exporters.
+    quiet: true
+  loop: "{{ grafana_machines }}"
+  loop_control:
+    label: "{{ item.name | default(item) }}"
+
+- name: Create the token directory
+  ansible.builtin.file:
+    path: "{{ grafana_token_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# Made once; a token that exists is left as it is. Remove the file to give
+# a machine a new one at the next run.
+- name: Make a token for each machine with an agent
+  ansible.builtin.command:
+    cmd: openssl rand -hex -out {{ grafana_token_dir }}/{{ item.name }} 32
+    creates: "{{ grafana_token_dir }}/{{ item.name }}"
+  loop: "{{ grafana_machines | selectattr('agent', 'equalto', 'alloy') }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Keep the tokens to root
+  ansible.builtin.file:
+    path: "{{ grafana_token_dir }}/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ grafana_machines | selectattr('agent', 'equalto', 'alloy') }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Read the tokens
+  ansible.builtin.slurp:
+    src: "{{ grafana_token_dir }}/{{ item.name }}"
+  loop: "{{ grafana_machines | selectattr('agent', 'equalto', 'alloy') }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: grafana_token_files
+  no_log: true
+
+- name: Render the stores' configuration
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ grafana_dir }}/{{ item }}"
+    owner: root
+    group: "{{ grafana_user }}"
+    mode: "0640"
+  loop:
+    - prometheus.yml
+    - loki.yml
+    - provisioning/datasources/stores.yml
+    - provisioning/dashboards/files.yml
+  notify: Restart the Grafana stack
+
+- name: Copy the dashboards
+  ansible.builtin.copy:
+    src: dashboards/
+    dest: "{{ grafana_dir }}/dashboards/"
+    owner: root
+    group: "{{ grafana_user }}"
+    mode: "0640"
+
+# Kept out of compose.yml so that file stays readable.
+- name: Write the admin password
+  ansible.builtin.copy:
+    content: "GF_SECURITY_ADMIN_PASSWORD={{ grafana_admin_password }}\n"
+    dest: "{{ grafana_dir }}/grafana.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Render compose file
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ grafana_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+# The site carries the tokens; root-only, and Caddy runs as root.
+- name: Render the Caddy site
+  vars:
+    grafana_tokens: >-
+      {{ dict(grafana_token_files.results | map(attribute='item.name')
+              | zip(grafana_token_files.results | map(attribute='content') | map('b64decode') | map('trim'))) }}
+  ansible.builtin.template:
+    src: caddy.j2
+    dest: "{{ caddy_sites_dir }}/grafana.caddy"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart Caddy
+  no_log: true
+
+- name: Deploy Grafana stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ grafana_dir }}"
+    state: present
+    remove_orphans: true
+    wait: true
+    wait_timeout: 180
