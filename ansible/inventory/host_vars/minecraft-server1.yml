@@ -12,7 +12,7 @@ isolated_egress: minecraft-server1-egress
 # Its VMID is the 8 bits of its IP on the isolated network (= 170).
 pve_vm:
   cores: 4
-  memory: 10240  # 2 GB above minecraft_memory_limit
+  memory: 9216  # 2 GB above minecraft_memory_limit
   # The game loop runs on one core; keep every core it may get a fast one.
   affinity: performance
   untrusted: true
@@ -51,6 +51,9 @@ pve_vm:
         port: 80  # the map of the world (BlueMap), through the tunnel
         from: any
     lan: none
+    # The monitoring VM reads its metrics and gets its logs, both through
+    # minecraft-server1-egress.
+    monitoring: true
 
 # Where Bedrock players send their game traffic: the relay, never the home
 # connection this machine falls back to.

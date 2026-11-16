@@ -50,6 +50,15 @@ pve_vm:
       - proto: udp
         port: 5353  # mDNS, so Moonlight finds Sunshine
 
+# Programs removed from this VM. udisks2 is not listed: the desktop mounts
+# removable disks with it.
+# TODO: run `snap list` on this VM. If it shows no program you use, add snapd.
+base_unused_packages:
+  - fwupd  # firmware updates; a VM has no firmware
+  - modemmanager  # mobile broadband modems
+  - multipath-tools  # disks on storage networks
+  - networkd-dispatcher  # scripts on network changes; none are installed
+
 # Vendors of the GPUs in this VM (hostpci above): any of amd, intel, nvidia.
 # Which GPU each service uses is set in group_vars/<service>.yml.
 gpu_vendors: [amd]

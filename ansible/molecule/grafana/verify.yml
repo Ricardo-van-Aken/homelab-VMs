@@ -1,0 +1,147 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    grafana_login: &login
+      url_username: admin
+      url_password: molecule-test-only
+      force_basic_auth: true
+    loki_through_grafana: http://localhost/api/datasources/proxy/uid/loki/loki/api/v1/query_range
+    marker: molecule-poses-as-other
+    # The line sent below, in one machine's store of logs.
+    marker_query: '{__tenant_id__="MACHINE",source="test"} |= "molecule-poses-as-other"'
+  tasks:
+    - name: Inspect the containers
+      ansible.builtin.command: docker inspect prometheus loki grafana
+      changed_when: false
+      register: grafana_inspect
+
+    - name: Assert none of the containers runs as root
+      ansible.builtin.assert:
+        that:
+          - item.State.Running
+          - item.Config.User == '2004:2004'
+      loop: "{{ grafana_inspect.stdout | from_json }}"
+      loop_control:
+        label: "{{ item.Name }}"
+
+    - name: Assert the stores are not reachable from other machines
+      vars:
+        inspected: "{{ grafana_inspect.stdout | from_json }}"
+        containers: "{{ dict(inspected | map(attribute='Name') | zip(inspected)) }}"
+      ansible.builtin.assert:
+        that:
+          - containers['/prometheus'].HostConfig.PortBindings | length == 0
+          - containers['/loki'].NetworkSettings.Ports['3100/tcp'] | map(attribute='HostIp') | unique == ['127.0.0.1']
+          - containers['/grafana'].NetworkSettings.Ports['3000/tcp'] | map(attribute='HostIp') | unique == ['127.0.0.1']
+
+    # Through Caddy on port 80, by the name in grafana_domain.
+    - name: Read the dashboard with the admin password
+      ansible.builtin.uri:
+        url: http://localhost/api/dashboards/uid/machines
+        <<: *login
+      register: grafana_dashboard
+
+    - name: Assert the dashboard was loaded from the role's files
+      ansible.builtin.assert:
+        that:
+          - grafana_dashboard.json.dashboard.title == 'Machines'
+          - grafana_dashboard.json.meta.provisioned
+
+    # Prometheus reads every half minute; the first reading takes a moment.
+    - name: Ask Prometheus for the machines' metrics, through Grafana
+      ansible.builtin.uri:
+        url: "http://localhost/api/datasources/proxy/uid/prometheus/api/v1/query?query={{ item | urlencode }}"
+        <<: *login
+      register: grafana_metrics
+      until: grafana_metrics.json.data.result | length > 0
+      retries: 18
+      delay: 5
+      loop:
+        - node_memory_MemAvailable_bytes{instance="instance"}
+        - node_vmstat_workingset_refault_file{instance="instance"}
+        - namedprocess_namegroup_memory_bytes{instance="instance",groupname="alloy",memtype="resident"}
+        # The same three from the exporters.
+        - node_memory_MemAvailable_bytes{instance="scraped"}
+        - node_vmstat_workingset_refault_file{instance="scraped"}
+        - namedprocess_namegroup_memory_bytes{instance="scraped",groupname="alloy",memtype="resident"}
+
+    - name: Ask Loki for this machine's logs, through Grafana
+      ansible.builtin.uri:
+        url: "{{ loki_through_grafana }}?query={{ item | urlencode }}&limit=1"
+        <<: *login
+      register: grafana_logs
+      until: grafana_logs.json.data.result | length > 0
+      retries: 12
+      delay: 5
+      loop:
+        - '{__tenant_id__="instance",source="journal"}'
+        - '{__tenant_id__="instance",source="container",container="grafana"}'
+
+    - name: Send logs without a token
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3100/loki/api/v1/push
+        method: POST
+        body_format: json
+        body: {streams: []}
+        status_code: 403
+
+    - name: Read this machine's token
+      ansible.builtin.slurp:
+        src: /opt/stacks/grafana/tokens/instance
+      register: grafana_token
+      no_log: true
+
+    - name: Read logs with a machine's token
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3100/loki/api/v1/labels
+        headers:
+          Authorization: "Bearer {{ grafana_token.content | b64decode | trim }}"
+          X-Scope-OrgID: instance
+        status_code: 403
+
+    # With its own token, this machine says it is the machine `other`.
+    - name: Send a line in another machine's name
+      ansible.builtin.uri:
+        url: http://127.0.0.1:3100/loki/api/v1/push
+        method: POST
+        headers:
+          Authorization: "Bearer {{ grafana_token.content | b64decode | trim }}"
+          X-Scope-OrgID: other
+        body_format: json
+        body:
+          streams:
+            - stream: {source: test, host: other}
+              values:
+                - ["{{ lookup('ansible.builtin.pipe', 'date +%s') }}000000000", "{{ marker }}"]
+        status_code: 204
+
+    - name: Look for that line under this machine's own name
+      ansible.builtin.uri:
+        url: "{{ loki_through_grafana }}?query={{ marker_query | replace('MACHINE', 'instance') | urlencode }}"
+        <<: *login
+      register: grafana_own
+      until: grafana_own.json.data.result | length > 0
+      retries: 12
+      delay: 5
+
+    - name: Look for that line under the other machine's name
+      ansible.builtin.uri:
+        url: "{{ loki_through_grafana }}?query={{ marker_query | replace('MACHINE', 'other') | urlencode }}"
+        <<: *login
+      register: grafana_other
+
+    - name: Assert the line was filed under the machine whose token it came with
+      ansible.builtin.assert:
+        that: grafana_other.json.data.result | length == 0
+
+    - name: Read what Alloy holds in memory
+      ansible.builtin.command: ps -o rss= -C alloy
+      changed_when: false
+      register: grafana_alloy_rss
+
+    - name: Show Alloy's memory use
+      ansible.builtin.debug:
+        msg: "Alloy holds {{ (grafana_alloy_rss.stdout | int / 1024) | round | int }} MB"

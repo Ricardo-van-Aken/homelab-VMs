@@ -14,6 +14,11 @@
           - "'unattended-upgrades' in ansible_facts.packages"
           - "'qemu-guest-agent' not in ansible_facts.packages"
 
+    # Installed by prepare.yml, as the cloud image has it.
+    - name: Assert the unused programs are gone
+      ansible.builtin.assert:
+        that: "'networkd-dispatcher' not in ansible_facts.packages"
+
     - name: Read auto-upgrades config
       ansible.builtin.slurp:
         src: /etc/apt/apt.conf.d/20auto-upgrades

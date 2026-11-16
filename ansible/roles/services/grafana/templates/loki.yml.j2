@@ -1,0 +1,51 @@
+# {{ ansible_managed }}
+# One Loki process that keeps everything on its own disk. Each machine's
+# logs are a store of their own, named in the X-Scope-OrgID header that
+# Caddy sets from the machine's token.
+auth_enabled: true
+
+server:
+  http_listen_port: 3100
+  log_level: warn
+
+common:
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: "2026-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: {{ grafana_logs_retention }}
+  # What is taken per second from one machine; more is refused.
+  ingestion_rate_mb: {{ grafana_logs_rate_mb }}
+  ingestion_burst_size_mb: {{ [grafana_logs_rate_mb | float * 8, 4] | max }}
+
+# Lets one query from Grafana read the stores of several machines.
+querier:
+  multi_tenant_queries_enabled: true
+
+# Removes logs older than the retention period.
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+
+# Nothing is sent to Grafana Labs.
+analytics:
+  reporting_enabled: false

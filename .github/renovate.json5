@@ -54,6 +54,16 @@
       ],
       datasourceTemplate: "docker",
     },
+    // The Alloy package. Its two checksums, one per processor type, are
+    // replaced by hand in the pull request.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^ansible/roles/common/alloy/defaults/main\\.yml$/"],
+      matchStrings: ["alloy_version: (?<currentValue>\\S+)"],
+      depNameTemplate: "grafana/alloy",
+      datasourceTemplate: "github-releases",
+      extractVersionTemplate: "^v(?<version>.+)$",
+    },
     // The NetBird package and its checksum, from the GitHub release.
     {
       customType: "regex",

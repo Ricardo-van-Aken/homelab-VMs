@@ -5,6 +5,13 @@
   hosts: all
   become: true
   tasks:
+    # The cloud image has it and the base role removes it.
+    - name: Install a program the base role removes
+      ansible.builtin.apt:
+        name: networkd-dispatcher
+        state: present
+        update_cache: true
+
     - name: Create media directories the jellyfin role expects to be mounted
       ansible.builtin.file:
         path: "{{ item }}"

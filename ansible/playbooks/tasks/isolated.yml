@@ -1,0 +1,21 @@
+---
+# For plays with machines on an isolated network (isolated_egress in their
+# host_vars): everything is downloaded through the tunnel of the machine's
+# egress VM, so a machine whose tunnel is not up is left for a later run.
+- name: Look whether the machine's tunnel is up
+  ansible.builtin.command: >-
+    wg show {{ hostvars[isolated_egress].egress_vpn_interface | default('vpn') }} latest-handshakes
+  # Read before `when`, so it needs a value on a machine without one.
+  delegate_to: "{{ isolated_egress | default(inventory_hostname) }}"
+  register: site_tunnel
+  changed_when: false
+  failed_when: false
+  when: isolated_egress is defined
+
+# Unless its egress VM lets it out through its own connection.
+- name: Skip a machine whose tunnel is not up yet
+  ansible.builtin.meta: end_host
+  when:
+    - isolated_egress is defined
+    - site_tunnel.stdout | default('') is not search('\s[1-9][0-9]*$')
+    - not hostvars[isolated_egress].egress_outbound_lan | default(false) | bool

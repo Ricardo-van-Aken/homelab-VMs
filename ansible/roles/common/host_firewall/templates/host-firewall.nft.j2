@@ -40,7 +40,7 @@ table inet host_firewall {
 		ip saddr @lan meta l4proto icmp accept
 
 		ip saddr @admin tcp dport 22 accept  # SSH, for you and Ansible
-		ip saddr @monitoring tcp dport {{ host_firewall_metrics_port }} accept  # metrics, collected by the monitoring VM
+		ip saddr @monitoring tcp dport { {{ host_firewall_metrics_ports | join(', ') }} } accept  # metrics, collected by the monitoring VM
 {% for rule in host_firewall_in %}
 		{% if rule.from | default('lan') == 'lan' %}ip saddr @lan {% endif %}{{ rule.proto }} dport { {{ rule.port }} } accept
 {% endfor %}

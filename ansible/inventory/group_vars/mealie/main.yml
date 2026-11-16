@@ -5,7 +5,8 @@ mealie_domain: "mealie.{{ homelab_domain }}"
 # Recipes, images and database, on the host's mealie dataset (pve_vm.shares).
 mealie_data_dir: /srv/mealie
 mealie_http_port: 9925
-# Below the VM's 1 GB, so the rest of the VM keeps room.
+# The most memory the Mealie container may hold. The VM has more: the
+# rest is for Ubuntu, Docker, Caddy and the agent.
 mealie_memory_limit: 700M
 
 # LAN only: anyone who can reach the VM reads the recipes at

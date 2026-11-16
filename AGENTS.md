@@ -74,7 +74,8 @@ checksum. The pinned image downloads them and checks Mojang's own hashes.
 
 Renovate (`.github/renovate.json5`) proposes updates once a release is two
 days old, for GitHub actions, Python packages, Dockerfile base images, the
-container images in Ansible vars and the NetBird download.
+container images in Ansible vars and the NetBird download. For Alloy it
+moves the version only: replace its two checksums in the same pull request.
 Everything else is bumped by hand: one commit per bump, or one per related
 group. Resolve the new digest or commit as above, update the version
 comment where there is one, and let CI rebuild the images; their tags are

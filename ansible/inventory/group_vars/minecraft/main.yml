@@ -9,8 +9,8 @@ minecraft_motd: DDG-Craft
 # Sized for 20 to 30 players. The VM's memory is 2 GB above the limit, for
 # Ubuntu, the backups and Caddy.
 minecraft_max_players: 30
-minecraft_memory: 7G
-minecraft_memory_limit: 8g
+minecraft_memory: 6G
+minecraft_memory_limit: 7g
 # How far around each player mobs and crops move; the default is 10. The
 # main game loop runs on one core, and this is its biggest cost.
 minecraft_extra_env:

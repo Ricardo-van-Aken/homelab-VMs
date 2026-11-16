@@ -10,8 +10,8 @@ pve_firewall_lan: ""  # e.g. 10.0.1.0/24
 pve_firewall_admin: []
 # DNS servers every VM may query (the Pi-holes).
 pve_firewall_dns: []
-# Machines that collect metrics and logs (a Grafana stack); every VM lets
-# them scrape pve_firewall_metrics_port and may push to
+# Machines that collect metrics and logs (role grafana); every VM that may
+# reach the LAN lets them read pve_firewall_metrics_port and may send to
 # pve_firewall_logs_port on them. Empty until such a machine exists.
 pve_firewall_monitoring: []
 pve_firewall_metrics_port: 9100
@@ -25,6 +25,8 @@ pve_firewall_logs_port: 3100
 #         from: lan        # lan (default), any, or an address or network
 #         iface: net1      # optional: only on this network card
 #     lan: dns             # what it may reach on the LAN: dns, all or none
+#     monitoring: true     # for a VM with lan: none: the monitoring machines
+#                          # may read its metrics, and it may send them logs
 #     out_only:            # when set, all other outgoing traffic is dropped
 #       - dest: 198.51.100.7
 #         proto: udp
@@ -32,6 +34,7 @@ pve_firewall_logs_port: 3100
 pve_firewall_vm_defaults:
   in: []
   lan: dns
+  monitoring: false
   out_only: []
 
 # Where rendered files are staged before they are copied into /etc/pve,

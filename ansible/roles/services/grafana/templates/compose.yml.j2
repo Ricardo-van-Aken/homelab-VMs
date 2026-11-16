@@ -1,0 +1,93 @@
+# {{ ansible_managed }}
+services:
+  prometheus:
+    image: {{ grafana_prometheus_image }}
+    container_name: prometheus
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
+    user: "{{ grafana_uid }}:{{ grafana_uid }}"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time={{ grafana_metrics_retention }}
+      - --storage.tsdb.retention.size={{ grafana_metrics_size }}
+    # No port: only Grafana, in this stack, talks to it.
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - {{ grafana_data_dir }}/prometheus:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9090/-/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  loki:
+    image: {{ grafana_loki_image }}
+    container_name: loki
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
+    user: "{{ grafana_uid }}:{{ grafana_uid }}"
+    command:
+      - -config.file=/etc/loki/loki.yml
+    ports:
+      - "127.0.0.1:{{ grafana_loki_port }}:3100"  # Caddy forwards writes to it
+    volumes:
+      - ./loki.yml:/etc/loki/loki.yml:ro
+      - {{ grafana_data_dir }}/loki:/loki
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  grafana:
+    image: {{ grafana_image }}
+    container_name: grafana
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
+    user: "{{ grafana_uid }}:{{ grafana_uid }}"
+    depends_on:
+      - prometheus
+      - loki
+    environment:
+      TZ: {{ base_timezone }}
+      GF_SERVER_ROOT_URL: {{ grafana_url }}
+      GF_SECURITY_ADMIN_USER: {{ grafana_admin_user }}
+      # Nothing is sent to Grafana Labs.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    env_file:
+      - grafana.env
+    ports:
+      - "127.0.0.1:{{ grafana_http_port }}:3000"  # Caddy forwards to it
+    volumes:
+      - {{ grafana_data_dir }}/grafana:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

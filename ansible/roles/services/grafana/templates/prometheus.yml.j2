@@ -1,0 +1,38 @@
+# {{ ansible_managed }}
+# Prometheus reads every machine's metrics itself: a machine's name comes
+# from this file, not from the machine, and nothing can be written here.
+{% set alloy = grafana_machines | selectattr('agent', 'equalto', 'alloy') | list %}
+{% set exporters = grafana_machines | selectattr('agent', 'equalto', 'exporters') | list %}
+global:
+  scrape_interval: 30s
+  # What one reading of one machine may hold; a larger one is thrown away.
+  sample_limit: {{ grafana_metrics_limit }}
+  body_size_limit: 20MB
+{% if grafana_machines %}
+
+scrape_configs:
+{% endif %}
+{% if alloy %}
+{% for job, component in [('node', 'prometheus.exporter.unix.node'), ('processes', 'prometheus.exporter.process.processes')] %}
+  - job_name: {{ job }}
+    metrics_path: /api/v0/component/{{ component }}/metrics
+    static_configs:
+{% for machine in alloy %}
+      - targets: ["{{ machine.address }}:{{ machine.port | default(grafana_alloy_port) }}"]
+        labels:
+          instance: {{ machine.name }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+{% if exporters %}
+  - job_name: exporters
+    static_configs:
+{% for machine in exporters %}
+      - targets:
+{% for port in grafana_exporters_ports %}
+          - "{{ machine.address }}:{{ port }}"
+{% endfor %}
+        labels:
+          instance: {{ machine.name }}
+{% endfor %}
+{% endif %}

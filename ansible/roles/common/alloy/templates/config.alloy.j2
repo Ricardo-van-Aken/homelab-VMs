@@ -1,0 +1,72 @@
+// {{ ansible_managed }}
+
+// Alloy sends no metrics. The monitoring machine reads the two exporters
+// below over HTTP, on the port Alloy listens on.
+
+// The machine itself: CPU, memory, disks, network, and ZFS where there is
+// a pool. vmstat is narrowed to what tells whether the file cache is too
+// small: pages read from disk again, and swapping.
+prometheus.exporter.unix "node" {
+	enable_collectors = ["pressure", "vmstat", "zfs"]
+
+	vmstat {
+		fields = "^(pgmajfault|pgfault|workingset_refault_file|workingset_refault_anon|pswpin|pswpout|oom_kill)$"
+	}
+}
+
+// CPU and memory per program; processes with the same name count as one.
+prometheus.exporter.process "processes" {
+	matcher {
+		name    = "{{ '{{.Comm}}' }}"
+		cmdline = [".+"]
+	}
+}
+
+// The system's journal, by unit.
+loki.relabel "journal" {
+	forward_to = []
+
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		target_label  = "unit"
+	}
+}
+
+loki.source.journal "journal" {
+	relabel_rules = loki.relabel.journal.rules
+	labels        = {source = "journal"}
+	forward_to    = [loki.write.monitoring.receiver]
+}
+{% if alloy_docker.stat.exists %}
+
+// The containers' own output, by container name.
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container"
+	}
+}
+
+loki.source.docker "containers" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.containers.output
+	labels     = {source = "container"}
+	forward_to = [loki.write.monitoring.receiver]
+}
+{% endif %}
+
+// The token says which machine this is; the monitoring machine files the
+// logs under that name.
+loki.write "monitoring" {
+	endpoint {
+		url          = "{{ alloy_logs_url }}"
+		bearer_token = "{{ alloy_token.content | b64decode | trim }}"
+	}
+}

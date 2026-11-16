@@ -6,8 +6,8 @@ ansible_host: 10.0.1.140
 # Its VMID is the 8 bits of its IP on our LAN (= ansible_host: 140).
 pve_vm:
   cores: 2
-  memory: 2048
-  balloon: 1024  # kept at least; the rest is given back when idle
+  memory: 2048  # Grafana, Prometheus and Loki hold about 1 GB together
+  balloon: 2048  # equal to memory: Proxmox never takes memory back from this VM
   # Metrics and logs, on its own disk on the tank pool.
   disks:
     - storage: tank-vms
@@ -19,6 +19,9 @@ pve_vm:
       - proto: tcp
         port: 443  # Grafana web UI, through Caddy
       - proto: tcp
-        port: 3100  # logs pushed in by every machine, Loki
-    # It collects metrics from every machine on the LAN.
+        port: 3100  # logs sent by every machine's agent; Caddy checks their token
+    # It reads the metrics of every machine on the LAN.
     lan: all
+
+# The disk above, as this machine sees it; metrics and logs go on it.
+grafana_data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1

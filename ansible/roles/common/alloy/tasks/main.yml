@@ -1,0 +1,98 @@
+---
+- name: Check where the logs go
+  ansible.builtin.assert:
+    that:
+      - alloy_logs_url | length > 0
+      - alloy_monitoring_host | length > 0
+    fail_msg: set alloy_logs_url and alloy_monitoring_host to the monitoring machine.
+
+# Made by role grafana for every machine in grafana_machines.
+- name: Look for this machine's token on the monitoring machine
+  ansible.builtin.stat:
+    path: "{{ alloy_token_dir }}/{{ alloy_host }}"
+  delegate_to: "{{ alloy_monitoring_host }}"
+  register: alloy_token_file
+
+- name: Check the monitoring machine knows this machine
+  ansible.builtin.assert:
+    that: alloy_token_file.stat.exists
+    fail_msg: >-
+      {{ alloy_monitoring_host }} has no token for {{ alloy_host }}: add it to
+      grafana_machines and run the playbook for {{ alloy_monitoring_host }} first.
+
+- name: Read this machine's token on the monitoring machine
+  ansible.builtin.slurp:
+    src: "{{ alloy_token_dir }}/{{ alloy_host }}"
+  delegate_to: "{{ alloy_monitoring_host }}"
+  register: alloy_token
+  no_log: true
+
+- name: Download Alloy
+  vars:
+    arch: "{{ 'arm64' if ansible_facts.architecture == 'aarch64' else 'amd64' }}"
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/grafana/alloy/releases/download/v{{ alloy_version }}/alloy-{{ alloy_version }}-1.{{ arch }}.deb
+    dest: "/var/cache/alloy-{{ alloy_version }}-1.{{ arch }}.deb"
+    checksum: "{{ lookup('ansible.builtin.vars', 'alloy_checksum_' ~ arch) }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+# The package makes the alloy user and the service.
+- name: Install Alloy
+  vars:
+    arch: "{{ 'arm64' if ansible_facts.architecture == 'aarch64' else 'amd64' }}"
+  ansible.builtin.apt:
+    deb: "/var/cache/alloy-{{ alloy_version }}-1.{{ arch }}.deb"
+
+- name: Look for Docker
+  ansible.builtin.stat:
+    path: /var/run/docker.sock
+  register: alloy_docker
+
+# Container logs are read through Docker's socket, which its group may use.
+- name: Let Alloy read the container logs
+  ansible.builtin.user:
+    name: alloy
+    groups: docker
+    append: true
+  when: alloy_docker.stat.exists
+  notify: Restart Alloy
+
+- name: Answer the monitoring machine on the metrics port
+  ansible.builtin.lineinfile:
+    path: /etc/default/alloy
+    regexp: '^CUSTOM_ARGS='
+    line: 'CUSTOM_ARGS="--server.http.listen-addr=0.0.0.0:{{ alloy_port }}"'
+  notify: Restart Alloy
+
+# It holds the token: readable by root and Alloy only.
+- name: Write Alloy's configuration
+  ansible.builtin.template:
+    src: config.alloy.j2
+    dest: /etc/alloy/config.alloy
+    owner: root
+    group: alloy
+    mode: "0640"
+  notify: Restart Alloy
+  no_log: true
+
+- name: Start Alloy
+  ansible.builtin.systemd_service:
+    name: alloy
+    state: started
+    enabled: true
+
+- name: Restart Alloy now when its configuration changed
+  ansible.builtin.meta: flush_handlers
+
+# systemd calls a service started that stops a moment later over a mistake
+# in its configuration.
+- name: Check Alloy runs with this configuration
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ alloy_port }}/-/ready"
+  register: alloy_ready
+  until: alloy_ready.status == 200
+  retries: 10
+  delay: 3

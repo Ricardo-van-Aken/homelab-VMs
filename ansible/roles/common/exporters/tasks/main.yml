@@ -1,0 +1,60 @@
+---
+- name: Install the exporters
+  ansible.builtin.apt:
+    name:
+      - prometheus-node-exporter
+      - prometheus-process-exporter
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# The same metrics as role alloy collects, so one dashboard fits both.
+# vmstat is narrowed to what tells whether the file cache is too small.
+- name: Set what the node exporter collects
+  vars:
+    fields: pgmajfault|pgfault|workingset_refault_file|workingset_refault_anon|pswpin|pswpout|oom_kill
+    arguments:
+      - "--web.listen-address=:{{ exporters_node_port }}"
+      - --collector.pressure
+      - "--collector.vmstat.fields=^({{ fields }})$"
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-node-exporter
+    content: |
+      ARGS="{{ arguments | join(' ') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart the node exporter
+
+# Processes with the same name count as one.
+- name: Set how the process exporter groups programs
+  ansible.builtin.copy:
+    dest: /etc/prometheus-process-exporter.yml
+    content: |
+      process_names:
+        - name: "{{ '{{.Comm}}' }}"
+          cmdline:
+            - ".+"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart the process exporter
+
+- name: Point the process exporter at its configuration
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-process-exporter
+    content: |
+      ARGS="-web.listen-address=:{{ exporters_process_port }} -config.path=/etc/prometheus-process-exporter.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart the process exporter
+
+- name: Start the exporters
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - prometheus-node-exporter
+    - prometheus-process-exporter
