@@ -2,3 +2,8 @@
 # Inherits .config/molecule/config.yml
 scenario:
   name: base
+provisioner:
+  inventory:
+    group_vars:
+      all:
+        base_reboot_time: "04:00"

@@ -14,7 +14,7 @@ and when touching a pin, update the pin and its comment in the same change.
 
 | Kind | Pin | Comment beside it |
 |---|---|---|
-| Base image in a Dockerfile | `FROM name:tag@sha256:…` | none; Dependabot moves tag and digest together |
+| Base image in a Dockerfile | `FROM name:tag@sha256:…` | none; Renovate moves tag and digest together |
 | Container image in Ansible vars | `name:tag@sha256:…`, as a folded scalar (`>-`) to keep lines short | none |
 | GitHub action | full commit SHA | `# vX.Y.Z` |
 | Galaxy role | git `src` + `scm: git` + commit SHA as `version` | `# X.Y.Z` |
@@ -26,10 +26,10 @@ and when touching a pin, update the pin and its comment in the same change.
 
 A tag next to a digest is documentation only: Docker ignores it and applies
 no check. It is written anyway, in the `name:tag@sha256:…` form, because
-update tools read the tag to find newer versions: Dependabot does so on
-`FROM` lines (with a digest alone it would follow `latest`, and it does not
-read `FROM ${ARG}` at all), and Renovate, if it is added, would do the
-same for the Ansible vars.
+Renovate reads the tag to find newer versions: on `FROM` lines (with a
+digest alone it would follow `latest`, and it does not read `FROM ${ARG}`
+at all) and in the Ansible vars. There it finds an image by its variable
+name ending in `_image` and the folded scalar below it; keep both.
 
 ### Resolving a pin
 
@@ -72,8 +72,9 @@ checksum. The pinned image downloads them and checks Mojang's own hashes.
 
 ### Bumping
 
-Dependabot (`.github/dependabot.yml`) proposes updates for GitHub actions,
-Python packages and Dockerfile base images once a release is two days old.
+Renovate (`.github/renovate.json5`) proposes updates once a release is two
+days old, for GitHub actions, Python packages, Dockerfile base images, the
+container images in Ansible vars and the NetBird download.
 Everything else is bumped by hand: one commit per bump, or one per related
 group. Resolve the new digest or commit as above, update the version
 comment where there is one, and let CI rebuild the images; their tags are

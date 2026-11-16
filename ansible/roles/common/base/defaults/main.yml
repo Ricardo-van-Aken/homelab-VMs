@@ -6,3 +6,13 @@ base_packages:
   - curl
   - htop
   - vim
+
+# Package sources unattended upgrades install from, beside Ubuntu's security
+# updates. Docker's own: without it Docker Engine stays as first installed.
+# An upgrade of Docker restarts the machine's containers.
+base_upgrade_origins:
+  - origin=Docker,label=Docker CE
+# Time of day (HH:MM, in base_timezone) at which the machine restarts after
+# an update that needs it, such as a new kernel. Empty: it never restarts
+# by itself.
+base_reboot_time: ""

@@ -57,3 +57,26 @@
     owner: root
     group: root
     mode: "0644"
+
+- name: Check the restart time
+  ansible.builtin.assert:
+    that: base_reboot_time | string is match('^(([01][0-9]|2[0-3]):[0-5][0-9])?$')
+    fail_msg: 'base_reboot_time is "{{ base_reboot_time }}"; write it as "HH:MM", quoted, or leave it empty.'
+
+# Always written, so an emptied setting takes effect.
+- name: Set what unattended upgrades install and when they restart
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/52unattended-upgrades-homelab
+    content: |
+      Unattended-Upgrade::Origins-Pattern {
+      {% for origin in base_upgrade_origins %}
+        "{{ origin }}";
+      {% endfor %}
+      };
+      Unattended-Upgrade::Automatic-Reboot "{{ 'true' if base_reboot_time else 'false' }}";
+      {% if base_reboot_time %}
+      Unattended-Upgrade::Automatic-Reboot-Time "{{ base_reboot_time }}";
+      {% endif %}
+    owner: root
+    group: root
+    mode: "0644"

@@ -27,6 +27,15 @@
   loop: "{{ groups['vms'] }}"
   when: hostvars[item].pve_vm.untrusted | default(false) | bool
 
+# A passed-through device pins all of the VM's memory, so a balloon frees
+# nothing.
+- name: Refuse ballooning with passed-through devices
+  ansible.builtin.assert:
+    that: hostvars[item].pve_vm.balloon is not defined
+    fail_msg: "{{ item }} has hostpci devices: remove its balloon"
+  loop: "{{ groups['vms'] }}"
+  when: hostvars[item].pve_vm.hostpci | default([]) | length > 0
+
 # The inventory name becomes the VM name, which Proxmox validates as a DNS
 # label: letters, digits and hyphens only.
 - name: Require DNS-safe VM names

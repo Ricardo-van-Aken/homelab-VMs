@@ -1,0 +1,69 @@
+// Version updates for the pinned dependencies, once a week. Only the
+// managers listed here run; everything else is bumped by hand (AGENTS.md).
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  enabledManagers: ["github-actions", "pip_requirements", "dockerfile", "custom.regex"],
+  timezone: "Europe/Amsterdam",
+  schedule: ["* * * * 1"],  // Mondays
+  // A new release is only proposed once it is two days old, so a bad
+  // release pulled within a day never reaches this repository.
+  minimumReleaseAge: "2 days",
+  // An issue that lists every update, also the ones still waiting.
+  dependencyDashboard: true,
+  packageRules: [
+    // Workflow actions: the commit SHA and its `# vX.Y.Z` comment, in one
+    // pull request.
+    {
+      matchManagers: ["github-actions"],
+      groupName: "actions",
+    },
+    // Python packages of the two images, one pull request per image so each
+    // is rebuilt once.
+    {
+      matchManagers: ["pip_requirements"],
+      matchFileNames: ["ansible/docker/runtime/**"],
+      groupName: "python (runtime image)",
+    },
+    {
+      matchManagers: ["pip_requirements"],
+      matchFileNames: ["ansible/docker/analysis/**"],
+      groupName: "python (analysis image)",
+    },
+    // Base images get a new digest for the same tag, or a newer patch. The
+    // Python release and the Ubuntu release stay where they are; moving
+    // those is a decision, not an update.
+    {
+      matchManagers: ["dockerfile"],
+      matchPackageNames: ["python", "ubuntu"],
+      matchUpdateTypes: ["major", "minor"],
+      enabled: false,
+    },
+  ],
+  customManagers: [
+    // Container images in Ansible vars: name:tag@sha256:… as a folded
+    // scalar. The tag and the digest move together, or the digest alone
+    // when the tag was rebuilt.
+    {
+      customType: "regex",
+      managerFilePatterns: [
+        "/^ansible/roles/.+/defaults/main\\.yml$/",
+        "/^ansible/inventory/.+\\.yml$/",
+      ],
+      matchStrings: [
+        "_image: >-\\s+(?<depName>[^\\s:@]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})",
+      ],
+      datasourceTemplate: "docker",
+    },
+    // The NetBird package and its checksum, from the GitHub release.
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^ansible/roles/services/egress/defaults/main\\.yml$/"],
+      matchStrings: [
+        "egress_netbird_version: (?<currentValue>\\S+)\\negress_netbird_checksum: sha256:(?<currentDigest>[a-f0-9]{64})",
+      ],
+      depNameTemplate: "netbirdio/netbird",
+      datasourceTemplate: "github-release-attachments",
+      extractVersionTemplate: "^v(?<version>.+)$",
+    },
+  ],
+}

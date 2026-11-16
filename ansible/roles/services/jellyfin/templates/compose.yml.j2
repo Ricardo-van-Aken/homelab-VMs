@@ -4,7 +4,16 @@ services:
     image: {{ jellyfin_image }}
     container_name: jellyfin
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
     user: "{{ jellyfin_uid }}:{{ jellyfin_uid }}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 {% if jellyfin_gpu_vendor == 'nvidia' %}
     runtime: nvidia
 {% elif jellyfin_gpu_vendor %}

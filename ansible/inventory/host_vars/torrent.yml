@@ -10,7 +10,7 @@ ansible_ssh_common_args: >-
 # Its VMID is the 8 bits of its IP on the isolated network (= 150).
 pve_vm:
   cores: 2
-  memory: 2048
+  memory: 1024
   untrusted: true
   # Downloads, on its own disk on the tank pool; nothing shared with the host.
   disks:

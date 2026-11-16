@@ -4,6 +4,14 @@ services:
     image: {{ mealie_image }}
     container_name: mealie
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
+    # Started as the service account; the image then skips its own switch
+    # from root, which PUID must match.
+    user: "{{ mealie_uid }}:{{ mealie_uid }}"
     environment:
       PUID: "{{ mealie_uid }}"
       PGID: "{{ mealie_uid }}"
@@ -26,6 +34,10 @@ services:
       - "127.0.0.1:{{ mealie_http_port }}:9000"  # Caddy forwards to it
     volumes:
       - {{ mealie_data_dir }}:/app/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:

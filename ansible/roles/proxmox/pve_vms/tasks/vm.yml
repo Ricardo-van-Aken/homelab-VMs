@@ -62,12 +62,15 @@
           'cores': pve_vms_spec.cores | string,
           'memory': pve_vms_spec.memory | string,
           'bios': pve_vms_spec.bios,
-          'vga': pve_vms_spec.vga}
+          'vga': pve_vms_spec.vga,
+          'onboot': pve_vms_spec.onboot | bool | int | string}
+         | combine({'startup': 'order=' ~ pve_vms_spec.start_order} if pve_vms_spec.start_order is defined else {})
          | combine(networks)
          | combine({'nameserver': nameservers | join(' ')} if nameservers | length > 0 else {})
          | combine({'balloon': pve_vms_spec.balloon | string} if pve_vms_spec.balloon is defined else {})
          | combine({'affinity': pve_vms_core_sets.get(pve_vms_spec.affinity, pve_vms_spec.affinity | string)}
                    if pve_vms_spec.affinity is defined else {})
+         | combine({'balloon': '0'} if pve_vms_spec.hostpci | length > 0 else {})
          | combine({'balloon': '0', 'agent': '0', 'tablet': '0'} if pve_vms_spec.untrusted | bool else {})
          | combine(disks)
          | combine(dict(range(pve_vms_spec.hostpci | length)
@@ -93,6 +96,11 @@
       {%- endif -%}
       {%- endfor -%}
       {{ ns.out }}
+
+# When the VM starts with the host is not hardware: it applies at once.
+- name: "Pick the changes that need a restart of {{ pve_vms_name }}"
+  ansible.builtin.set_fact:
+    pve_vms_restart_changes: "{{ pve_vms_changes.keys() | difference(['onboot', 'startup']) }}"
 
 - name: "Apply settings to {{ pve_vms_name }}"
   ansible.builtin.command: >-
@@ -123,7 +131,7 @@
   ansible.builtin.command: qm shutdown {{ pve_vms_spec.vmid }} --timeout {{ pve_vms_ssh_timeout }}
   when:
     - "'status: running' in pve_vms_status.stdout"
-    - pve_vms_changes | length > 0 or pve_vms_needs_efidisk
+    - pve_vms_restart_changes | length > 0 or pve_vms_needs_efidisk
     - pve_vms_spec.restart_on_change | bool
   register: pve_vms_shutdown
   changed_when: true

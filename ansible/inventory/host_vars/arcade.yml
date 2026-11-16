@@ -9,8 +9,7 @@ pve_vm:
   cores: 8
   # Enough for Jellyfin; 16384 to play games. srv1 has no room for both
   # that and minecraft-server1.
-  memory: 8192
-  balloon: 4096  # reserved; the rest is given back when idle
+  memory: 10240
   bios: ovmf   # the passed-through card is the guest's display; it wants UEFI
   vga: none
   hostpci:

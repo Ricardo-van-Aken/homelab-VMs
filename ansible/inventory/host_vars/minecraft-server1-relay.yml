@@ -12,6 +12,9 @@ ansible_user: root  # what Hetzner's images log in as
 # still refuse a changed one; remove the stale entry with `ssh-keygen -R`.
 ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new
 
+# With its egress VM, so the tunnel is down once.
+base_reboot_time: "04:00"
+
 # Role relay.
 # The home end of the tunnel; its public key, tunnel address and ports are
 # taken from it. For a home end that is not in this inventory, remove this
