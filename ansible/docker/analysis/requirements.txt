@@ -22,7 +22,7 @@ resolvelib==1.2.1
 ansible-compat==26.11.0
 attrs==26.1.0
 black==26.10.1
-bracex==3.2.2
+bracex==3.2.3
 click==8.5.1
 distro==1.9.0
 filelock==4.2.10
@@ -36,7 +36,7 @@ rpds-py==2026.9.1
 ruamel.yaml==0.19.1
 ruamel.yaml.clib==0.2.15
 subprocess-tee==0.4.2
-wcmatch==12.0.1
+wcmatch==12.0.2
 
 # --- transitive: required by ansible-core and ansible-lint ----------------
 
