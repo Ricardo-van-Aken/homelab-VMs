@@ -4,6 +4,9 @@
 # Fixed address (role static_address); keep it out of the router's DHCP pool.
 static_address_ip: 10.0.1.101
 
+# Half an hour after the dns VM, so one resolver is always up.
+base_reboot_time: "04:30"
+
 # The dns VM's tunnel has 51820; the router forwards this one here.
 wireguard_port: 51821
 

@@ -4,6 +4,11 @@ services:
     image: {{ minecraft_image }}
     container_name: minecraft
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
     user: "{{ minecraft_uid }}:{{ minecraft_uid }}"
     environment:
       TZ: {{ base_timezone }}
@@ -94,6 +99,11 @@ services:
     # restic sorts backups by this name; a container's own changes.
     hostname: {{ inventory_hostname }}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
     user: "{{ minecraft_uid }}:{{ minecraft_uid }}"
     depends_on:
       minecraft:

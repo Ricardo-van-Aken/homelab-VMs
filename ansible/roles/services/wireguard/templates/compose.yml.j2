@@ -4,6 +4,11 @@ services:
     image: {{ wireguard_image }}
     container_name: wg-easy
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
     environment:
       PORT: "{{ wireguard_web_port }}"
       INSECURE: "{{ wireguard_insecure | bool | lower }}"
@@ -35,6 +40,8 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    security_opt:
+      - no-new-privileges:true
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1

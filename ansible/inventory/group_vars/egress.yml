@@ -1,0 +1,4 @@
+---
+# Settings shared by every egress VM.
+# They are a way into the network: a new kernel is started the same night.
+base_reboot_time: "04:00"

@@ -7,8 +7,8 @@ ansible_host: 10.0.1.110
 # is no hard requirement to do this, it is just personal preference.
 pve_vm:
   cores: 2
-  memory: 4096
-  balloon: 1024  # kept at least; the rest is given back when idle
+  memory: 1024
+  balloon: 1024  # = memory: fixed; Forgejo with SQLite and one user needs about 350 MB
   # Host dataset (pve_storage on srv1) mounted with virtiofs; forgejo_data_dir
   # in group_vars/forgejo/main.yml points at it.
   shares:

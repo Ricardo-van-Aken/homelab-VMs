@@ -8,7 +8,8 @@ ansible_host: 10.0.1.100
 pve_vm:
   cores: 1
   memory: 1024
-  balloon: 512  # kept at least; the rest is given back when idle
+  balloon: 1024  # = memory: fixed; Pi-hole's blocklist updates need the full 1 GB
+  start_order: 1  # first: the other VMs resolve through it
   # Public resolvers: this VM is the resolver the others use.
   nameservers:
     - 1.1.1.1
@@ -31,6 +32,9 @@ pve_vm:
         from: any
     # VPN clients come out of this VM, so it may reach the whole LAN.
     lan: all
+
+# Half an hour before pi1, so one resolver is always up.
+base_reboot_time: "04:00"
 
 # Addresses this Pi-hole hands out; pi1 has the range after it.
 pihole_dhcp_start: 10.0.1.10

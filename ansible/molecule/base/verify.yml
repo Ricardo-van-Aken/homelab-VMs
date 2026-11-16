@@ -23,6 +23,21 @@
       ansible.builtin.assert:
         that: "'Unattended-Upgrade \"1\"' in (base_auto_upgrades.content | b64decode)"
 
+    # As apt itself reads it, from every file in apt.conf.d.
+    - name: Read the unattended upgrades settings
+      ansible.builtin.command: apt-config dump Unattended-Upgrade
+      changed_when: false
+      register: base_upgrade_settings
+
+    - name: Assert Docker's packages are upgraded and the machine restarts at night
+      ansible.builtin.assert:
+        that:
+          - >-
+            'Unattended-Upgrade::Origins-Pattern:: "origin=Docker,label=Docker CE";'
+            in base_upgrade_settings.stdout_lines
+          - "'Unattended-Upgrade::Automatic-Reboot \"true\";' in base_upgrade_settings.stdout_lines"
+          - "'Unattended-Upgrade::Automatic-Reboot-Time \"04:00\";' in base_upgrade_settings.stdout_lines"
+
     - name: Read timezone
       ansible.builtin.command: timedatectl show -p Timezone --value
       changed_when: false

@@ -18,7 +18,9 @@ pve_vms_nameservers: []
 #     cores: 4
 #     memory: 8192         # MiB, the maximum
 #     balloon: 2048        # MiB kept at least; the balloon driver gives the rest
-#                          # back to the host. Omit to leave ballooning alone.
+#                          # back to the host. Equal to memory: fixed, and
+#                          # Proxmox still shows the guest's own usage. 0:
+#                          # no balloon device. Omit to leave it alone.
 #     affinity: performance  # host cores it runs on: performance or
 #                          # efficiency on a hybrid CPU, or numbers as
 #                          # in `qm set --affinity` (0-3,8); kept when removed
@@ -27,7 +29,8 @@ pve_vms_nameservers: []
 #     nameservers:         # instead of pve_vms_nameservers
 #       - 1.1.1.1
 #     hostpci:             # PCI devices from pve_passthrough_devices, as
-#       - 0000:84:00,pcie=1,x-vga=1   # `qm set --hostpciN` takes them
+#       - 0000:84:00,pcie=1,x-vga=1   # `qm set --hostpciN` takes them;
+#                          # the VM gets fixed memory, no balloon
 #     shares:              # host datasets (pve_storage) mounted with virtiofs;
 #       - dataset: movies  # the guest mounts the tag at path (role shares)
 #         path: /srv/media/movies
@@ -45,6 +48,9 @@ pve_vms_nameservers: []
 #       - storage: tank-vms  # never resized or removed by this role
 #         size: 100        # GiB
 #     wait_for_ssh: false  # for a VM the Proxmox host cannot reach
+#     onboot: false        # stays off when the Proxmox host starts
+#     start_order: 1       # started in this order when the host starts,
+#                          # before the VMs without one
 #     untrusted: true      # fewest channels to the host: fixed memory (no
 #                          # ballooning), no guest agent, no USB tablet; and
 #                          # no shares or hostpci, which are refused
@@ -58,6 +64,7 @@ pve_vms_defaults:
   shares: []
   restart_on_change: true
   wait_for_ssh: true
+  onboot: true
   untrusted: false
   disks: []
 # Bridge of a VM's first network card when it lists no networks.

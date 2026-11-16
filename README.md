@@ -631,7 +631,7 @@ In the order the playbook runs them. They live in three directories under
 | pve_vms         | Proxmox host: clones and reconciles the VMs in the inventory |
 | static_address  | Raspberry Pi: fixed address on its NetworkManager connection |
 | host_firewall   | Raspberry Pi: nftables firewall that drops what is not listed |
-| base            | guest agent (VMs only), unattended upgrades, timezone        |
+| base            | guest agent (VMs only), unattended upgrades with a restart at night where `base_reboot_time` is set, timezone |
 | shares          | mounts the VM's virtiofs shares from `pve_vm.shares`         |
 | tunnel_key      | makes a WireGuard key pair on a machine and reads its public half; used by both ends of a tunnel |
 | relay           | public end of an egress VM's tunnel, on a rented server: passes chosen ports down the tunnel and lets the tunnel's traffic out under its own address |

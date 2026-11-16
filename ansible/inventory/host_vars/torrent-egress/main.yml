@@ -8,6 +8,7 @@ ansible_host: 10.0.1.225
 pve_vm:
   cores: 1
   memory: 512
+  start_order: 2  # before torrent, whose only way out it is
   untrusted: true
   # The LAN, and the gateway address of torrent's isolated network.
   networks:
