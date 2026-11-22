@@ -1,0 +1,14 @@
+---
+groups:
+  - name: minecraft
+    interval: 15m
+    rules:
+      # Every player seen online, by id and name, with the time they were
+      # last seen. The list feeds itself, so a player stays on it after
+      # leaving: the players' statistics know only the id.
+      - record: minecraft_player_name
+        expr: >-
+          max by (instance, id, name) (
+            (last_over_time(mc_player_list[15m]) > 0) * 0 + time()
+            or last_over_time(minecraft_player_name[180d])
+          )

@@ -31,6 +31,9 @@ IN ACCEPT -source +lan -p icmp # ping
 {% if fw.lan != 'none' or fw.monitoring %}
 IN ACCEPT -source +monitoring -p tcp -dport {{ pve_firewall_metrics_port }} # metrics, collected by the monitoring VM
 {% endif %}
+{% for port in fw.monitoring_ports %}
+IN ACCEPT -source +monitoring -p tcp -dport {{ port }} # read by the monitoring VM
+{% endfor %}
 {% for rule in fw.in %}
 {%   set source = rule.from | default('lan') %}
 IN ACCEPT

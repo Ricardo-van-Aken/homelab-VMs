@@ -3,25 +3,42 @@
 # The service name the dns VM resolves (see group_vars/pihole/main.yml).
 grafana_domain: "grafana.{{ homelab_domain }}"
 
-# Every machine runs the agent, except pi1, which runs the exporters. A VM
-# on an isolated network is read through a port on its egress VM.
+# How long metrics and logs are kept, and the most disk the metrics take.
+# The older metrics are removed first when they reach that size.
+grafana_metrics_retention: 180d
+grafana_metrics_size: 60GB
+grafana_logs_retention: 180d
+
+# Every machine runs the agent. A VM on an isolated network is read through
+# the ports its egress VM passes on (egress_monitoring_ports): the agent,
+# and on a Minecraft server the game's own figures and the players'
+# statistics. Those are many series that change slowly: read every quarter
+# of an hour, with a limit of their own. A VM's number on the Proxmox host
+# is the last part of its address.
 grafana_machines: >-
   {%- set machines = [] -%}
-  {%- set pis = groups['pis'] | default([]) -%}
-  {%- for host in (groups['vms'] + groups['proxmox'] + pis) | difference(['pi1']) -%}
+  {%- for host in groups['vms'] + groups['proxmox'] + (groups['pis'] | default([])) -%}
     {%- set egress = hostvars[host].isolated_egress | default('') -%}
-    {%- if egress -%}
-      {%- set _ = machines.append({'name': host, 'agent': 'alloy',
-                                   'address': hostvars[egress].ansible_host,
-                                   'port': hostvars[egress].egress_monitoring_port | default(9101)}) -%}
-    {%- else -%}
-      {%- set _ = machines.append({'name': host, 'agent': 'alloy', 'address': hostvars[host].ansible_host}) -%}
+    {%- set machine = {'name': host, 'address': hostvars[host].ansible_host, 'port': alloy_port} -%}
+    {%- if host in groups['vms'] -%}
+      {%- set machine = machine | combine({'vmid': hostvars[host].ansible_host.split('.') | last}) -%}
     {%- endif -%}
-  {%- endfor -%}
-  {%- for host in pis | intersect(['pi1']) -%}
-    {%- set _ = machines.append({'name': host, 'agent': 'exporters', 'address': hostvars[host].ansible_host}) -%}
+    {%- if egress -%}
+      {%- set passed = hostvars[egress].egress_monitoring_ports -%}
+      {%- set machine = machine | combine({'address': hostvars[egress].ansible_host, 'port': passed[alloy_port]}) -%}
+      {%- if host in groups['minecraft'] | default([]) -%}
+        {%- set figures = {'job': 'minecraft', 'port': passed[hostvars[host].minecraft_metrics_port]} -%}
+        {%- set stats = {'job': 'minecraft_stats', 'port': passed[hostvars[host].minecraft_stats_port],
+                         'interval': '15m', 'limit': 200000} -%}
+        {%- set machine = machine | combine({'also': [figures, stats]}) -%}
+      {%- endif -%}
+    {%- endif -%}
+    {%- set _ = machines.append(machine) -%}
   {%- endfor -%}
   {{ machines }}
+
+# The machines' tokens (group_vars/all/main.yml).
+grafana_tokens: "{{ homelab_monitoring_tokens | default({}) }}"
 
 # Password of the `admin` account. Grafana takes it at its first start only.
 # SECRET: in secrets.sops.yaml.

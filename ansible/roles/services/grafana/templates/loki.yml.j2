@@ -32,6 +32,8 @@ schema_config:
 
 limits_config:
   retention_period: {{ grafana_logs_retention }}
+  # The longest period one query may cover; Loki's own limit is 30 days.
+  max_query_length: {{ grafana_logs_retention }}
   # What is taken per second from one machine; more is refused.
   ingestion_rate_mb: {{ grafana_logs_rate_mb }}
   ingestion_burst_size_mb: {{ [grafana_logs_rate_mb | float * 8, 4] | max }}

@@ -11,4 +11,7 @@ provisioner:
         grafana_domain: localhost
         grafana_admin_password: molecule-test-only
         alloy_logs_url: http://127.0.0.1:3100/loki/api/v1/push
-        alloy_monitoring_host: instance
+        alloy_token: molecule-test-only-token-of-instance
+        grafana_tokens:
+          instance: molecule-test-only-token-of-instance
+          other: molecule-test-only-token-of-other-00

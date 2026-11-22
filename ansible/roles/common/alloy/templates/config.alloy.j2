@@ -1,6 +1,6 @@
 // {{ ansible_managed }}
 
-// Alloy sends no metrics. The monitoring machine reads the two exporters
+// Alloy sends no metrics. The monitoring machine reads the three exporters
 // below over HTTP, on the port Alloy listens on.
 
 // The machine itself: CPU, memory, disks, network, and ZFS where there is
@@ -22,6 +22,14 @@ prometheus.exporter.process "processes" {
 	}
 }
 
+// CPU and memory per application: each container, each systemd service
+// and, on a Proxmox host, each VM as one, whatever processes it runs.
+prometheus.exporter.cadvisor "applications" {
+	enabled_metrics        = ["cpu", "memory"]
+	store_container_labels = false
+	housekeeping_interval  = "15s"
+}
+
 // The system's journal, by unit.
 loki.relabel "journal" {
 	forward_to = []
@@ -35,6 +43,9 @@ loki.relabel "journal" {
 loki.source.journal "journal" {
 	relabel_rules = loki.relabel.journal.rules
 	labels        = {source = "journal"}
+	// After a start, lines up to this old are sent too: what the machine
+	// logged before it went down.
+	max_age       = "{{ alloy_journal_max_age }}"
 	forward_to    = [loki.write.monitoring.receiver]
 }
 {% if alloy_docker.stat.exists %}
@@ -67,6 +78,6 @@ loki.source.docker "containers" {
 loki.write "monitoring" {
 	endpoint {
 		url          = "{{ alloy_logs_url }}"
-		bearer_token = "{{ alloy_token.content | b64decode | trim }}"
+		bearer_token = "{{ alloy_token }}"
 	}
 }

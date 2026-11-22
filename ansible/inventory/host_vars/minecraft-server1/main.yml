@@ -51,14 +51,27 @@ pve_vm:
         port: 80  # the map of the world (BlueMap), through the tunnel
         from: any
     lan: none
-    # The monitoring VM reads its metrics and gets its logs, both through
+    # The monitoring VM reads its metrics, the server's own figures and the
+    # players' statistics, and gets its logs, all through
     # minecraft-server1-egress.
     monitoring: true
+    monitoring_ports: ["{{ minecraft_metrics_port }}", "{{ minecraft_stats_port }}"]
 
-# Where Bedrock players send their game traffic: the relay, never the home
-# connection this machine falls back to.
+# The name players connect to: the relay's, or the public server's of the
+# NetBird network. It has to resolve, or Bedrock players cannot join.
+# SECRET: in secrets.sops.yaml.
+# TODO: write it with `sops edit`.
+# minecraft_public_name: <string>
+
+# Where Bedrock players send their game traffic, never the home connection
+# this machine falls back to.
 minecraft_bedrock_advertise:
-  - "ddg-craft.{{ homelab_domain }}:19132"
+  - "{{ minecraft_public_name }}:19132"
+
+# The server's own figures and the players' statistics answer on this
+# machine's address; the firewall above lets only the monitoring VM read
+# them.
+minecraft_metrics_address: "{{ ansible_host }}"
 
 # The disk above, as this machine sees it; the worlds go on it.
 minecraft_data_device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1

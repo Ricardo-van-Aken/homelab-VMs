@@ -12,11 +12,18 @@ static_address_gateway: 10.0.1.1
 # The dns VM; the router does not answer DNS itself.
 static_address_dns: ["10.0.1.100"]
 
+# Not used on a Pi (role base removes them): the agent (role alloy) reports
+# what these two exporters do, and answers on the port of the first.
+base_unused_packages:
+  - prometheus-node-exporter
+  - prometheus-process-exporter
+
 # Firewall (role host_firewall). The VPN is published by Docker and passes
 # by this firewall; Caddy and Pi-hole, on the host's network, do not.
 host_firewall_lan: "{{ homelab_lan }}"
 host_firewall_admin: "{{ homelab_admin }}"
-host_firewall_monitoring: "{{ homelab_monitoring }}"
+host_firewall_monitoring: ["{{ homelab_monitoring }}"]
+host_firewall_metrics_ports: ["{{ alloy_port }}"]
 host_firewall_in:
   - proto: udp
     port: 53  # DNS, Pi-hole

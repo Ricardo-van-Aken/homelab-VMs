@@ -18,8 +18,11 @@
       - egress_inbound | rejectattr('port', 'defined') | list | length == 0
       - egress_netbird_inbound | rejectattr('proto', 'defined') | list | length == 0
       - egress_netbird_inbound | rejectattr('port', 'defined') | list | length == 0
+      - egress_monitoring_ports is mapping
     fail_msg: >-
-      set egress_isolated with address, network and vm; egress_vpn_address,
+      set egress_isolated with address, network and vm;
+      egress_monitoring_ports as `the VM's port: the port on this machine`;
+      egress_vpn_address,
       _peer_public_key and _endpoint all set or all empty (with egress_relay,
       the inventory name of a relay, its public key is read from it and no
       private key is given); egress_inbound and egress_netbird_inbound with
@@ -154,12 +157,13 @@
 
 - name: Set up NetBird
   when: egress_netbird | bool
+  vars:
+    package: "netbird_{{ egress_netbird_version }}_linux_amd64.deb"
   block:
     - name: Download NetBird
       ansible.builtin.get_url:
-        url: >-
-          https://github.com/netbirdio/netbird/releases/download/v{{ egress_netbird_version }}/netbird_{{ egress_netbird_version }}_linux_amd64.deb
-        dest: "/var/cache/netbird_{{ egress_netbird_version }}_linux_amd64.deb"
+        url: "https://github.com/netbirdio/netbird/releases/download/v{{ egress_netbird_version }}/{{ package }}"
+        dest: "/var/cache/{{ package }}"
         checksum: "{{ egress_netbird_checksum }}"
         owner: root
         group: root
@@ -168,7 +172,7 @@
     # The package installs and starts NetBird's service.
     - name: Install NetBird
       ansible.builtin.apt:
-        deb: "/var/cache/netbird_{{ egress_netbird_version }}_linux_amd64.deb"
+        deb: "/var/cache/{{ package }}"
 
     - name: Look whether this machine has joined the network
       ansible.builtin.command: netbird status

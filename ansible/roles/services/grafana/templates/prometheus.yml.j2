@@ -1,38 +1,67 @@
 # {{ ansible_managed }}
 # Prometheus reads every machine's metrics itself: a machine's name comes
 # from this file, not from the machine, and nothing can be written here.
-{% set alloy = grafana_machines | selectattr('agent', 'equalto', 'alloy') | list %}
-{% set exporters = grafana_machines | selectattr('agent', 'equalto', 'exporters') | list %}
+{% set extra = grafana_machines | selectattr('also', 'defined') | list %}
 global:
   scrape_interval: 30s
   # What one reading of one machine may hold; a larger one is thrown away.
   sample_limit: {{ grafana_metrics_limit }}
   body_size_limit: 20MB
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
 {% if grafana_machines %}
 
 scrape_configs:
-{% endif %}
-{% if alloy %}
-{% for job, component in [('node', 'prometheus.exporter.unix.node'), ('processes', 'prometheus.exporter.process.processes')] %}
+{% for job, component in [('node', 'prometheus.exporter.unix.node'),
+                          ('processes', 'prometheus.exporter.process.processes'),
+                          ('applications', 'prometheus.exporter.cadvisor.applications')] %}
   - job_name: {{ job }}
     metrics_path: /api/v0/component/{{ component }}/metrics
     static_configs:
-{% for machine in alloy %}
-      - targets: ["{{ machine.address }}:{{ machine.port | default(grafana_alloy_port) }}"]
+{% for machine in grafana_machines %}
+      - targets: ["{{ machine.address }}:{{ machine.port }}"]
         labels:
           instance: {{ machine.name }}
 {% endfor %}
+{% if job == 'applications' %}
+    # A Proxmox host reports each VM and container by its number: the label
+    # vm gets the number, or the machine's name where it is known here.
+    metric_relabel_configs:
+      - source_labels: [id]
+        regex: /qemu[.]slice/([0-9]+)[.]scope
+        target_label: vm
+        replacement: VM $1
+      - source_labels: [id]
+        regex: /lxc/([0-9]+)
+        target_label: vm
+        replacement: container $1
+{% for machine in grafana_machines if machine.vmid is defined %}
+      - source_labels: [id]
+        regex: /qemu[.]slice/{{ machine.vmid }}[.]scope
+        target_label: vm
+        replacement: {{ machine.name }}
 {% endfor %}
 {% endif %}
-{% if exporters %}
-  - job_name: exporters
-    static_configs:
-{% for machine in exporters %}
-      - targets:
-{% for port in grafana_exporters_ports %}
-          - "{{ machine.address }}:{{ port }}"
 {% endfor %}
+{# A program's own metrics page: one job for each kind of program. #}
+{% for job in extra | map(attribute='also') | flatten | map(attribute='job') | unique %}
+{% set first = extra | map(attribute='also') | flatten | selectattr('job', 'equalto', job) | first %}
+  - job_name: {{ job }}
+{% if first.interval is defined %}
+    scrape_interval: {{ first.interval }}
+    scrape_timeout: 1m
+{% endif %}
+{% if first.limit is defined %}
+    sample_limit: {{ first.limit }}
+{% endif %}
+    static_configs:
+{% for machine in extra %}
+{% for page in machine.also if page.job == job %}
+      - targets: ["{{ machine.address }}:{{ page.port }}"]
         labels:
           instance: {{ machine.name }}
+{% endfor %}
+{% endfor %}
 {% endfor %}
 {% endif %}

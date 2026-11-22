@@ -2,3 +2,11 @@
 # Settings shared by every egress VM.
 # They are a way into the network: a new kernel is started the same night.
 base_reboot_time: "04:00"
+
+# The monitoring VM reads the isolated VM's metrics and gets its logs. The
+# ports are the VM's port: the port on the egress VM that is passed on to
+# it; group_vars/grafana/main.yml reads them from here.
+egress_monitoring: "{{ homelab_monitoring }}"
+egress_monitoring_logs_port: "{{ grafana_logs_port }}"
+egress_monitoring_ports:
+  9100: 9101  # the agent (alloy_port; a key cannot refer to it)

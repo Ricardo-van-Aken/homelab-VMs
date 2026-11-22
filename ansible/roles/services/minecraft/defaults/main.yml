@@ -43,6 +43,19 @@ minecraft_bedrock_advertise: []
 # HTTPS, and over HTTPS itself under minecraft_map_domain when that is set.
 minecraft_map_port: 8100
 minecraft_map_domain: ""  # e.g. map.example.org
+# Where the mod prometheus-exporter answers with the server's own figures:
+# Java's memory and CPU, players, entities, loaded chunks and tick time.
+# On this machine only, unless the address is one other machines reach;
+# then a firewall has to keep it to the machine that reads them.
+minecraft_metrics_address: 127.0.0.1
+minecraft_metrics_port: 19565
+# The players' statistics, read from the world's files by a container of
+# its own and offered on the same address: deaths, blocks mined, mobs
+# killed, items used and the like, each player by their id.
+# https://github.com/dirien/minecraft-prometheus-exporter/releases
+minecraft_stats_image: >-
+  ghcr.io/dirien/minecraft-exporter:0.24.0@sha256:61d89bf99ff7cea47059857c352e06b89b02cdc6d4d540490f64f55975d9048d
+minecraft_stats_port: 9150
 
 # The world's directory name. A new name starts a new world.
 minecraft_world: world
@@ -192,6 +205,11 @@ minecraft_mods:
     url: >-
       https://cdn.modrinth.com/data/l6YH9Als/versions/e3hsPc1o/spark-1.10.187-fabric.jar
     checksum: sha256:3fc00663caa542b1e78333730609b4eb2568326628e3666a3938ad58cbc9acc6
+  # https://github.com/drewburr/minecraft-prometheus-exporter/releases
+  - name: prometheus-exporter  # 1.5.0-fabric; the server's figures for Grafana (minecraft_metrics_port)
+    url: >-
+      https://github.com/drewburr/minecraft-prometheus-exporter/releases/download/fabric/v1.5.0/prometheus-exporter-fabric-1.5.0.jar
+    checksum: sha256:97996213fa1128dda11092fe339e7b23d52c33ae089fba1abbbecf2f23201264
   - name: fabric-language-kotlin  # 1.14.2+kotlin.2.4.21; Ledger needs it
     url: >-
       https://cdn.modrinth.com/data/Ha28R6CL/versions/SKW1BTL3/fabric-language-kotlin-1.14.2%2Bkotlin.2.4.21.jar

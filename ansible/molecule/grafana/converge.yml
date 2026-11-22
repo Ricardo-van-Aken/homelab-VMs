@@ -9,8 +9,9 @@
       changed_when: false
       register: converge_addresses
 
-    # This same machine three times: with the agent, with the exporters,
-    # and as a machine with a token that sends nothing.
+    # This same machine twice: under its own name, where a program's own
+    # metrics page is read too (Alloy's, in place of a game server's), and
+    # as a machine with a token that sends nothing.
     - name: Watch this machine
       vars:
         address: "{{ converge_addresses.stdout.split() | first }}"
@@ -18,17 +19,14 @@
         grafana_machines:
           - name: instance
             address: "{{ address }}"
-            agent: alloy
+            port: 9100
+            vmid: 140
+            also:
+              - job: own_page
+                port: 9100
           - name: other
             address: "{{ address }}"
-            agent: alloy
-          - name: scraped
-            address: "{{ address }}"
-            agent: exporters
-        # Alloy listens on 9100 in this instance, so the node exporter gets 9101.
-        grafana_exporters_ports: [9101, 9256]
-        exporters_node_port: 9101
+            port: 9100
   roles:
-    - exporters
     - grafana
     - alloy

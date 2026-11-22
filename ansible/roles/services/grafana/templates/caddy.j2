@@ -9,18 +9,18 @@
 # that machine's name, whatever the request itself says. Everything else,
 # reading included, is refused.
 http://:{{ grafana_logs_port }} {
-{% for name, token in grafana_tokens.items() %}
-	@{{ name }} {
+{% for machine in grafana_machines %}
+	@{{ machine.name }} {
 		method POST
 		path /loki/api/v1/push
-		header Authorization "Bearer {{ token }}"
+		header Authorization "Bearer {{ grafana_tokens[machine.name] }}"
 	}
-	handle @{{ name }} {
+	handle @{{ machine.name }} {
 		request_body {
 			max_size {{ grafana_logs_request }}
 		}
 		reverse_proxy 127.0.0.1:{{ grafana_loki_port }} {
-			header_up X-Scope-OrgID {{ name }}
+			header_up X-Scope-OrgID {{ machine.name }}
 		}
 	}
 {% endfor %}

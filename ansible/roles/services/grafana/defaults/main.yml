@@ -20,19 +20,26 @@ grafana_data_device: ""  # e.g. /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-s
 grafana_user: grafana
 grafana_uid: 2004
 
-# The machines that are watched.
+# The machines that are watched. Each runs the agent (role alloy), which
+# offers its metrics and sends its logs.
 #   - name: recipes        # the name the machine has in Grafana
-#     address: 10.0.1.130  # where Prometheus reads its metrics
-#     agent: alloy         # alloy (role alloy), which also sends logs, or
-#                          # exporters (role exporters), which does not
-#     port: 9100           # optional: where the agent answers
+#     address: 10.0.1.130  # where Prometheus reads the agent
+#     port: 9100
+#     vmid: 130            # optional: its number on the Proxmox host, which
+#                          # reports its VMs by number
+#     also:                # optional: a program's own metrics page, at the
+#       - job: minecraft   # same address; one Prometheus job for each kind
+#         port: 9102
+#         interval: 15m    # optional: how often it is read (30s)
+#         limit: 200000    # optional: the series one reading may hold
+#                          # (grafana_metrics_limit)
 grafana_machines: []
-grafana_alloy_port: 9100
-grafana_exporters_ports: [9100, 9256]
 
-# One token per machine with an agent, made here on the first run; the
-# agent sends it with its logs. Root only.
-grafana_token_dir: "{{ grafana_dir }}/tokens"
+# The token of each machine with an agent, by the machine's name; its agent
+# sends the same one with its logs (alloy_token). Required for each of those
+# machines: 32 characters or more, of letters, digits and . _ ~ + / = -
+#   recipes: <token>
+grafana_tokens: {}
 
 # How long metrics and logs are kept, and the most disk the metrics take.
 grafana_metrics_retention: 30d

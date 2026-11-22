@@ -67,6 +67,8 @@ services:
       - "{{ minecraft_bedrock_port }}:19132/udp"
       # BlueMap, for Caddy on this machine only.
       - "127.0.0.1:{{ minecraft_map_port }}:8100/tcp"
+      # The server's figures (mod prometheus-exporter).
+      - "{{ minecraft_metrics_address }}:{{ minecraft_metrics_port }}:19565/tcp"
     volumes:
       - {{ minecraft_data_dir }}/data:/data
       - {{ minecraft_data_dir }}/mods:/mods:ro
@@ -89,6 +91,33 @@ services:
       resources:
         limits:
           memory: {{ minecraft_memory_limit }}
+
+  # Reads the players' statistics from the world's files. It cannot write
+  # them and has no access to the server's console; names are not looked
+  # up anywhere, so each player goes by their id.
+  stats:
+    image: {{ minecraft_stats_image }}
+    container_name: minecraft-stats
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m  # per file
+        max-file: "3"
+    user: "{{ minecraft_uid }}:{{ minecraft_uid }}"
+    command:
+      - --mc.world=/data/{{ minecraft_world }}
+      - --mc.name-source=offline
+      - --web.disable-exporter-metrics
+    ports:
+      - "{{ minecraft_metrics_address }}:{{ minecraft_stats_port }}:9150/tcp"
+    volumes:
+      - {{ minecraft_data_dir }}/data:/data:ro
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 {% if minecraft_backup_repository %}
 
   # Tells the server to stop writing, uploads what changed, and lets it

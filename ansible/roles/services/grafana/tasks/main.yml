@@ -73,57 +73,45 @@
     - "{{ grafana_dir }}/provisioning/datasources"
     - "{{ grafana_dir }}/provisioning/dashboards"
     - "{{ grafana_dir }}/dashboards"
+    - "{{ grafana_dir }}/rules"
 
 - name: Check the machines that are watched
+  vars:
+    jobs: "{{ item.also | default([]) | map(attribute='job', default='') | list }}"
+    ports: "{{ item.also | default([]) | map(attribute='port', default=0) | map('int') | list }}"
   ansible.builtin.assert:
     that:
       - item.name is match('^[A-Za-z0-9-]+$')
       - item.address | default('') | length > 0
-      - item.agent | default('') in ['alloy', 'exporters']
+      - item.port | default(0) | int > 0
+      - jobs | reject('match', '^[a-z0-9_]+$') | list | length == 0
+      - jobs | intersect(['node', 'processes', 'applications']) | length == 0
+      - ports | select('<', 1) | list | length == 0
     fail_msg: >-
       every machine in grafana_machines needs a name of letters, digits and
-      hyphens, an address, and agent: alloy or exporters.
+      hyphens, an address and a port; every entry under also needs a port
+      and a job of lower-case letters, digits and underscores, other than
+      node, processes and applications.
     quiet: true
   loop: "{{ grafana_machines }}"
   loop_control:
     label: "{{ item.name | default(item) }}"
 
-- name: Create the token directory
-  ansible.builtin.file:
-    path: "{{ grafana_token_dir }}"
-    state: directory
-    owner: root
-    group: root
-    mode: "0700"
-
-# Made once; a token that exists is left as it is. Remove the file to give
-# a machine a new one at the next run.
-- name: Make a token for each machine with an agent
-  ansible.builtin.command:
-    cmd: openssl rand -hex -out {{ grafana_token_dir }}/{{ item.name }} 32
-    creates: "{{ grafana_token_dir }}/{{ item.name }}"
-  loop: "{{ grafana_machines | selectattr('agent', 'equalto', 'alloy') }}"
-  loop_control:
-    label: "{{ item.name }}"
-
-- name: Keep the tokens to root
-  ansible.builtin.file:
-    path: "{{ grafana_token_dir }}/{{ item.name }}"
-    owner: root
-    group: root
-    mode: "0600"
-  loop: "{{ grafana_machines | selectattr('agent', 'equalto', 'alloy') }}"
-  loop_control:
-    label: "{{ item.name }}"
-
-- name: Read the tokens
-  ansible.builtin.slurp:
-    src: "{{ grafana_token_dir }}/{{ item.name }}"
-  loop: "{{ grafana_machines | selectattr('agent', 'equalto', 'alloy') }}"
-  loop_control:
-    label: "{{ item.name }}"
-  register: grafana_token_files
-  no_log: true
+# Two machines with the same token could not be told apart.
+- name: Check every machine has a token of its own
+  vars:
+    names: "{{ grafana_machines | map(attribute='name') | list }}"
+    tokens: "{{ grafana_tokens | dict2items | selectattr('key', 'in', names) | map(attribute='value') | list }}"
+  ansible.builtin.assert:
+    that:
+      - names | difference(grafana_tokens.keys()) | length == 0
+      - tokens | unique | length == tokens | length
+      - tokens | reject('match', '^[A-Za-z0-9._~+/=-]{32,}$') | list | length == 0
+    fail_msg: >-
+      grafana_tokens needs a token for each of these machines, no two the
+      same, each 32 characters or more of letters, digits and . _ ~ + / = -
+      Without a token: {{ names | difference(grafana_tokens.keys()) | join(', ') | default('none', true) }}.
+    quiet: true
 
 - name: Render the stores' configuration
   ansible.builtin.template:
@@ -147,6 +135,16 @@
     group: "{{ grafana_user }}"
     mode: "0640"
 
+# Series Prometheus works out itself from the ones it reads.
+- name: Copy Prometheus's rules
+  ansible.builtin.copy:
+    src: rules/
+    dest: "{{ grafana_dir }}/rules/"
+    owner: root
+    group: "{{ grafana_user }}"
+    mode: "0640"
+  notify: Restart the Grafana stack
+
 # Kept out of compose.yml so that file stays readable.
 - name: Write the admin password
   ansible.builtin.copy:
@@ -167,10 +165,6 @@
 
 # The site carries the tokens; root-only, and Caddy runs as root.
 - name: Render the Caddy site
-  vars:
-    grafana_tokens: >-
-      {{ dict(grafana_token_files.results | map(attribute='item.name')
-              | zip(grafana_token_files.results | map(attribute='content') | map('b64decode') | map('trim'))) }}
   ansible.builtin.template:
     src: caddy.j2
     dest: "{{ caddy_sites_dir }}/grafana.caddy"

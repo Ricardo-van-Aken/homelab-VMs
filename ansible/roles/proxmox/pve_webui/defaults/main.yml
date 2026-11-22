@@ -1,0 +1,30 @@
+---
+# The Proxmox web UI on the HTTPS port, with a Let's Encrypt certificate
+# that Proxmox requests itself, proves with a temporary DNS record, and
+# renews.
+
+# Proxmox answers on port 8006 only. Connections to this port of the
+# address below are passed to it; the firewall sees them as port 8006.
+pve_webui_port: 443
+pve_webui_address: "{{ ansible_host }}"
+
+# The name the web UI is opened by. Required.
+pve_webui_domain: ""  # e.g. proxmox.example.org
+# Let's Encrypt account. Registering it accepts Let's Encrypt's terms of
+# service. Required.
+pve_webui_email: ""
+pve_webui_account: default
+pve_webui_directory: https://acme-v02.api.letsencrypt.org/directory
+
+# The provider hosting the domain's DNS records, as Proxmox names it: see
+# /usr/share/proxmox-acme/dnsapi/dns_<name>.sh on the host. Required.
+pve_webui_dns_api: ""  # e.g. hetznercloud
+# That provider's settings, named in the same file. Required; a token comes
+# from a secrets.sops.yaml.
+pve_webui_dns_data: {}  # e.g. {HETZNER_TOKEN: <string>}
+# The name these settings are stored under on the host.
+pve_webui_dns_plugin: dns
+# Seconds between writing the record and asking Let's Encrypt to look.
+pve_webui_dns_delay: 60
+# The settings as a file, which is how Proxmox takes them.
+pve_webui_dns_file: /root/.pve-certificate-dns

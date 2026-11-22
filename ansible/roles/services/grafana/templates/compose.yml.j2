@@ -18,6 +18,7 @@ services:
     # No port: only Grafana, in this stack, talks to it.
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./rules:/etc/prometheus/rules:ro
       - {{ grafana_data_dir }}/prometheus:/prometheus
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9090/-/ready"]

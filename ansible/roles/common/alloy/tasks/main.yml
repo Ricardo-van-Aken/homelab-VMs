@@ -1,31 +1,21 @@
 ---
-- name: Check where the logs go
+- name: Check where the logs go and this machine's token
   ansible.builtin.assert:
     that:
       - alloy_logs_url | length > 0
-      - alloy_monitoring_host | length > 0
-    fail_msg: set alloy_logs_url and alloy_monitoring_host to the monitoring machine.
-
-# Made by role grafana for every machine in grafana_machines.
-- name: Look for this machine's token on the monitoring machine
-  ansible.builtin.stat:
-    path: "{{ alloy_token_dir }}/{{ alloy_host }}"
-  delegate_to: "{{ alloy_monitoring_host }}"
-  register: alloy_token_file
-
-- name: Check the monitoring machine knows this machine
-  ansible.builtin.assert:
-    that: alloy_token_file.stat.exists
+      - alloy_token is match('^[A-Za-z0-9._~+/=-]{32,}$')
     fail_msg: >-
-      {{ alloy_monitoring_host }} has no token for {{ alloy_host }}: add it to
-      grafana_machines and run the playbook for {{ alloy_monitoring_host }} first.
+      set alloy_logs_url to the monitoring machine's address, and alloy_token
+      to this machine's token: 32 characters or more, of letters, digits and
+      . _ ~ + / = -
 
-- name: Read this machine's token on the monitoring machine
-  ansible.builtin.slurp:
-    src: "{{ alloy_token_dir }}/{{ alloy_host }}"
-  delegate_to: "{{ alloy_monitoring_host }}"
-  register: alloy_token
-  no_log: true
+- name: Check there is an Alloy package for this machine
+  ansible.builtin.assert:
+    that: ansible_facts.architecture in ['x86_64', 'aarch64']
+    fail_msg: >-
+      Alloy is installed here for x86_64 and aarch64 only; this machine is
+      {{ ansible_facts.architecture }} (a Raspberry Pi needs the 64-bit
+      Raspberry Pi OS)
 
 - name: Download Alloy
   vars:
@@ -59,6 +49,42 @@
     append: true
   when: alloy_docker.stat.exists
   notify: Restart Alloy
+
+# The containers' names come from containerd, whose socket is root's alone.
+# Docker's group, which may already do anything with the containers, gets
+# it too: now, and after each start of containerd.
+- name: Look for containerd
+  ansible.builtin.stat:
+    path: /run/containerd/containerd.sock
+  register: alloy_containerd
+
+- name: Let Alloy read the containers' names
+  ansible.builtin.file:
+    path: /run/containerd/containerd.sock
+    group: docker
+  when: alloy_docker.stat.exists and alloy_containerd.stat.exists
+  notify: Restart Alloy
+
+- name: Create the directory for containerd's service settings
+  ansible.builtin.file:
+    path: /etc/systemd/system/containerd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: alloy_docker.stat.exists and alloy_containerd.stat.exists
+
+- name: Keep the containers' names readable after a start of containerd
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      ExecStartPost=/usr/bin/chgrp docker /run/containerd/containerd.sock
+    dest: /etc/systemd/system/containerd.service.d/socket-group.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: alloy_docker.stat.exists and alloy_containerd.stat.exists
+  notify: Reload systemd
 
 - name: Answer the monitoring machine on the metrics port
   ansible.builtin.lineinfile:

@@ -21,9 +21,8 @@ pve_vm:
     in:
       - iface: net1  # all traffic from minecraft-server1, to forward into the VPN tunnel
         from: 10.250.226.0/24
-      - proto: tcp
-        port: 9101  # minecraft-server1's metrics, passed on to it (egress_monitoring_port)
-        from: "{{ homelab_monitoring | first }}"
+    # What is passed on to minecraft-server1 for the monitoring VM.
+    monitoring_ports: "{{ egress_monitoring_ports.values() | list }}"
 
 # Role egress.
 egress_isolated:
@@ -57,8 +56,11 @@ egress_vpn: false
 # Without the tunnel, minecraft-server1 reaches Mojang through the home
 # connection, to check logins.
 egress_outbound_lan: true
-# The monitoring VM reads minecraft-server1's metrics and gets its logs.
-egress_monitoring: "{{ homelab_monitoring | first }}"
+# What the monitoring VM reads on minecraft-server1.
+egress_monitoring_ports:
+  9100: 9101  # the agent (alloy_port)
+  19565: 9102  # the Minecraft server's own figures (minecraft_metrics_port)
+  9150: 9103  # the players' statistics (minecraft_stats_port)
 
 # A second way in: a friend's NetBird network, whose public server passes
 # the two game ports on.

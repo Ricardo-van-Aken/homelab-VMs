@@ -19,4 +19,4 @@ datasources:
     jsonData:
       httpHeaderName1: X-Scope-OrgID
     secureJsonData:
-      httpHeaderValue1: "{{ grafana_machines | selectattr('agent', 'equalto', 'alloy') | map(attribute='name') | join('|') }}"
+      httpHeaderValue1: "{{ grafana_machines | map(attribute='name') | join('|') }}"

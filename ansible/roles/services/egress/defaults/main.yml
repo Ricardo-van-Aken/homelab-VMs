@@ -44,13 +44,15 @@ egress_inbound: []
 # that address. It never reaches a private network that way.
 egress_outbound_lan: false
 
-# The machine on the LAN that watches the VM (role grafana). It reads the
-# VM's metrics through a port on this machine, and the VM may send its logs
-# to one port there. Empty: nothing passes between the VM and the LAN.
+# The machine on the LAN that watches the VM (role grafana), and nothing
+# else on the LAN. Empty: nothing passes between the VM and the LAN.
 egress_monitoring: ""  # e.g. 10.0.1.140
-egress_monitoring_port: 9101  # on this machine, passed to the VM
-egress_monitoring_vm_port: 9100  # where the VM's agent answers (alloy_port)
-egress_monitoring_logs_port: 3100  # on the monitoring machine
+# Where the VM may send its logs on that machine.
+egress_monitoring_logs_port: 3100
+# What that machine reads on the VM, as the VM's port: the port on this
+# machine that is passed on to it.
+egress_monitoring_ports:
+  9100: 9101  # the agent (alloy_port)
 
 # A second way in: a NetBird network somebody else runs, in which a public
 # server passes ports to this machine. That server must masquerade, so

@@ -34,6 +34,7 @@
         fail_msg: "{{ item }} is not in Fabric's list of loaded mods"
       loop:
         - fabric-api
+        - prometheus_exporter
         - lithostitched
         - terralith
         - continents
@@ -90,6 +91,29 @@
           - minecraft_ports.stdout is search('25565/tcp')
           - minecraft_ports.stdout is search('19132/tcp')
           - minecraft_ports.stdout is search('19132/udp')
+
+    - name: Read the server's own figures
+      ansible.builtin.uri:
+        url: http://127.0.0.1:19565/metrics
+        return_content: true
+      register: minecraft_metrics
+
+    - name: Assert the figures cover Java and the game
+      ansible.builtin.assert:
+        that:
+          - minecraft_metrics.content is search('jvm_memory_bytes_used')
+          - minecraft_metrics.content is search('mc_server_tick_seconds_count')
+          - minecraft_metrics.content is search('mc_dimension_chunks_loaded')
+
+    - name: Read the players' statistics
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9150/metrics
+        return_content: true
+      register: minecraft_stats
+
+    - name: Assert the statistics exporter answers
+      ansible.builtin.assert:
+        that: minecraft_stats.content is search('minecraft_exporter_build_info')
 
     - name: Assert Geyser started
       ansible.builtin.assert:

@@ -2,7 +2,8 @@
   "uid": "machines",
   "title": "Machines",
   "tags": [
-    "homelab"
+    "homelab",
+    "provisioned"
   ],
   "schemaVersion": 39,
   "version": 1,
@@ -35,6 +36,29 @@
         "multi": false
       },
       {
+        "name": "hypervisor",
+        "label": "Host",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(container_memory_rss{vm!=\"\"}, instance)",
+          "refId": "A"
+        },
+        "definition": "label_values(container_memory_rss{vm!=\"\"}, instance)",
+        "refresh": 2,
+        "sort": 1,
+        "hide": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
         "name": "search",
         "label": "Search logs",
         "type": "textbox",
@@ -48,17 +72,296 @@
   },
   "panels": [
     {
-      "id": 1,
-      "type": "row",
-      "title": "All machines",
-      "collapsed": false,
+      "id": 21,
+      "type": "barchart",
+      "repeat": "hypervisor",
+      "repeatDirection": "v",
+      "title": "Memory of $hypervisor, by who it is reserved for",
+      "description": "Each VM is the memory it was given, used inside the VM or not. ZFS cache is what the host keeps of files it read. The host itself is everything else in use on the host. Not reserved is what is left. A VM without an agent is not shown.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 24,
-        "h": 1
+        "w": 12,
+        "h": 5
       },
-      "panels": []
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (vm) (label_replace(node_memory_MemTotal_bytes, \"vm\", \"$1\", \"instance\", \"(.+)\") and on (vm) container_memory_working_set_bytes{instance=\"$hypervisor\",vm!=\"\"})",
+          "legendFormat": "{{vm}}",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "clamp_min(sum(node_memory_MemTotal_bytes{instance=\"$hypervisor\"} - node_memory_MemAvailable_bytes{instance=\"$hypervisor\"}) - sum(container_memory_working_set_bytes{instance=\"$hypervisor\",vm!=\"\"}) - sum(node_zfs_arc_size{instance=\"$hypervisor\"} or vector(0)), 0)",
+          "legendFormat": "the host itself",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "D",
+          "expr": "sum(node_zfs_arc_size{instance=\"$hypervisor\"})",
+          "legendFormat": "ZFS cache",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "clamp_min(sum(node_memory_MemAvailable_bytes{instance=\"$hypervisor\"}) - sum(label_replace(node_memory_MemTotal_bytes, \"vm\", \"$1\", \"instance\", \"(.+)\") and on (vm) container_memory_working_set_bytes{instance=\"$hypervisor\",vm!=\"\"}) + sum(container_memory_working_set_bytes{instance=\"$hypervisor\",vm!=\"\"}), 0)",
+          "legendFormat": "not reserved",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "Time",
+            "mode": "outer"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "hidden"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "the host itself"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b877d9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "not reserved"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5a5a5a"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ZFS cache"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8a6fb0"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "xField": "Time",
+        "showValue": "never",
+        "barWidth": 0.9,
+        "xTickLabelMaxLength": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": "barchart",
+      "repeat": "hypervisor",
+      "repeatDirection": "v",
+      "title": "CPU of $hypervisor, by who uses it",
+      "description": "The whole bar is all of the host's cores, over the last five minutes. Each VM is what its virtual machine uses on the host. The host itself is everything else that was busy.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (vm) (rate(container_cpu_usage_seconds_total{instance=\"$hypervisor\",vm!=\"\"}[5m])) / scalar(count(count by (cpu) (node_cpu_seconds_total{instance=\"$hypervisor\"})))",
+          "legendFormat": "{{vm}}",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "clamp_min(1 - avg(rate(node_cpu_seconds_total{instance=\"$hypervisor\",mode=\"idle\"}[5m])) - sum(rate(container_cpu_usage_seconds_total{instance=\"$hypervisor\",vm!=\"\"}[5m])) / scalar(count(count by (cpu) (node_cpu_seconds_total{instance=\"$hypervisor\"}))), 0)",
+          "legendFormat": "the host itself",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "avg(rate(node_cpu_seconds_total{instance=\"$hypervisor\",mode=\"idle\"}[5m]))",
+          "legendFormat": "idle",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "Time",
+            "mode": "outer"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "hidden"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "the host itself"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b877d9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "idle"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5a5a5a"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "xField": "Time",
+        "showValue": "never",
+        "barWidth": 0.9,
+        "xTickLabelMaxLength": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "desc"
+        }
+      }
     },
     {
       "id": 2,
@@ -71,14 +374,14 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 5,
         "w": 12,
-        "h": 8
+        "h": 12
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "expr": "1 - node_memory_MemAvailable_bytes{instance!~\"$hypervisor\"} / node_memory_MemTotal_bytes{instance!~\"$hypervisor\"}",
           "legendFormat": "{{instance}}",
           "instant": true,
           "datasource": {
@@ -133,14 +436,14 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 1,
+        "y": 5,
         "w": 12,
-        "h": 8
+        "h": 12
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+          "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{instance!~\"$hypervisor\",mode=\"idle\"}[5m]))",
           "legendFormat": "{{instance}}",
           "instant": true,
           "datasource": {
@@ -186,16 +489,19 @@
     },
     {
       "id": 4,
-      "type": "row",
-      "title": "$host: CPU and memory",
-      "collapsed": false,
+      "type": "text",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 21,
         "w": 24,
-        "h": 1
+        "h": 2
       },
-      "panels": []
+      "options": {
+        "mode": "markdown",
+        "content": "## $host: CPU and memory"
+      }
     },
     {
       "id": 5,
@@ -208,7 +514,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 23,
         "w": 12,
         "h": 8
       },
@@ -232,10 +538,10 @@
             "lineWidth": 1,
             "showPoints": "never",
             "stacking": {
-              "mode": "normal"
+              "mode": "normal",
+              "group": "A"
             }
-          },
-          "max": 1
+          }
         },
         "overrides": []
       },
@@ -243,6 +549,8 @@
         "legend": {
           "displayMode": "table",
           "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
           "calcs": [
             "lastNotNull",
             "max"
@@ -265,7 +573,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 10,
+        "y": 23,
         "w": 12,
         "h": 8
       },
@@ -339,46 +647,39 @@
     },
     {
       "id": 7,
-      "type": "row",
-      "title": "$host: is the file cache large enough?",
-      "collapsed": false,
+      "type": "text",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 31,
         "w": 24,
-        "h": 1
+        "h": 2
       },
-      "panels": []
+      "options": {
+        "mode": "markdown",
+        "content": "## $host: is the file cache large enough?"
+      }
     },
     {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Files read from disk again",
-      "description": "Linux keeps no hit rate for its file cache. These two count the misses that matter: pages that were dropped from the cache and needed again, and reads a program had to wait for. Near zero means the cache is large enough.",
+      "id": 23,
+      "type": "stat",
+      "title": "File cache now",
+      "description": "Memory Linux has filled with files it read, to answer the next read without the disk. It gives this back when programs need memory.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 19,
-        "w": 8,
-        "h": 7
+        "y": 33,
+        "w": 6,
+        "h": 5
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_vmstat_workingset_refault_file{instance=\"$host\"}[$__rate_interval])",
-          "legendFormat": "dropped and needed again",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "rate(node_vmstat_pgmajfault{instance=\"$host\"}[$__rate_interval])",
-          "legendFormat": "program waited for disk",
+          "expr": "node_memory_Cached_bytes{instance=\"$host\"} + node_memory_Buffers_bytes{instance=\"$host\"} + node_memory_SReclaimable_bytes{instance=\"$host\"}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -387,63 +688,112 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ops",
+          "unit": "bytes",
+          "decimals": 1,
           "min": 0,
-          "custom": {
-            "fillOpacity": 8,
-            "lineWidth": 1,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none"
-            }
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
+        "reduceOptions": {
           "calcs": [
-            "lastNotNull",
-            "max"
+            "lastNotNull"
           ]
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value",
+        "justifyMode": "center"
       }
     },
     {
-      "id": 9,
-      "type": "timeseries",
-      "title": "Time lost waiting for memory",
-      "description": "Share of time in which programs stood still because memory was short. Some: at least one program waited. Full: all of them did.",
+      "id": 8,
+      "type": "stat",
+      "title": "Read from disk again",
+      "description": "Pages per second that were dropped from the cache and then needed again, as the average over the period shown. Linux keeps no hit rate for its file cache; this is the miss that counts. Green: under 10. Red: over 100, the cache is too small.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
-        "y": 19,
-        "w": 8,
-        "h": 7
+        "x": 6,
+        "y": 33,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_vmstat_workingset_refault_file{instance=\"$host\"}[$__rate_interval])",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: pages/s",
+          "decimals": 1,
+          "min": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Time lost waiting for memory",
+      "description": "Share of time in which at least one program stood still because memory was short, as the average over the period shown. Green: under 1%. Red: over 5%.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 33,
+        "w": 6,
+        "h": 5
       },
       "targets": [
         {
           "refId": "A",
           "expr": "rate(node_pressure_memory_waiting_seconds_total{instance=\"$host\"}[$__rate_interval])",
-          "legendFormat": "some",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "rate(node_pressure_memory_stalled_seconds_total{instance=\"$host\"}[$__rate_interval])",
-          "legendFormat": "full",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -453,62 +803,62 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
+          "decimals": 2,
           "min": 0,
-          "custom": {
-            "fillOpacity": 8,
-            "lineWidth": 1,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none"
-            }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
+        "reduceOptions": {
           "calcs": [
-            "lastNotNull",
-            "max"
+            "mean"
           ]
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value",
+        "justifyMode": "center"
       }
     },
     {
       "id": 10,
-      "type": "timeseries",
+      "type": "stat",
       "title": "Swapping",
-      "description": "Pages moved to and from swap. Steady activity means the machine is short of memory.",
+      "description": "Pages per second moved to and from swap, as the average over the period shown. Anything steady above zero means the machine is short of memory.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 19,
-        "w": 8,
-        "h": 7
+        "x": 18,
+        "y": 33,
+        "w": 6,
+        "h": 5
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_vmstat_pswpout{instance=\"$host\"}[$__rate_interval])",
-          "legendFormat": "out",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "rate(node_vmstat_pswpin{instance=\"$host\"}[$__rate_interval])",
-          "legendFormat": "in",
+          "expr": "rate(node_vmstat_pswpout{instance=\"$host\"}[$__rate_interval]) + rate(node_vmstat_pswpin{instance=\"$host\"}[$__rate_interval])",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -517,46 +867,59 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ops",
+          "unit": "suffix: pages/s",
+          "decimals": 1,
           "min": 0,
-          "custom": {
-            "fillOpacity": 8,
-            "lineWidth": 1,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none"
-            }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
+        "reduceOptions": {
           "calcs": [
-            "lastNotNull",
-            "max"
+            "mean"
           ]
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value",
+        "justifyMode": "center"
       }
     },
     {
       "id": 11,
-      "type": "row",
-      "title": "$host: ZFS cache (machines with a pool)",
-      "collapsed": false,
+      "type": "text",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 40,
         "w": 24,
-        "h": 1
+        "h": 2
       },
-      "panels": []
+      "options": {
+        "mode": "markdown",
+        "content": "## $host: ZFS cache (machines with a pool)"
+      }
     },
     {
       "id": 12,
@@ -569,7 +932,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 42,
         "w": 12,
         "h": 7
       },
@@ -626,7 +989,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 27,
+        "y": 42,
         "w": 12,
         "h": 7
       },
@@ -682,36 +1045,39 @@
     },
     {
       "id": 14,
-      "type": "row",
-      "title": "$host: programs",
-      "collapsed": false,
+      "type": "text",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 49,
         "w": 24,
-        "h": 1
+        "h": 2
       },
-      "panels": []
+      "options": {
+        "mode": "markdown",
+        "content": "## $host: programs and applications"
+      }
     },
     {
       "id": 15,
       "type": "timeseries",
       "title": "CPU by program",
-      "description": "The ten programs that use the most CPU. 100% is one core; processes with the same name count as one.",
+      "description": "The fifteen programs that use the most CPU, each as its own line. 100% is one core; processes with the same name count as one.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 35,
+        "y": 51,
         "w": 12,
         "h": 9
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, sum by (groupname) (rate(namedprocess_namegroup_cpu_seconds_total{instance=\"$host\"}[$__rate_interval])))",
+          "expr": "topk(15, sum by (groupname) (rate(namedprocess_namegroup_cpu_seconds_total{instance=\"$host\"}[$__rate_interval])))",
           "legendFormat": "{{groupname}}",
           "datasource": {
             "type": "prometheus",
@@ -724,11 +1090,11 @@
           "unit": "percentunit",
           "min": 0,
           "custom": {
-            "fillOpacity": 30,
+            "fillOpacity": 0,
             "lineWidth": 1,
             "showPoints": "never",
             "stacking": {
-              "mode": "normal"
+              "mode": "none"
             }
           }
         },
@@ -738,6 +1104,8 @@
         "legend": {
           "displayMode": "table",
           "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
           "calcs": [
             "lastNotNull",
             "max"
@@ -753,22 +1121,202 @@
       "id": 16,
       "type": "timeseries",
       "title": "Memory by program",
-      "description": "The ten programs that hold the most memory, file cache not counted.",
+      "description": "The fifteen programs that hold the most memory, each as its own line. File cache is not counted; processes with the same name count as one.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 35,
+        "y": 51,
         "w": 12,
         "h": 9
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, namedprocess_namegroup_memory_bytes{instance=\"$host\",memtype=\"resident\"})",
+          "expr": "topk(15, namedprocess_namegroup_memory_bytes{instance=\"$host\",memtype=\"resident\"})",
           "legendFormat": "{{groupname}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "CPU by application",
+      "description": "Each container and each systemd service as one, with all the processes it runs, stacked. On the Proxmox host each VM is one. 100% is one core. Docker's own services are one, and Ubuntu's own (systemd, SSH, cron, upgrades and the like) are one.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 60,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{instance=\"$host\",name!=\"\"}[$__rate_interval]))",
+          "legendFormat": "{{name}} (container)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (service) (label_replace(label_replace(label_replace(rate(container_cpu_usage_seconds_total{instance=\"$host\",name=\"\",id=~\"/system.slice/[^/]+[.]service\"}[$__rate_interval]), \"service\", \"$1\", \"id\", \"/system.slice/(.+)[.]service\"), \"service\", \"Docker\", \"id\", \"/system.slice/(docker|containerd)[.]service\"), \"service\", \"system utilities\", \"id\", \"/system.slice/(systemd-.*|ssh|cron|dbus|polkit|rsyslog|unattended-upgrades|apt-.*|networkd-dispatcher|qemu-guest-agent|chrony|irqbalance|multipathd|udisks2)[.]service\"))",
+          "legendFormat": "{{service}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (vm) (rate(container_cpu_usage_seconds_total{instance=\"$host\",vm!=\"\"}[$__rate_interval]))",
+          "legendFormat": "{{vm}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "D",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{instance=\"$host\",id=\"/user.slice\"}[$__rate_interval]))",
+          "legendFormat": "logged-in users",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Memory by application",
+      "description": "Each container and each systemd service as one, with all the processes it runs, stacked. On the Proxmox host each VM is one. Docker's own services are one, and Ubuntu's own are one. Counted is what an application needs to keep running, as Kubernetes measures it (the working set): its own data, memory it shares, kernel memory used for it, and the files it is using. Files it read and no longer uses are not counted. The Max column is what to size the machine for. Everything else is the kernel and processes outside the applications listed.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 60,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (name) (container_memory_working_set_bytes{instance=\"$host\",name!=\"\"})",
+          "legendFormat": "{{name}} (container)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "topk(100, sum by (service) (label_replace(label_replace(label_replace(container_memory_working_set_bytes{instance=\"$host\",name=\"\",id=~\"/system.slice/[^/]+[.]service\"}, \"service\", \"$1\", \"id\", \"/system.slice/(.+)[.]service\"), \"service\", \"Docker\", \"id\", \"/system.slice/(docker|containerd)[.]service\"), \"service\", \"system utilities\", \"id\", \"/system.slice/(systemd-.*|ssh|cron|dbus|polkit|rsyslog|unattended-upgrades|apt-.*|networkd-dispatcher|qemu-guest-agent|chrony|irqbalance|multipathd|udisks2)[.]service\")))",
+          "legendFormat": "{{service}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (vm) (container_memory_working_set_bytes{instance=\"$host\",vm!=\"\"})",
+          "legendFormat": "{{vm}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "D",
+          "expr": "container_memory_working_set_bytes{instance=\"$host\",id=\"/user.slice\"}",
+          "legendFormat": "logged-in users",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "E",
+          "expr": "clamp_min(sum(container_memory_working_set_bytes{instance=\"$host\",id=\"/\"}) - (sum(container_memory_working_set_bytes{instance=\"$host\",name!=\"\"}) or vector(0)) - (sum(container_memory_working_set_bytes{instance=\"$host\",name=\"\",id=~\"/system.slice/[^/]+[.]service\"}) or vector(0)) - (sum(container_memory_working_set_bytes{instance=\"$host\",vm!=\"\"}) or vector(0)) - (sum(container_memory_working_set_bytes{instance=\"$host\",id=\"/user.slice\"}) or vector(0)), 0)",
+          "legendFormat": "everything else",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -784,7 +1332,8 @@
             "lineWidth": 1,
             "showPoints": "never",
             "stacking": {
-              "mode": "normal"
+              "mode": "normal",
+              "group": "A"
             }
           }
         },
@@ -794,6 +1343,8 @@
         "legend": {
           "displayMode": "table",
           "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
           "calcs": [
             "lastNotNull",
             "max"
@@ -807,16 +1358,19 @@
     },
     {
       "id": 17,
-      "type": "row",
-      "title": "$host: logs",
-      "collapsed": false,
+      "type": "text",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 69,
         "w": 24,
-        "h": 1
+        "h": 2
       },
-      "panels": []
+      "options": {
+        "mode": "markdown",
+        "content": "## $host: logs"
+      }
     },
     {
       "id": 18,
@@ -829,7 +1383,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 45,
+        "y": 71,
         "w": 24,
         "h": 14
       },

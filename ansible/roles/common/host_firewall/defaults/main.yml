@@ -8,9 +8,9 @@
 host_firewall_lan: ""  # e.g. 10.0.1.0/24
 # Addresses or networks that may SSH in. Required.
 host_firewall_admin: []
-# Machines that collect metrics; they may read these ports (role exporters).
+# Machines that collect metrics; they may read these ports (role alloy).
 host_firewall_monitoring: []
-host_firewall_metrics_ports: [9100, 9256]
+host_firewall_metrics_ports: [9100]
 
 # What the machine serves itself (not through Docker):
 #   - proto: tcp
