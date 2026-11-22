@@ -264,9 +264,12 @@ provider's API, so nothing has to be reachable from the internet.
   encrypted `caddy_dns_token` in `group_vars/all/secrets.sops.yaml` with an
   API token of that provider (see Secrets).
 * Replace the encrypted `caddy_acme_email` there with yours.
+* For the Proxmox web UI, set `pve_webui_dns_api` and
+  `pve_webui_dns_data` in `group_vars/proxmox.yml` to the same
+  provider, as Proxmox names it. It is then at `https://proxmox.<domain>`.
 
 ```sh
-ansible-playbook playbooks/site.yml --limit vms:pis
+ansible-playbook playbooks/site.yml
 ```
 
 </details>
@@ -386,6 +389,9 @@ user ID (uid), so they show up in the library on the next scan.
 * Replace the encrypted `grafana_admin_password` in
   `group_vars/grafana/secrets.sops.yaml` with your own (see Secrets). Grafana
   takes it at its first start only; change it later in Grafana.
+* Replace the encrypted `homelab_monitoring_tokens` in
+  `group_vars/all/secrets.sops.yaml` with your own (see Secrets): one random
+  token for every VM and for the Proxmox host, by its inventory name.
 
 ```sh
 ansible-playbook playbooks/site.yml --limit monitoring
@@ -404,6 +410,11 @@ the file cache is large enough, the programs that use the most, and the
 logs. No machine can pass for another: this VM names the metrics by the
 address it reads them from, and files the logs under the machine whose token
 came with them.
+
+The Minecraft dashboard shows what the game itself uses and tracks: Java's
+memory and CPU, players, entities, loaded chunks and the time per tick. The
+Minecraft players dashboard ranks the players by their statistics: deaths,
+blocks mined, mobs killed, food eaten and time played.
 
 </details>
 
@@ -658,6 +669,7 @@ In the order the playbook runs them. They live in three directories under
 | pve_template    | Proxmox host: Ubuntu cloud-init template VMs are cloned from |
 | pve_firewall    | Proxmox host: its own firewall, and one rule file per VM     |
 | pve_vms         | Proxmox host: clones and reconciles the VMs in the inventory |
+| pve_webui       | Proxmox host: its web UI on port 443, with a Let's Encrypt certificate |
 | static_address  | Raspberry Pi: fixed address on its NetworkManager connection |
 | host_firewall   | Raspberry Pi: nftables firewall that drops what is not listed |
 | base            | guest agent (VMs only), unattended upgrades with a restart at night where `base_reboot_time` is set, timezone |
@@ -679,7 +691,6 @@ In the order the playbook runs them. They live in three directories under
 | wireguard       | wg-easy compose stack: WireGuard with a web UI behind Caddy |
 | grafana         | Grafana compose stack with Prometheus, which reads every machine's metrics, and Loki, which takes their logs with a token per machine; dashboards from the role's files, web UI behind Caddy |
 | alloy           | Grafana Alloy: offers a machine's metrics and per-program CPU and memory to the monitoring VM, and sends it the logs |
-| exporters       | machine with little memory (pi1): two small exporters the monitoring VM collects from, in place of the agent |
 
 </details>
 
@@ -727,7 +738,7 @@ docker run --rm -it --user root -v "$PWD/..:/work" -w /work/ansible \
 | pihole   | a local record and a public name resolve; the admin password logs in through Caddy |
 | wireguard | wg-easy runs with the tunnel published and the UI behind Caddy. Needs the WireGuard module on the host running the instance |
 | minecraft | the server starts with every mod loaded and Geyser listening; a player is whitelisted on the running server. Agrees to Mojang's EULA, and downloads about 1.5 GB |
-| grafana  | the agent's and the exporters' metrics and the logs of the same instance are read back through Grafana |
+| grafana  | the agent's metrics and the logs of the same instance are read back through Grafana |
 
 </details>
 
@@ -771,7 +782,7 @@ only: the agent's metrics.
   * 67/udp: DHCP
   * 443/tcp: Pi-hole admin UI and API, and the wg-easy UI, through Caddy
   * 51821/udp: WireGuard, forwarded by the router
-  * 9100/tcp, 9256/tcp: metrics, for the monitoring VM only
+  * 9100/tcp: metrics, for the monitoring VM only
 * **forgejo-git** (10.0.1.110)
   * 22/tcp: SSH to the VM
   * 443/tcp: Forgejo web UI and Hypertext Transfer Protocol (HTTP) clone, through Caddy
@@ -804,14 +815,19 @@ only: the agent's metrics.
 * **minecraft-server1-egress** (10.0.1.226)
   * 22/tcp: SSH
   * 9101/tcp: minecraft-server1's metrics, for the monitoring VM only
+  * 9102/tcp: the Minecraft server's own figures, for the monitoring VM only
+  * 9103/tcp: the Minecraft players' statistics, for the monitoring VM only
 * **minecraft-server1** (10.250.226.170), through the tunnel only
   * 22/tcp: SSH, from minecraft-server1-egress
   * 25565/tcp: Minecraft, Java players
   * 19132/tcp+udp: Minecraft, Bedrock players (Geyser)
   * 80/tcp: BlueMap, a map of the world in a browser; the relay adds HTTPS
+  * 19565/tcp: the server's own figures, for the monitoring VM only, through minecraft-server1-egress
+  * 9150/tcp: the players' statistics, for the monitoring VM only, through minecraft-server1-egress
 * **srv1** (10.0.1.200), the Proxmox host
   * 22/tcp: SSH
-  * 8006/tcp: Proxmox web UI and API (HTTPS, its own certificate)
+  * 8006/tcp: Proxmox web UI and API
+  * 443/tcp: the same, at `https://proxmox.<domain>`
 
 </details>
 
