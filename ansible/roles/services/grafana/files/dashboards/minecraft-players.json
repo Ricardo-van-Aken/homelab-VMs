@@ -1,0 +1,577 @@
+{
+  "uid": "minecraft-players",
+  "title": "Minecraft players",
+  "description": "Totals since each player first joined, from the game's own statistics. They are read every quarter of an hour, and the game writes them when it saves. A player shows by name once seen online, before that by id.",
+  "tags": [
+    "homelab",
+    "minecraft",
+    "provisioned"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "refresh": "5m",
+  "timezone": "browser",
+  "graphTooltip": 1,
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "Minecraft",
+      "tags": [
+        "minecraft"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "server",
+        "label": "Server",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(up{job=\"minecraft_stats\"}, instance)",
+          "refId": "A"
+        },
+        "definition": "label_values(up{job=\"minecraft_stats\"}, instance)",
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "player",
+        "label": "Player, for the charts by kind",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "query_result(max by (id, name) (last_over_time(minecraft_player_name{instance=\"$server\"}[1h])))",
+          "refId": "A"
+        },
+        "definition": "query_result(max by (id, name) (last_over_time(minecraft_player_name{instance=\"$server\"}[1h])))",
+        "regex": "/id=\"(?<value>[^\"]+)\".*name=\"(?<text>[^\"]+)\"/",
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## $server: by player"
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Deaths",
+      "description": "Stacked: the top edge is all players together. The list is the ranking.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max by (player) (last_over_time(minecraft_deaths_total{instance=\"$server\"}[30m])) * on (player) group_left (name) (topk by (player) (1, label_replace(max by (id, name) (last_over_time(minecraft_player_name{instance=\"$server\"}[1h])), \"player\", \"$1\", \"id\", \"(.+)\")) * 0 + 1)) or on (player) label_replace(max by (player) (last_over_time(minecraft_deaths_total{instance=\"$server\"}[30m])), \"name\", \"$1\", \"player\", \"(.+)\")",
+          "legendFormat": "{{name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Blocks mined",
+      "description": "Stacked: the top edge is all players together. The list is the ranking.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 2,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by (player) (last_over_time(minecraft_blocks_mined_total{instance=\"$server\"}[30m])) * on (player) group_left (name) (topk by (player) (1, label_replace(max by (id, name) (last_over_time(minecraft_player_name{instance=\"$server\"}[1h])), \"player\", \"$1\", \"id\", \"(.+)\")) * 0 + 1)) or on (player) label_replace(sum by (player) (last_over_time(minecraft_blocks_mined_total{instance=\"$server\"}[30m])), \"name\", \"$1\", \"player\", \"(.+)\")",
+          "legendFormat": "{{name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Mobs killed",
+      "description": "Stacked: the top edge is all players together. The list is the ranking.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max by (player) (last_over_time(minecraft_mobs_killed_total{instance=\"$server\"}[30m])) * on (player) group_left (name) (topk by (player) (1, label_replace(max by (id, name) (last_over_time(minecraft_player_name{instance=\"$server\"}[1h])), \"player\", \"$1\", \"id\", \"(.+)\")) * 0 + 1)) or on (player) label_replace(max by (player) (last_over_time(minecraft_mobs_killed_total{instance=\"$server\"}[30m])), \"name\", \"$1\", \"player\", \"(.+)\")",
+          "legendFormat": "{{name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Food and drink consumed",
+      "description": "Stacked: the top edge is all players together. The list is the ranking. The game counts eating as using an item, so this is the use of the items that are food or drink; for a carrot or a potato, planting one counts too.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by (player) (last_over_time(minecraft_item_actions_total{instance=\"$server\",action=\"used\",entity=~\"apple|golden_apple|enchanted_golden_apple|bread|cookie|pumpkin_pie|melon_slice|carrot|golden_carrot|potato|baked_potato|poisonous_potato|beetroot|beetroot_soup|mushroom_stew|rabbit_stew|suspicious_stew|beef|cooked_beef|porkchop|cooked_porkchop|chicken|cooked_chicken|mutton|cooked_mutton|rabbit|cooked_rabbit|cod|cooked_cod|salmon|cooked_salmon|tropical_fish|pufferfish|sweet_berries|glow_berries|dried_kelp|honey_bottle|chorus_fruit|rotten_flesh|spider_eye|potion|milk_bucket\"}[30m])) * on (player) group_left (name) (topk by (player) (1, label_replace(max by (id, name) (last_over_time(minecraft_player_name{instance=\"$server\"}[1h])), \"player\", \"$1\", \"id\", \"(.+)\")) * 0 + 1)) or on (player) label_replace(sum by (player) (last_over_time(minecraft_item_actions_total{instance=\"$server\",action=\"used\",entity=~\"apple|golden_apple|enchanted_golden_apple|bread|cookie|pumpkin_pie|melon_slice|carrot|golden_carrot|potato|baked_potato|poisonous_potato|beetroot|beetroot_soup|mushroom_stew|rabbit_stew|suspicious_stew|beef|cooked_beef|porkchop|cooked_porkchop|chicken|cooked_chicken|mutton|cooked_mutton|rabbit|cooked_rabbit|cod|cooked_cod|salmon|cooked_salmon|tropical_fish|pufferfish|sweet_berries|glow_berries|dried_kelp|honey_bottle|chorus_fruit|rotten_flesh|spider_eye|potion|milk_bucket\"}[30m])), \"name\", \"$1\", \"player\", \"(.+)\")",
+          "legendFormat": "{{name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Time played",
+      "description": "Stacked: the top edge is all players together. The list is the ranking.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(max by (player) (last_over_time(minecraft_play_time_ticks_total{instance=\"$server\"}[30m])) / 20 * on (player) group_left (name) (topk by (player) (1, label_replace(max by (id, name) (last_over_time(minecraft_player_name{instance=\"$server\"}[1h])), \"player\", \"$1\", \"id\", \"(.+)\")) * 0 + 1)) or on (player) label_replace(max by (player) (last_over_time(minecraft_play_time_ticks_total{instance=\"$server\"}[30m])) / 20, \"name\", \"$1\", \"player\", \"(.+)\")",
+          "legendFormat": "{{name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## $server: by kind, for the player chosen at the top or for all"
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Mobs killed, by kind",
+      "description": "The fifteen kinds of mob killed most. Stacked; the list is the ranking.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, sum by (entity) (last_over_time(minecraft_entities_killed_total{instance=\"$server\",player=~\"$player\"}[30m])))",
+          "legendFormat": "{{entity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Blocks mined, by kind",
+      "description": "The fifteen kinds of block mined most. Stacked; the list is the ranking.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 31,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, sum by (block) (last_over_time(minecraft_blocks_mined_total{instance=\"$server\",player=~\"$player\"}[30m])))",
+          "legendFormat": "{{block}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Food and drink consumed, by kind",
+      "description": "Stacked; the list is the ranking. For a carrot or a potato, planting one counts too.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (entity) (last_over_time(minecraft_item_actions_total{instance=\"$server\",player=~\"$player\",action=\"used\",entity=~\"apple|golden_apple|enchanted_golden_apple|bread|cookie|pumpkin_pie|melon_slice|carrot|golden_carrot|potato|baked_potato|poisonous_potato|beetroot|beetroot_soup|mushroom_stew|rabbit_stew|suspicious_stew|beef|cooked_beef|porkchop|cooked_porkchop|chicken|cooked_chicken|mutton|cooked_mutton|rabbit|cooked_rabbit|cod|cooked_cod|salmon|cooked_salmon|tropical_fish|pufferfish|sweet_berries|glow_berries|dried_kelp|honey_bottle|chorus_fruit|rotten_flesh|spider_eye|potion|milk_bucket\"}[30m]))",
+          "legendFormat": "{{entity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 30,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

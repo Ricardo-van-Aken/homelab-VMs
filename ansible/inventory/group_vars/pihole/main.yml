@@ -7,7 +7,7 @@
 # several machines, so every name points at one address.
 pihole_records: >-
   {%- set records = [] -%}
-  {%- for host in groups['vms'] + (groups['pis'] | default([])) -%}
+  {%- for host in groups['proxmox'] + groups['vms'] + (groups['pis'] | default([])) -%}
     {%- set names = [host] -%}
     {%- for service in hostvars[host].group_names | difference(['vms', 'pis']) -%}
       {%- set _ = names.append(service if groups[service] | length == 1 else host ~ '.' ~ service) -%}

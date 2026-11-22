@@ -21,9 +21,8 @@ pve_vm:
     in:
       - iface: net1  # all traffic from torrent, to forward into the VPN tunnel
         from: 10.250.225.0/24
-      - proto: tcp
-        port: 9101  # torrent's metrics, passed on to it (egress_monitoring_port)
-        from: "{{ homelab_monitoring | first }}"
+    # What is passed on to torrent for the monitoring VM.
+    monitoring_ports: "{{ egress_monitoring_ports.values() | list }}"
 
 # Role egress.
 egress_isolated:
@@ -39,7 +38,5 @@ egress_vpn_endpoint: ""  # [Peer] Endpoint
 # this machine makes its own and the play shows the public key.
 # SECRET: in secrets.sops.yaml.
 # egress_vpn_private_key: <WireGuard private key>
-# The monitoring VM reads torrent's metrics and gets its logs.
-egress_monitoring: "{{ homelab_monitoring | first }}"
 
 egress_inbound: []

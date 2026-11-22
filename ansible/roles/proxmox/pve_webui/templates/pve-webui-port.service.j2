@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Proxmox web UI on port {{ pve_webui_port }}
+After=network.target
+
+# Only connections to the host's own address: with the firewall on, the
+# VMs' traffic passes this table too.
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/iptables -t nat -A PREROUTING -d {{ pve_webui_address }} -p tcp --dport {{ pve_webui_port }} -j REDIRECT --to-ports 8006
+ExecStop=/usr/sbin/iptables -t nat -D PREROUTING -d {{ pve_webui_address }} -p tcp --dport {{ pve_webui_port }} -j REDIRECT --to-ports 8006
+
+[Install]
+WantedBy=multi-user.target

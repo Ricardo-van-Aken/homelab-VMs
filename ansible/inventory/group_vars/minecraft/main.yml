@@ -6,6 +6,10 @@
 minecraft_eula: true
 
 minecraft_motd: DDG-Craft
+# Where the server's own figures and the players' statistics answer; the
+# VM's firewall and the monitoring VM take the ports from here.
+minecraft_metrics_port: 19565
+minecraft_stats_port: 9150
 # Sized for 20 to 30 players. The VM's memory is 2 GB above the limit, for
 # Ubuntu, the backups and Caddy.
 minecraft_max_players: 30

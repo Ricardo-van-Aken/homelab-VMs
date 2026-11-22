@@ -111,15 +111,21 @@
   roles:
     - wireguard
 
+# After the DNS resolvers, which the host needs to reach Let's Encrypt.
+- name: Name and certificate for the Proxmox web UI
+  hosts: proxmox
+  roles:
+    - role: pve_webui
+      when: caddy_https | bool
+
 - name: Metrics and logs
   hosts: grafana
   roles:
     - grafana  # depends on geerlingguy.docker role
 
-# Last, so the agent finds Docker where a service installed it, and after
-# the play above, which makes each machine's token. pi1 gets the play below.
+# Last, so the agent finds Docker where a service installed it.
 - name: Agents for metrics and logs
-  hosts: vms:proxmox
+  hosts: vms:proxmox:pis
   # Gathered below, once the machine is known to be reachable.
   gather_facts: false
   pre_tasks:
@@ -130,9 +136,3 @@
       ansible.builtin.setup:
   roles:
     - alloy
-
-# pi1 has 1 GB of memory, too little for the agent.
-- name: Metrics from a machine with little memory
-  hosts: pi1
-  roles:
-    - exporters

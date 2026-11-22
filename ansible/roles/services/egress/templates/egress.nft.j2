@@ -21,7 +21,9 @@ table inet egress {
 {% endif %}
 {% if egress_monitoring %}
 		# The monitoring machine reads the VM's metrics.
-		iifname "{{ egress_lan_interface }}" ip saddr {{ egress_monitoring }} tcp dport {{ egress_monitoring_port }} dnat ip to {{ egress_isolated.vm }}:{{ egress_monitoring_vm_port }}
+{% for vm_port, port in egress_monitoring_ports | dictsort %}
+		iifname "{{ egress_lan_interface }}" ip saddr {{ egress_monitoring }} tcp dport {{ port }} dnat ip to {{ egress_isolated.vm }}:{{ vm_port }}
+{% endfor %}
 {% endif %}
 	}
 
@@ -45,7 +47,7 @@ table inet egress {
 		# The VM's logs, to the monitoring machine and nothing else on the LAN.
 		iifname "{{ egress_isolated_interface }}" oifname "{{ egress_lan_interface }}" ip daddr {{ egress_monitoring }} tcp dport {{ egress_monitoring_logs_port }} accept
 		# The monitoring machine, and nothing else on the LAN, reads the VM's metrics.
-		iifname "{{ egress_lan_interface }}" oifname "{{ egress_isolated_interface }}" ip saddr {{ egress_monitoring }} ip daddr {{ egress_isolated.vm }} tcp dport {{ egress_monitoring_vm_port }} accept
+		iifname "{{ egress_lan_interface }}" oifname "{{ egress_isolated_interface }}" ip saddr {{ egress_monitoring }} ip daddr {{ egress_isolated.vm }} tcp dport { {{ egress_monitoring_ports | sort | join(', ') }} } accept
 {% endif %}
 {% for rule in egress_inbound %}
 		iifname "{{ egress_vpn_interface }}" oifname "{{ egress_isolated_interface }}" ip daddr {{ egress_isolated.vm }} {{ rule.proto }} dport { {{ rule.port }} } accept

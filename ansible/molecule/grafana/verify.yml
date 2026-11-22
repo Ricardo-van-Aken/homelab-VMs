@@ -63,10 +63,10 @@
         - node_memory_MemAvailable_bytes{instance="instance"}
         - node_vmstat_workingset_refault_file{instance="instance"}
         - namedprocess_namegroup_memory_bytes{instance="instance",groupname="alloy",memtype="resident"}
-        # The same three from the exporters.
-        - node_memory_MemAvailable_bytes{instance="scraped"}
-        - node_vmstat_workingset_refault_file{instance="scraped"}
-        - namedprocess_namegroup_memory_bytes{instance="scraped",groupname="alloy",memtype="resident"}
+        # A container by its name.
+        - container_memory_rss{instance="instance",name="grafana"} > 0
+        # A program's own metrics page, under the machine's name.
+        - up{job="own_page",instance="instance"} == 1
 
     - name: Ask Loki for this machine's logs, through Grafana
       ansible.builtin.uri:
@@ -88,17 +88,11 @@
         body: {streams: []}
         status_code: 403
 
-    - name: Read this machine's token
-      ansible.builtin.slurp:
-        src: /opt/stacks/grafana/tokens/instance
-      register: grafana_token
-      no_log: true
-
     - name: Read logs with a machine's token
       ansible.builtin.uri:
         url: http://127.0.0.1:3100/loki/api/v1/labels
         headers:
-          Authorization: "Bearer {{ grafana_token.content | b64decode | trim }}"
+          Authorization: "Bearer {{ alloy_token }}"
           X-Scope-OrgID: instance
         status_code: 403
 
@@ -108,7 +102,7 @@
         url: http://127.0.0.1:3100/loki/api/v1/push
         method: POST
         headers:
-          Authorization: "Bearer {{ grafana_token.content | b64decode | trim }}"
+          Authorization: "Bearer {{ alloy_token }}"
           X-Scope-OrgID: other
         body_format: json
         body:

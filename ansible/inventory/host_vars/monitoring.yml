@@ -19,7 +19,7 @@ pve_vm:
       - proto: tcp
         port: 443  # Grafana web UI, through Caddy
       - proto: tcp
-        port: 3100  # logs sent by every machine's agent; Caddy checks their token
+        port: "{{ grafana_logs_port }}"  # logs sent by every machine's agent; Caddy checks their token
     # It reads the metrics of every machine on the LAN.
     lan: all
 

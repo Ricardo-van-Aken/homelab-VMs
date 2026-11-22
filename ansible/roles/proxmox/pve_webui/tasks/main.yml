@@ -1,0 +1,169 @@
+---
+- name: Check the certificate settings
+  ansible.builtin.assert:
+    that:
+      - pve_webui_domain | length > 0
+      - pve_webui_email | length > 0
+      - pve_webui_dns_api is match('^[a-z0-9_]+$')
+      - pve_webui_dns_data | length > 0
+      - pve_webui_dns_data.values() | map('string') | map('length') | min > 0
+    fail_msg: >-
+      set pve_webui_domain, pve_webui_email,
+      pve_webui_dns_api and pve_webui_dns_data
+
+- name: Look for the unit that passes the HTTPS port on
+  ansible.builtin.stat:
+    path: /etc/systemd/system/pve-webui-port.service
+  register: pve_webui_unit_now
+
+- name: Compare that unit with these settings
+  ansible.builtin.template:
+    src: pve-webui-port.service.j2
+    dest: /etc/systemd/system/pve-webui-port.service
+    owner: root
+    group: root
+    mode: "0644"
+  check_mode: true
+  register: pve_webui_unit_new
+
+# Stopped with the old unit, which removes the rule that one added.
+- name: Stop passing the HTTPS port on before its rule changes
+  ansible.builtin.systemd_service:
+    name: pve-webui-port
+    state: stopped
+  when: pve_webui_unit_now.stat.exists and pve_webui_unit_new is changed
+
+- name: Pass the HTTPS port on to the web UI
+  ansible.builtin.template:
+    src: pve-webui-port.service.j2
+    dest: /etc/systemd/system/pve-webui-port.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Start passing the HTTPS port on
+  ansible.builtin.systemd_service:
+    name: pve-webui-port
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Look for Proxmox's plugin for the DNS provider
+  ansible.builtin.stat:
+    path: "/usr/share/proxmox-acme/dnsapi/dns_{{ pve_webui_dns_api }}.sh"
+  register: pve_webui_api
+
+- name: Check Proxmox knows the DNS provider
+  ansible.builtin.assert:
+    that: pve_webui_api.stat.exists
+    fail_msg: >-
+      this Proxmox version has no DNS plugin named
+      {{ pve_webui_dns_api }}: see /usr/share/proxmox-acme/dnsapi, or
+      upgrade the package libproxmox-acme-plugins
+
+- name: List the Let's Encrypt accounts
+  ansible.builtin.command: pvesh get /cluster/acme/account --output-format json
+  changed_when: false
+  register: pve_webui_accounts
+
+- name: Register with Let's Encrypt
+  when: >-
+    pve_webui_account
+    not in pve_webui_accounts.stdout | from_json | map(attribute='name')
+  block:
+    - name: Read where Let's Encrypt's terms of service are
+      ansible.builtin.command: >-
+        pvesh get /cluster/acme/tos
+        --directory {{ pve_webui_directory }} --output-format json
+      changed_when: false
+      register: pve_webui_tos
+
+    - name: Register the account
+      ansible.builtin.command: >-
+        pvesh create /cluster/acme/account
+        --name {{ pve_webui_account }}
+        --contact {{ pve_webui_email }}
+        --directory {{ pve_webui_directory }}
+        --tos_url {{ pve_webui_tos.stdout | from_json }}
+      changed_when: true
+
+# It holds the provider's token: readable by root only.
+- name: Write the DNS provider's settings
+  ansible.builtin.copy:
+    content: |
+      {% for name, value in pve_webui_dns_data | dictsort %}
+      {{ name }}={{ value }}
+      {% endfor %}
+    dest: "{{ pve_webui_dns_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  register: pve_webui_file
+
+- name: List the DNS providers Proxmox has settings for
+  ansible.builtin.command: pvesh get /cluster/acme/plugins --output-format json
+  changed_when: false
+  no_log: true
+  register: pve_webui_plugins
+
+- name: Give Proxmox the DNS provider's settings
+  vars:
+    known: >-
+      {{ pve_webui_plugins.stdout | from_json
+         | selectattr('plugin', '==', pve_webui_dns_plugin) }}
+    current: "{{ known | first | default({}) }}"
+  ansible.builtin.command: >-
+    pvenode acme plugin {{ 'set' if known else 'add dns' }}
+    {{ pve_webui_dns_plugin }}
+    --api {{ pve_webui_dns_api }}
+    --data {{ pve_webui_dns_file }}
+    --validation-delay {{ pve_webui_dns_delay }}
+  when: >-
+    not known or pve_webui_file is changed
+    or current.api | default('') != pve_webui_dns_api
+    or current['validation-delay'] | default(30) | int != pve_webui_dns_delay | int
+  changed_when: true
+
+- name: Read the host's settings
+  ansible.builtin.command: >-
+    pvesh get /nodes/{{ ansible_facts.hostname }}/config --output-format json
+  changed_when: false
+  register: pve_webui_node
+
+# Proxmox may write a setting back without the name of its first value.
+- name: Tell Proxmox which name the certificate is for
+  vars:
+    node: "{{ pve_webui_node.stdout | from_json }}"
+    domain: "{{ (node.acmedomain0 | default('')).split(',') }}"
+  ansible.builtin.command: >-
+    pvesh set /nodes/{{ ansible_facts.hostname }}/config
+    --acme account={{ pve_webui_account }}
+    --acmedomain0 domain={{ pve_webui_domain }},plugin={{ pve_webui_dns_plugin }}
+  when: >-
+    node.acme | default('')
+    not in [pve_webui_account, 'account=' ~ pve_webui_account]
+    or domain | intersect([pve_webui_domain, 'domain=' ~ pve_webui_domain]) | length == 0
+    or 'plugin=' ~ pve_webui_dns_plugin not in domain
+  changed_when: true
+
+- name: Read the web UI's certificates
+  ansible.builtin.command: >-
+    pvesh get /nodes/{{ ansible_facts.hostname }}/certificates/info
+    --output-format json
+  changed_when: false
+  register: pve_webui_info
+
+# pveproxy-ssl.pem is the certificate the web UI shows once it has one of
+# its own. Asked for here only while it is missing or for another name.
+- name: Request the certificate
+  vars:
+    names: >-
+      {{ pve_webui_info.stdout | from_json
+         | selectattr('filename', '==', 'pveproxy-ssl.pem')
+         | map(attribute='san', default=[]) | flatten }}
+  ansible.builtin.command: pvenode acme cert order --force
+  when: >-
+    names | intersect([pve_webui_domain, 'DNS:' ~ pve_webui_domain])
+    | length == 0
+  changed_when: true

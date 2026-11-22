@@ -27,6 +27,8 @@ pve_firewall_logs_port: 3100
 #     lan: dns             # what it may reach on the LAN: dns, all or none
 #     monitoring: true     # for a VM with lan: none: the monitoring machines
 #                          # may read its metrics, and it may send them logs
+#     monitoring_ports:    # more ports the monitoring machines may read
+#       - 9102
 #     out_only:            # when set, all other outgoing traffic is dropped
 #       - dest: 198.51.100.7
 #         proto: udp
@@ -35,6 +37,7 @@ pve_firewall_vm_defaults:
   in: []
   lan: dns
   monitoring: false
+  monitoring_ports: []
   out_only: []
 
 # Where rendered files are staged before they are copied into /etc/pve,

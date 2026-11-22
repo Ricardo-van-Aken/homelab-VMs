@@ -1,10 +1,11 @@
 # {{ ansible_managed }}
-# Dashboards from this role's files/dashboards; changes made in Grafana are
-# lost at the next run.
+# Dashboards from this role's files/dashboards, each tagged `provisioned`.
+# Grafana refuses to save a change to one or to delete one.
 apiVersion: 1
 providers:
   - name: homelab
     type: file
     allowUiUpdates: false
+    disableDeletion: true
     options:
       path: /var/lib/grafana/dashboards

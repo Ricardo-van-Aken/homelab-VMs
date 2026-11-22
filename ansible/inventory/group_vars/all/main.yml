@@ -17,17 +17,28 @@ base_timezone: Europe/Amsterdam
 # SECRET: in identity.sops.yaml.
 # homelab_public_address: <IPv4 address>
 
-# Firewalls (roles pve_firewall, host_firewall): the LAN, the machines that
-# may SSH into every machine and open the Proxmox web UI, and the machines
-# that collect metrics and logs (the monitoring VM).
+# Firewalls (roles pve_firewall, host_firewall): the LAN, and the machines
+# that may SSH into every machine and open the Proxmox web UI.
 homelab_lan: 10.0.1.0/24
 homelab_admin: ["{{ homelab_lan }}"]
-homelab_monitoring: ["10.0.1.140"]
 
-# Where every machine's agent (role alloy) sends its logs, and the machine
-# that made its token.
-alloy_logs_url: "http://{{ homelab_monitoring | first }}:3100/loki/api/v1/push"
-alloy_monitoring_host: "{{ groups['grafana'] | first }}"
+# Monitoring: the address of the machine that collects metrics and logs
+# (group grafana), the port every machine's agent answers on, and the port
+# on the monitoring machine the logs go to. Firewalls and the egress VMs
+# take all three from here.
+homelab_monitoring: "{{ hostvars[groups['grafana'] | first].ansible_host }}"
+alloy_port: 9100
+grafana_logs_port: 3100
+
+# One token per machine with an agent (role alloy), by inventory name. The
+# agent sends it with its logs; the monitoring VM files them by it.
+# SECRET: in secrets.sops.yaml.
+# homelab_monitoring_tokens:
+#   <machine>: <32 characters or more, of letters, digits and . _ ~ + / = ->
+
+# Where every machine's agent sends its logs, and the token it sends.
+alloy_logs_url: "http://{{ homelab_monitoring }}:{{ grafana_logs_port }}/loki/api/v1/push"
+alloy_token: "{{ (homelab_monitoring_tokens | default({}))[inventory_hostname] | default('') }}"
 
 # HTTPS for the web UIs (role caddy).
 caddy_https: true

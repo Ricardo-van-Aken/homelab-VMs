@@ -15,10 +15,11 @@ alloy_port: 9100
 
 # Where the logs go: Loki's push address on the monitoring machine. Required.
 alloy_logs_url: ""  # e.g. http://10.0.1.140:3100/loki/api/v1/push
-# The monitoring machine's inventory name. It made a token for this machine
-# (grafana_machines), which is read from it and sent with the logs. Required.
-alloy_monitoring_host: ""
-alloy_token_dir: /opt/stacks/grafana/tokens
+# Sent with the logs. The monitoring machine knows which machine each token
+# belongs to (grafana_tokens) and files the logs under that machine's name.
+# Required: 32 characters or more, of letters, digits and . _ ~ + / = -
+alloy_token: ""
 
-# The name this machine has on the monitoring machine.
-alloy_host: "{{ inventory_hostname }}"
+# How far back the journal is read when Alloy starts: the lines a machine
+# logged before it went down are sent after it is back, up to this age.
+alloy_journal_max_age: 168h

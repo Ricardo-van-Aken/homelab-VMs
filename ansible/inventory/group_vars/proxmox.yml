@@ -33,8 +33,18 @@ pve_vms_nameservers: >-
 # 10.250.225.0/24. Lower numbers are kept for networks that are not isolated.
 pve_network_isolated_bridges: [vmbr225, vmbr226]
 
+# The web UI's name and certificate (role pve_webui), with the same
+# Let's Encrypt account and DNS provider as the other web UIs.
+pve_webui_domain: "proxmox.{{ homelab_domain }}"
+pve_webui_email: "{{ caddy_acme_email }}"
+pve_webui_dns_api: hetznercloud
+pve_webui_dns_data:
+  HETZNER_TOKEN: "{{ caddy_dns_token }}"
+
 # Firewall (role pve_firewall). Each VM's rules are `firewall` in its pve_vm.
 pve_firewall_lan: "{{ homelab_lan }}"
 pve_firewall_admin: "{{ homelab_admin }}"
 pve_firewall_dns: "{{ pve_vms_nameservers }}"
-pve_firewall_monitoring: "{{ homelab_monitoring }}"
+pve_firewall_monitoring: ["{{ homelab_monitoring }}"]
+pve_firewall_metrics_port: "{{ alloy_port }}"
+pve_firewall_logs_port: "{{ grafana_logs_port }}"
