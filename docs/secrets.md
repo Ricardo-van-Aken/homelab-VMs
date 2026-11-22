@@ -47,7 +47,7 @@ The `main.yml` next to each file says what every value is, under a
 | File, under `ansible/inventory/` | Holds |
 |---|---|
 | `group_vars/all/identity.sops.yaml` | `homelab_domain`, `homelab_public_address`, `ssh_keys_authorized`. Nothing else, and nowhere else: they say whose homelab this is |
-| `group_vars/all/secrets.sops.yaml` | `caddy_acme_email`, `caddy_dns_token` |
+| `group_vars/all/secrets.sops.yaml` | `caddy_acme_email`, `caddy_dns_token`, `homelab_monitoring_tokens` |
 | `group_vars/pihole/secrets.sops.yaml` | `pihole_web_password` |
 | `group_vars/wireguard/secrets.sops.yaml` | `wireguard_admin_password` |
 | `group_vars/forgejo/secrets.sops.yaml` | `forgejo_admin_email`, `forgejo_admin_password`, `forgejo_users` |
@@ -57,6 +57,7 @@ The `main.yml` next to each file says what every value is, under a
 | `group_vars/mealie/secrets.sops.yaml` | `mealie_proxy_secret`, `mealie_admin_password` |
 | `group_vars/minecraft/secrets.sops.yaml` | `minecraft_backup_access_key_id`, `minecraft_backup_secret_access_key`, `minecraft_backup_password` |
 | `host_vars/torrent-egress/secrets.sops.yaml` | `egress_vpn_private_key`, when the VPN provider made the key pair |
+| `host_vars/minecraft-server1/secrets.sops.yaml` | `minecraft_public_name`, the name players connect to |
 | `host_vars/minecraft-server1-egress/secrets.sops.yaml` | `egress_netbird_management_url`, `egress_netbird_setup_key`, from the NetBird network's operator |
 
 Only OpenTofu needs `terraform/secrets/credentials.sops.yaml`; the

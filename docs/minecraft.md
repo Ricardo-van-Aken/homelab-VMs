@@ -193,6 +193,14 @@ way in works without the other.
    HTTPS and passes the requests to port `80` of that address. Any name
    works, and nothing here changes when it does.
 
+6. Write the name players connect to, that server's, as
+   `minecraft_public_name`, and set up minecraft-server1 again. Bedrock
+   players cannot join while the name does not resolve.
+
+   ```sh
+   sops edit ansible/inventory/host_vars/minecraft-server1/secrets.sops.yaml
+   ```
+
 In `host_vars/minecraft-server1-egress/main.yml`:
 
 | Setting | `false` means |
